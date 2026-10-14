@@ -72,6 +72,14 @@ uniform vec4 uDetailDomain;    // centre lon, bord nord, étendue lon, étendue 
 uniform vec2 uDetailTexel;
 uniform float uDetailWeight;
 uniform vec2 uElevTexel;
+uniform sampler2D uLevels;      // R = niveau affiché accumulé (dB), G/B/A = niveaux par bande (dB re 1 µPa)
+uniform vec2 uLevelsTexel;
+uniform float uHasLevels;
+uniform float uQuietDb, uSatDb, uGlowGamma, uGlowStrength;
+uniform vec3 uGlowColor;
+uniform vec3 uFogColor;
+uniform float uFogStrength, uFogScale, uFogDrift, uGrain, uWaveKeep;
+uniform int uDebugField;        // 0 : rendu ; 1 : niveau accumulé ; 2–4 : bandes basse, moyenne, haute
 
 uniform vec2 uResolution;
 uniform vec2 uCenter;
@@ -129,6 +137,33 @@ vec3 waveAt(sampler2D tex, vec2 uv, vec2 texel) {
   return vec3(w, wx, wy);
 }
 
+// Bruit de valeur et fbm, pour le brouillard de la terra incognita.
+float vnoise(vec2 p) {
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  float a = fract(sin(dot(i, vec2(127.1, 311.7))) * 43758.5453);
+  float b = fract(sin(dot(i + vec2(1.0, 0.0), vec2(127.1, 311.7))) * 43758.5453);
+  float c = fract(sin(dot(i + vec2(0.0, 1.0), vec2(127.1, 311.7))) * 43758.5453);
+  float d = fract(sin(dot(i + vec2(1.0, 1.0), vec2(127.1, 311.7))) * 43758.5453);
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 4; i++) { v += a * vnoise(p); p = p * 2.03 + 17.1; a *= 0.5; }
+  return v;
+}
+
+// Palette de diagnostic : noir → bleu → cyan → blanc, isolignes tous les 10 dB.
+vec3 debugRamp(float db) {
+  float t = clamp((db - 80.0) / 60.0, 0.0, 1.0);
+  vec3 c = mix(vec3(0.0), vec3(0.05, 0.15, 0.6), smoothstep(0.0, 0.35, t));
+  c = mix(c, vec3(0.1, 0.75, 0.9), smoothstep(0.3, 0.7, t));
+  c = mix(c, vec3(1.0), smoothstep(0.7, 1.0, t));
+  float x = db / 10.0;
+  float line = 1.0 - smoothstep(0.0, 1.5 * fwidth(x), abs(fract(x + 0.5) - 0.5));
+  return c + line * 0.35;
+}
+
 float hash(vec2 p) {
   p = fract(p * vec2(443.897, 441.423));
   p += dot(p, p.yx + 19.19);
@@ -178,12 +213,33 @@ void main() {
     lightW = 1.0 - exp(-lightW);
     if (abs(lat) > uPolarCap) lightW = 0.0;
 
-    // --- Terra incognita (rendu simple du J2) : zones non observées par l'AIS assombries.
-    // Le son des navires connus s'y propage bien : les ondes y entrent, mais s'y estompent.
-    float observed = smoothstep(0.03, 0.4, texture(uCoverage, uv).r);
-    float dim = mix(uUnknownDim, 1.0, observed);
+    // --- Lueur d'accumulation : là où le bruit dure, l'océan s'illumine.
+    vec3 glow = vec3(0.0);
+    if (uHasLevels > 0.5) {
+      float A = sampleCubic(uLevels, uv, uLevelsTexel);
+      float t = pow(smoothstep(uQuietDb, uSatDb, A), uGlowGamma);
+      glow = uGlowColor * uGlowStrength * t;
+    }
 
-    vec3 sea = (ocean + uWaveColor * lightW) * dim;
+    // --- Terra incognita : zones non observées par l'AIS. Matière propre (brouillard lent, grain,
+    // pas de relief), distincte du calme connu (noir net, relief à peine perceptible).
+    // Le son des navires connus s'y propage : les ondes y entrent, mais s'y estompent.
+    float observed = smoothstep(0.03, 0.4, texture(uCoverage, uv).r);
+    vec3 known = ocean + glow + uWaveColor * lightW;
+    vec2 fp = vec2(lon * cos(radians(lat)), lat) / uFogScale;
+    float fog = fbm(fp + vec2(uTime * uFogDrift * 0.03, uTime * uFogDrift * 0.011));
+    fog = smoothstep(0.35, 0.85, fog);
+    float grain = (hash(frag * 0.5 + floor(uTime * 12.0)) - 0.5) * uGrain * 0.03;
+    vec3 unknown = uOceanDeep * uUnknownDim + uFogColor * fog * uFogStrength + grain
+                 + glow * uUnknownDim + uWaveColor * lightW * uWaveKeep;
+    vec3 sea = mix(unknown, known, observed);
+
+    // --- Diagnostic : champ physique en dB (touche B).
+    if (uDebugField > 0 && uHasLevels > 0.5) {
+      vec4 lv = texture(uLevels, uv);
+      float db = uDebugField == 1 ? lv.r : uDebugField == 2 ? lv.g : uDebugField == 3 ? lv.b : lv.a;
+      sea = debugRamp(db);
+    }
 
     // --- Terres et trait de côte (fraction de terre interpolée : côte anti-crénelée).
     float frac = texture(uElevL, uv).b;
@@ -218,6 +274,21 @@ export class FlatView {
       uDetailDomain: { value: new THREE.Vector4(0, 90, 360, 180) },
       uDetailTexel: { value: new THREE.Vector2(1, 1) },
       uDetailWeight: { value: 0 },
+      uLevels: { value: null },
+      uLevelsTexel: { value: new THREE.Vector2(1, 1) },
+      uHasLevels: { value: 0 },
+      uQuietDb: { value: 95 },
+      uSatDb: { value: 125 },
+      uGlowGamma: { value: 1 },
+      uGlowStrength: { value: 1 },
+      uGlowColor: { value: new THREE.Vector3() },
+      uFogColor: { value: new THREE.Vector3() },
+      uFogStrength: { value: 0 },
+      uFogScale: { value: 9 },
+      uFogDrift: { value: 0.5 },
+      uGrain: { value: 0 },
+      uWaveKeep: { value: 0.35 },
+      uDebugField: { value: 0 },
       uUnknownDim: { value: 1 },
       uWaveTexel: { value: new THREE.Vector2() },
       uElevTexel: { value: new THREE.Vector2(1 / 4096, 1 / 2048) },
@@ -246,8 +317,33 @@ export class FlatView {
     this.pass = new FullscreenPass(rawMaterial(COMPOSITE_FRAG, this.uniforms));
   }
 
+  /** Champ physique (niveaux en dB) à composer ; null si désactivé. */
+  setLevels(levels: THREE.Texture | null, width = 1, height = 1): void {
+    this.uniforms.uLevels.value = levels;
+    this.uniforms.uHasLevels.value = levels ? 1 : 0;
+    (this.uniforms.uLevelsTexel.value as THREE.Vector2).set(1 / width, 1 / height);
+  }
+
+  /** 0 : rendu ; 1 : niveau accumulé ; 2–4 : bandes basse, moyenne, haute. */
+  debugField = 0;
+
   render(renderer: THREE.WebGLRenderer, wave: THREE.Texture, waveSize: THREE.Vector2Like, coverage: THREE.Texture, view: FlatTransform, cfg: Config, time: number, detail?: { sim: WaveSim; weight: number }): void {
     const u = this.uniforms;
+    if (!u.uLevels.value) u.uLevels.value = wave; // texture valide même sans champ physique
+    const acc = cfg.accumulation;
+    u.uQuietDb.value = acc.quietDb;
+    u.uSatDb.value = acc.saturationDb;
+    u.uGlowGamma.value = acc.gamma;
+    u.uGlowStrength.value = acc.strength;
+    hexToVec3(cfg.palette.glow, u.uGlowColor.value);
+    hexToVec3(cfg.palette.fog, u.uFogColor.value);
+    const inc = cfg.incognita;
+    u.uFogStrength.value = inc.fog;
+    u.uFogScale.value = inc.scaleDeg;
+    u.uFogDrift.value = inc.drift;
+    u.uGrain.value = inc.grain;
+    u.uWaveKeep.value = inc.waveKeep;
+    u.uDebugField.value = this.debugField;
     if (detail && detail.weight > 0) {
       const d = detail.sim.domain;
       u.uDetail.value = detail.sim.texture;

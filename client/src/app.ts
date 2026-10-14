@@ -6,9 +6,10 @@ import * as THREE from 'three';
 import { deepMerge, resolveForTarget, type Config, type DisplayTarget, type SourceStatus } from '@vacarme/shared';
 import { loadOceanGrid, loadWorldAssets, type WorldAssets } from './assets.ts';
 import { ShipStream } from './net/ship-stream.ts';
-import { computeFlatTransform, FlatView } from './render/flat-view.ts';
+import { computeFlatTransform, FlatView, screenToGeo, type FlatTransform } from './render/flat-view.ts';
 import { ShipLayer } from './render/ships.ts';
 import { DetailWaves } from './sim/detail.ts';
+import { PhysicsField, calibrate, type CalibrationResult } from './sim/physics-sim.ts';
 import { WaveSim } from './sim/wave-sim.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
 import { FlatNavigator } from './ui/navigation.ts';
@@ -37,6 +38,14 @@ export class App {
   private wave: WaveSim;
   private readonly flat: FlatView;
   private readonly detail: DetailWaves;
+  private physics: PhysicsField;
+  private physicsClock = 0;
+  private readonly calibration: CalibrationResult;
+  /** Position du curseur (pixels du tampon, y vers le haut) et niveaux lus dessous. */
+  private mouse: { x: number; y: number } | null = null;
+  private cursorInfo = '';
+  private lastCursorRead = 0;
+  private lastView: FlatTransform | null = null;
   private clock = 0;
   private connected = false;
   private sourceStatus: SourceStatus | null = null;
@@ -50,6 +59,7 @@ export class App {
     private readonly overrides: UrlOverrides,
     private assets: WorldAssets,
     canvas: HTMLCanvasElement,
+    physicsOcean: THREE.Texture,
   ) {
     this.raw = raw;
     this.cfg = this.resolve(raw);
@@ -64,6 +74,14 @@ export class App {
     this.wave.clear(this.renderer);
     this.flat = new FlatView(assets);
     this.detail = new DetailWaves(assets);
+    // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale.
+    const t0 = performance.now();
+    this.calibration = calibrate(this.renderer);
+    console.info(
+      `[physique] calibration en ${(performance.now() - t0).toFixed(0)} ms : K = ${this.calibration.K.toExponential(3)}, ` +
+        `écart max ${this.calibration.maxDeviationDb.toFixed(2)} dB sur r = ${this.calibration.range[0]}–${this.calibration.range[1]} cellules`,
+    );
+    this.physics = this.makePhysics(physicsOcean);
     this.panel = new Panel(
       () => this.cfg,
       (path) => this.onPanelChange(path),
@@ -91,8 +109,9 @@ export class App {
     if (!res.ok) throw new Error(`configuration indisponible (HTTP ${res.status}) — le serveur est-il lancé ?`);
     const raw = (await res.json()) as Config;
     const quality = overrides.quality ?? raw.display.quality;
-    const assets = await loadWorldAssets(raw.qualityProfiles[quality].visualSimWidth);
-    return new App(raw, overrides, assets, canvas);
+    const profile = raw.qualityProfiles[quality];
+    const [assets, physicsOcean] = await Promise.all([loadWorldAssets(profile.visualSimWidth), loadOceanGrid(profile.physicsSimWidth)]);
+    return new App(raw, overrides, assets, canvas, physicsOcean);
   }
 
   private resolve(raw: Config, target?: DisplayTarget): Config {
@@ -108,7 +127,17 @@ export class App {
 
   // ------------------------------------------------------------ configuration
 
+  private makePhysics(ocean: THREE.Texture): PhysicsField {
+    const f = new PhysicsField(this.profile.physicsSimWidth, ocean);
+    f.calibrationK = this.calibration.K;
+    f.configure(this.cfg);
+    f.clear(this.renderer);
+    this.flat.setLevels(f.levels.texture, f.width, f.height);
+    return f;
+  }
+
   private applyConfig(): void {
+    this.physics?.configure(this.cfg);
     this.wave.setParams(this.cfg.waves);
     this.detail?.sim?.setParams(this.cfg.waves);
     this.ships.recomputeAmplitudes(this.cfg);
@@ -139,7 +168,7 @@ export class App {
   private afterConfigChange(): void {
     this.applyConfig();
     this.resize();
-    if (this.profile.visualSimWidth !== this.wave.width) void this.rebuildSim();
+    if (this.profile.visualSimWidth !== this.wave.width || this.profile.physicsSimWidth !== this.physics.width) void this.rebuildSim();
   }
 
   private async rebuildSim(): Promise<void> {
@@ -147,11 +176,18 @@ export class App {
     this.rebuilding = true;
     try {
       const width = this.profile.visualSimWidth;
-      const ocean = await loadOceanGrid(width);
-      this.assets = { ...this.assets, ocean, oceanWidth: width };
-      this.wave.dispose();
-      this.wave = new WaveSim(width, ocean);
-      this.wave.clear(this.renderer);
+      if (width !== this.wave.width) {
+        const ocean = await loadOceanGrid(width);
+        this.assets = { ...this.assets, ocean, oceanWidth: width };
+        this.wave.dispose();
+        this.wave = new WaveSim(width, ocean);
+        this.wave.clear(this.renderer);
+      }
+      if (this.profile.physicsSimWidth !== this.physics.width) {
+        const ocean = await loadOceanGrid(this.profile.physicsSimWidth);
+        this.physics.dispose();
+        this.physics = this.makePhysics(ocean);
+      }
       this.applyConfig();
     } finally {
       this.rebuilding = false;
@@ -166,6 +202,8 @@ export class App {
       palette: c.palette,
       waves: c.waves,
       ships: c.ships,
+      accumulation: c.accumulation,
+      incognita: c.incognita,
       targets: { [c.display.target]: { render: c.render, view: c.view } },
     };
     const res = await fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -179,6 +217,18 @@ export class App {
     this.coverage.needsUpdate = true;
   }
 
+  /** Niveaux de bruit sous le curseur (lecture d'un pixel du champ physique). */
+  private readCursor(): string {
+    if (!this.mouse || !this.lastView || !this.cfg.physics.enabled) return '';
+    const [lon0, lat] = screenToGeo(this.lastView, this.mouse.x, this.mouse.y);
+    const lon = ((((lon0 + 180) % 360) + 360) % 360) - 180;
+    if (lat < this.lastView.latMin || lat > this.lastView.latMax) return '';
+    const lv = this.physics.readLevels(this.renderer, lat, lon);
+    const pos = `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'O'}`;
+    if (!lv) return pos;
+    return `curseur ${pos} : accumulé ${lv[0].toFixed(0)} dB · basse ${lv[1].toFixed(0)} · moyenne ${lv[2].toFixed(0)} · haute ${lv[3].toFixed(0)} dB re 1 µPa`;
+  }
+
   // ------------------------------------------------------------ entrées
 
   private installKeys(): void {
@@ -186,6 +236,7 @@ export class App {
       if (e.target instanceof HTMLInputElement) return;
       const k = e.key.toLowerCase();
       if (k === 'p') this.panel.toggle();
+      else if (k === 'b') this.flat.debugField = (this.flat.debugField + 1) % 5;
       else if (k === 'd') this.hud.toggle();
       else if (k === 'f') {
         if (document.fullscreenElement) void document.exitFullscreen();
@@ -194,7 +245,10 @@ export class App {
     });
     // Curseur masqué après 2 s d'immobilité.
     let idle: number | undefined;
-    addEventListener('mousemove', () => {
+    addEventListener('mousemove', (e) => {
+      const c = this.renderer.domElement;
+      const ratio = c.width / Math.max(1, c.clientWidth);
+      this.mouse = { x: e.clientX * ratio, y: c.height - e.clientY * ratio };
       document.body.classList.remove('idle');
       clearTimeout(idle);
       idle = window.setTimeout(() => document.body.classList.add('idle'), 2000);
@@ -232,12 +286,31 @@ export class App {
       }
       this.clock = (this.clock + 1) % CLOCK_WRAP;
     }
+    // Champ physique : un pas par image, moyenne d'énergie, conversion en dB et accumulation.
+    if (cfg.physics.enabled) {
+      const ph = this.physics;
+      this.ships.injectPhysics(r, ph.sourceTarget, ph.domain, ph.ocean, now, this.physicsClock);
+      ph.step(r);
+      ph.updateEnergy(r, 1 - Math.exp(-dt / 1000 / cfg.physics.energyTauSec));
+      ph.accumulate(r, Math.min(dt, 250) / 1000, cfg);
+      this.physicsClock = (this.physicsClock + 1) % CLOCK_WRAP;
+      this.flat.setLevels(ph.levels.texture, ph.width, ph.height);
+    } else {
+      this.flat.setLevels(null);
+    }
+    this.lastView = view;
     this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, view, cfg, now / 1000, detail ? { sim: detail, weight: this.detail.weight } : undefined);
     // Les points grossissent un peu quand on zoome, pour rester lisibles.
     this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
     this.gpu.end();
 
+    if (this.hud.visible && now - this.lastCursorRead > 250) {
+      this.lastCursorRead = now;
+      this.cursorInfo = this.readCursor();
+    }
     this.hud.frame(dt, performance.now() - t0, this.gpu.lastMs, () => ({
+      calibration: `calibration ${this.calibration.maxDeviationDb.toFixed(1)} dB d'écart à la loi en 1/r${cfg.physics.enabled ? '' : ' (champ physique désactivé)'}   B : champ ${['rendu', 'accumulé', 'basse', 'moyenne', 'haute'][this.flat.debugField]}`,
+      cursor: this.cursorInfo,
       status: this.sourceStatus,
       connected: this.connected,
       ships: this.ships.shipCount,

@@ -54,6 +54,8 @@ export class GpuTimer {
 
 
 export interface HudInfo {
+  calibration: string;
+  cursor: string;
   status: SourceStatus | null;
   connected: boolean;
   ships: number;
@@ -124,8 +126,12 @@ export class Hud {
       liveLine(i.status),
       `temps simulé ${i.simTime.toISOString().slice(0, 16).replace('T', ' ')} UTC   ×${i.timeScale}`,
       `ondes ${i.simSize}   ${i.steps} pas/image`,
+      i.calibration,
+      i.cursor,
       `rendu ${i.canvas}   cible ${i.target}   profil ${i.quality}`,
-      `molette zoom · glisser déplacer · R recadrer · P réglages · D diagnostic · F plein écran`,
-    ].join('\n');
+      `molette zoom · glisser déplacer · R recadrer · B champ physique · P réglages · D diagnostic · F plein écran`,
+    ]
+      .filter(Boolean)
+      .join('\n');
   }
 }

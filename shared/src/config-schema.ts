@@ -16,6 +16,8 @@ const qualityProfile = z.object({
   visualSimSteps: z.number().int().min(1).max(8),
   /** Largeur de la grille de détail (zoom), en cellules. */
   detailSimWidth: z.number().int().min(256).max(2048),
+  /** Largeur de la grille physique (champ de bruit calibré en dB). */
+  physicsSimWidth: z.number().int().min(256).max(2048),
 });
 
 const flatView = z.object({
@@ -49,6 +51,10 @@ const palette = z.object({
   coast: color,
   /** Luminosité relative des zones non observées par l'AIS (terra incognita) : 1 = aucune différence. */
   unknownDim: unit,
+  /** Lueur d'accumulation (bruit durable). */
+  glow: color,
+  /** Brouillard de la terra incognita. */
+  fog: color,
   coastOpacity: unit,
   wave: color,
   ship: color,
@@ -105,13 +111,66 @@ export const configSchema = z.object({
     /** Rendu des ondes : gain de luminosité et part de l'éclairage « relief ». */
     brightness: z.number().min(0).max(20),
     relief: unit,
+    /** Réfraction : vitesse relative des ondes en eau peu profonde (1 = aucun effet). */
+    shallowSpeed: z.number().min(0.2).max(1),
   }),
   ships: z.object({
     visible: z.boolean(),
     pointSize: z.number().min(0).max(10),
     opacity: unit,
   }),
-  bands: z.array(z.object({ id: z.enum(['low', 'mid', 'high']), fMin: z.number(), fMax: z.number() })).length(3),
+  bands: z
+    .array(
+      z.object({
+        id: z.enum(['low', 'mid', 'high']),
+        fMin: z.number(),
+        fMax: z.number(),
+        /** Bruit ambiant naturel dans la bande (dB re 1 µPa, niveau de bande) — Wenz, état de mer ~3. */
+        naturalDb: z.number(),
+      }),
+    )
+    .length(3),
+  /** Champ de bruit physique (grille calibrée en dB). */
+  physics: z.object({
+    enabled: z.boolean(),
+    /** Constante de temps de la moyenne d'énergie (s, temps réel). */
+    energyTauSec: z.number().min(0.5).max(60),
+    /** Amortissement supplémentaire par pas en eau très peu profonde, sous la fréquence de coupure modale. */
+    bottomLoss: z.number().min(0).max(0.5),
+    /** Perte générique sur le plateau (profondeur < 200 m), dB/km. */
+    shallowLossDbPerKm: z.number().min(0).max(1),
+    /** Perte empirique supplémentaire partout (dB/km) : corrige l'étalement cylindrique, optimiste au large. */
+    extraLossDbPerKm: z.number().min(0).max(0.1),
+  }),
+  /** Accumulation : l'océan se « sature » là où le bruit dure. */
+  accumulation: z.object({
+    /** Poids des bandes dans le niveau affiché (somme énergétique pondérée). */
+    bandWeights: z.object({ low: unit, mid: unit, high: unit }),
+    /** Niveau (dB re 1 µPa) en dessous duquel l'océan reste noir. */
+    quietDb: z.number(),
+    /** Niveau de saturation (pleine lueur). */
+    saturationDb: z.number(),
+    gamma: z.number().min(0.2).max(5),
+    /** Montée (minutes, temps réel) : la saturation s'installe progressivement. */
+    riseMinutes: z.number().min(0.01).max(240),
+    /** Décrue (minutes) : l'océan garde la trace. */
+    fallMinutes: z.number().min(0.01).max(1440),
+    /** Intensité de la lueur. */
+    strength: z.number().min(0).max(4),
+  }),
+  /** Matière de la terra incognita (zones non observées par l'AIS). */
+  incognita: z.object({
+    /** Intensité du brouillard. */
+    fog: unit,
+    /** Échelle du brouillard (degrés). */
+    scaleDeg: z.number().min(0.5).max(90),
+    /** Vitesse de dérive du brouillard. */
+    drift: z.number().min(0).max(5),
+    /** Grain fin (0 = aucun). */
+    grain: unit,
+    /** Les ondes qui entrent dans l'ombre s'y estompent (0 = disparaissent, 1 = intactes). */
+    waveKeep: unit,
+  }),
   simulation: z.object({
     shipCount: z.number().int().min(0).max(50000),
     /** Temps simulé / temps réel (1 = temps réel). */

@@ -17,8 +17,8 @@
 
   qualityProfiles: {
     // Radeon 780M : 60 images/s visées en 1920×1200 comme en 2256×1504.
-    expo: { visualSimWidth: 2048, visualSimSteps: 3, detailSimWidth: 1024 },
-    light: { visualSimWidth: 1536, visualSimSteps: 2, detailSimWidth: 768 },
+    expo: { visualSimWidth: 2048, visualSimSteps: 3, detailSimWidth: 1024, physicsSimWidth: 1024 },
+    light: { visualSimWidth: 1536, visualSimSteps: 2, detailSimWidth: 768, physicsSimWidth: 768 },
   },
 
   view: {
@@ -52,7 +52,9 @@
     land: '#000000',
     coast: '#1b2a36',
     coastOpacity: 0.55,
-    unknownDim: 0.35, // zones jamais observées par l'AIS : plus sombres (terra incognita ; matière propre au J3)
+    unknownDim: 0.4, // zones jamais observées par l'AIS : dans l'ombre (terra incognita)
+    glow: '#5f9fc4', // lueur d'accumulation : là où le bruit dure, l'océan s'illumine
+    fog: '#0b1117', // brouillard de la terra incognita : plus sombre que le calme connu, mais texturé
     wave: '#cfeaff',
     ship: '#e8f4ff',
   },
@@ -88,6 +90,7 @@
       gamma: 1.7, // compression : seuls les navires bruyants marquent fortement
     },
     brightness: 2.8,
+    shallowSpeed: 0.6, // réfraction : les fronts ralentissent et se courbent sur les plateaux (1 = aucun effet)
     relief: 0.25, // part de l'éclairage « relief » (reflets) dans le rendu des ondes
   },
 
@@ -98,11 +101,44 @@
   },
 
   // Bandes d'analyse acoustique (Hz) — utilisées par le champ physique (J3).
+  // naturalDb : bruit ambiant naturel (vent, vagues, turbulence) dans la bande, sans navires —
+  // ordres de grandeur d'après les courbes de Wenz pour un état de mer ~3 (dB re 1 µPa, niveau de bande).
   bands: [
-    { id: 'low', fMin: 10, fMax: 40 }, // rorqual bleu, rorqual commun
-    { id: 'mid', fMin: 100, fMax: 500 }, // baleine à bosse
-    { id: 'high', fMin: 1000, fMax: 10000 }, // orque, cachalot
+    { id: 'low', fMin: 10, fMax: 40, naturalDb: 88 }, // rorqual bleu, rorqual commun
+    { id: 'mid', fMin: 100, fMax: 500, naturalDb: 88 }, // baleine à bosse
+    { id: 'high', fMin: 1000, fMax: 10000, naturalDb: 92 }, // orque, cachalot
   ],
+
+  // Champ de bruit physique : grille calibrée en dB (voir docs/MODELE_PHYSIQUE.md).
+  physics: {
+    enabled: true,
+    energyTauSec: 6, // moyenne de l'énergie : lisse les fluctuations des sources
+    bottomLoss: 0.08, // eau très peu profonde : la bande basse ne se propage plus (coupure modale)
+    shallowLossDbPerKm: 0.01, // perte générique sur le plateau continental (< 200 m)
+    // Correction empirique : l'étalement purement cylindrique (10·log r) surestime le bruit loin des
+    // sources (≈ +5 à 10 dB à 2 000 km). 0,004 dB/km retire ~8 dB sur 2 000 km. 0 = modèle pur.
+    extraLossDbPerKm: 0.004,
+  },
+
+  // Accumulation : l'océan se « sature » progressivement là où le trafic dure.
+  accumulation: {
+    bandWeights: { low: 0.45, mid: 0.4, high: 0.15 },
+    quietDb: 95, // sous ce niveau, noir (le bruit naturel est vers 88–92 dB)
+    saturationDb: 125, // pleine lueur
+    gamma: 1.3,
+    riseMinutes: 2, // la saturation s'installe en quelques minutes
+    fallMinutes: 20, // et s'efface lentement : l'océan garde la trace
+    strength: 0.9,
+  },
+
+  // Terra incognita : zones où l'AIS ne voit rien. Matière propre, distincte du calme connu.
+  incognita: {
+    fog: 0.7, // brouillard lent (sa couleur reste très sombre : palette.fog)
+    scaleDeg: 9,
+    drift: 0.6,
+    grain: 0.25, // grain fin, visible même au projecteur (noir gris)
+    waveKeep: 0.35, // les ondes y entrent, mais s'y estompent : on entend sans voir
+  },
 
   // Mode simulation (navires synthétiques sur les routes maritimes).
   simulation: {

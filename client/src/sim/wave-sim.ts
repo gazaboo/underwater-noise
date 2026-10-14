@@ -38,6 +38,7 @@ uniform float uCourant;
 uniform float uDamping;
 uniform float uCoastDamping;
 uniform float uPolarCap;    // radians
+uniform float uShallowSpeed; // vitesse relative en eau peu profonde (réfraction)
 
 void main() {
   vec4 ocean = texture(uOcean, vUv);
@@ -58,7 +59,9 @@ void main() {
   float h = uTexel.y * uLatSpan;
   float lap = (uE + uW - 2.0 * u) / (c * c) + (uN + uS - 2.0 * u) - tan(lat) * h * (uN - uS) * 0.5;
   float cmax = 0.95 / sqrt(1.0 + 1.0 / (c * c));
-  float C = min(uCourant, cmax);
+  // Réfraction : les fronts ralentissent sur les plateaux (G = profondeur, échelle log).
+  float depth = 10.0 * pow(1100.0, ocean.g);
+  float C = min(uCourant * mix(uShallowSpeed, 1.0, smoothstep(30.0, 2500.0, depth)), cmax);
 
   // Amortissement : global + côtes (cellules partiellement terrestres) + bordure absorbante.
   float g = uDamping + uCoastDamping * ocean.b;
@@ -77,6 +80,7 @@ void main() {
 
 export interface WaveParams {
   courant: number;
+  shallowSpeed: number;
   damping: number;
   coastDamping: number;
   polarCapLat: number;
@@ -139,6 +143,7 @@ export class WaveSim {
       uDamping: { value: 0.004 },
       uCoastDamping: { value: 0.35 },
       uPolarCap: { value: 79 * deg },
+      uShallowSpeed: { value: 1 },
     };
     this.pass = new FullscreenPass(rawMaterial(STEP_FRAG, this.uniforms));
   }
@@ -148,6 +153,7 @@ export class WaveSim {
     this.uniforms.uDamping.value = p.damping;
     this.uniforms.uCoastDamping.value = p.coastDamping;
     this.uniforms.uPolarCap.value = (p.polarCapLat * Math.PI) / 180;
+    this.uniforms.uShallowSpeed.value = p.shallowSpeed;
   }
 
   /** Nombre de Courant effectif à l'équateur (borné par la stabilité). */

@@ -6,8 +6,8 @@ sous-marin des navires — et ce qu'il fait à l'espace de communication des cé
 Chaque navire émet des fronts d'onde qui se propagent sur l'océan, interfèrent, s'arrêtent sur les
 côtes ; là où le trafic est dense, l'océan s'illumine ; ailleurs, il reste noir.
 
-> État : **jalon J2** — carte plate, ondes GPU ; navires en direct (aisstream.io), en replay ou simulés,
-> avec bascule automatique ; carte de couverture AIS.
+> État : **jalon J3** — navires en direct (aisstream.io), en replay ou simulés ; ondes visibles ;
+> champ de bruit calibré en dB (trois bandes) ; lueur d'accumulation ; terra incognita ; exploration (zoom).
 > Plan complet et jalons : voir la section « Feuille de route » plus bas.
 
 ## Installation
@@ -48,7 +48,8 @@ npm run build && npm start   # http://localhost:8787
 | Touche | Action |
 |---|---|
 | `P` | panneau de réglage (caché) |
-| `D` | diagnostic : images/s, temps CPU et GPU, navires, source |
+| `D` | diagnostic : images/s, temps CPU et GPU, navires, source, calibration, niveau de bruit sous le curseur |
+| `B` | champ physique en dB (isolignes tous les 10 dB) : accumulé → basse → moyenne → haute → rendu |
 | `F` | plein écran |
 | molette / pincement | zoom centré sur le curseur (jusqu'à ×40) |
 | glisser | déplacer la carte |
@@ -120,13 +121,27 @@ Repères pour régler les ondes :
 | `waves.pulse.*` | longueur d'onde, nombre de cycles par impulsion, cadence |
 | `render.blackLift` | plancher de noir (utile au projecteur, dont le noir est gris) |
 
+## Ce que l'on voit
+
+- **Ondes** (grille visuelle) : chaque navire émet des fronts d'onde ; ils interfèrent, se réfractent
+  sur les plateaux continentaux et s'arrêtent sur les côtes.
+- **Lueur d'accumulation** (grille physique, calibrée en dB re 1 µPa) : là où le bruit dure,
+  l'océan s'illumine lentement ; quand le trafic s'en va, la lueur s'efface plus lentement encore.
+- **Terra incognita** : les zones où l'AIS ne voit rien sont dans l'ombre, sous un brouillard lent et
+  un grain fin — distinctes du calme connu (noir net, relief du fond à peine perceptible).
+
+Modèle, calibration (écart < 1 dB à la loi théorique), niveaux obtenus et limites :
+[`docs/MODELE_PHYSIQUE.md`](docs/MODELE_PHYSIQUE.md).
+
 ## Performances mesurées (Radeon 780M, Chromium + Vulkan)
 
 | Cible | Résolution de rendu | GPU / image | Images/s |
 |---|---|---|---|
-| écran (profil expo) | 1692×1128 (échelle 0,75 de 2256×1504) | 6,2 ms | 60 |
-| projecteur (profil expo) | 1920×1200 | 7,4 ms | 60 |
-| écran (profil light) | 1692×1128 | 3,6 ms | 60 |
+| écran (profil expo) | 1692×1128 (échelle 0,75 de 2256×1504) | 9,3 ms | 60 |
+| projecteur (profil expo) | 1920×1200 | 11,6 ms | 60 |
+| écran (profil light) | 1692×1128 | 6,7 ms | 60 |
+
+Avec la grille de détail (zoom), compter 1 à 2 ms de plus.
 
 ## Architecture
 
@@ -163,7 +178,7 @@ npm run typecheck
 
 - [x] **J1** carte plate + navires simulés + ondes
 - [x] **J2** AIS réel (aisstream.io), replay, bascule automatique, carte de couverture
-- [ ] **J3** champ physique calibré en dB (3 bandes), accumulation, terra incognita, esthétique finale
+- [x] **J3** champ physique calibré en dB (3 bandes), accumulation, terra incognita, exploration (zoom)
 - [ ] **J4** cétacés, espace de communication, liens entre groupes
 - [ ] **J5** son
 - [ ] **J6** globe, demi-sphère avec un projecteur, mode exposition

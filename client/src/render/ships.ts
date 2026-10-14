@@ -15,6 +15,7 @@ import { HEADER_BYTES, SHIP_STRIDE } from '@vacarme/shared';
 import { hexToVec3 } from './fullscreen.ts';
 import type { FlatTransform } from './flat-view.ts';
 import type { Domain } from '../sim/wave-sim.ts';
+import { physicsInjectMaterial } from '../sim/physics-sim.ts';
 
 const MAX_SHIPS = 50000;
 
@@ -116,11 +117,15 @@ export class ShipLayer {
   private readonly amp = new Float32Array(MAX_SHIPS);
   private readonly seed = new Float32Array(MAX_SHIPS);
   private readonly slBroad = new Float32Array(MAX_SHIPS);
+  /** Niveaux sources par bande (dB re 1 µPa·m) : basse, moyenne, haute. */
+  private readonly slBands = new Float32Array(MAX_SHIPS * 3);
   private count = 0;
 
   private readonly injectMaterial: THREE.RawShaderMaterial;
   private readonly displayMaterial: THREE.RawShaderMaterial;
   private readonly injectScene = new THREE.Scene();
+  private readonly physicsScene = new THREE.Scene();
+  private readonly physicsMaterial: THREE.RawShaderMaterial;
   private readonly displayScene = new THREE.Scene();
   private readonly camera = new THREE.Camera();
 
@@ -135,6 +140,7 @@ export class ShipLayer {
     this.geometry.setAttribute('aMotion', new THREE.BufferAttribute(this.motion, 2).setUsage(THREE.DynamicDrawUsage));
     this.geometry.setAttribute('aAmp', new THREE.BufferAttribute(this.amp, 1).setUsage(THREE.DynamicDrawUsage));
     this.geometry.setAttribute('aSeed', new THREE.BufferAttribute(this.seed, 1).setUsage(THREE.DynamicDrawUsage));
+    this.geometry.setAttribute('aSL', new THREE.BufferAttribute(this.slBands, 3).setUsage(THREE.DynamicDrawUsage));
     this.geometry.setDrawRange(0, 0);
 
     this.injectMaterial = new THREE.RawShaderMaterial({
@@ -174,9 +180,11 @@ export class ShipLayer {
       depthWrite: false,
       transparent: true,
     });
+    this.physicsMaterial = physicsInjectMaterial(DEAD_RECKON, 'deadReckon(aLatLon, aMotion, uDt)');
     for (const [scene, mat] of [
       [this.injectScene, this.injectMaterial],
       [this.displayScene, this.displayMaterial],
+      [this.physicsScene, this.physicsMaterial],
     ] as const) {
       const pts = new THREE.Points(this.geometry, mat);
       pts.frustumCulled = false;
@@ -204,6 +212,11 @@ export class ShipLayer {
       this.motion[2 * i] = v.getFloat32(o + 12, true);
       this.motion[2 * i + 1] = v.getFloat32(o + 16, true);
       this.slBroad[i] = v.getFloat32(o + 36, true);
+      const sog = this.motion[2 * i];
+      // Navire à quai : son niveau J-E (vitesse bornée à 0,5 nœud) reste injecté, il est déjà très faible.
+      this.slBands[3 * i] = v.getFloat32(o + 24, true) + (sog < 0.5 ? -10 : 0);
+      this.slBands[3 * i + 1] = v.getFloat32(o + 28, true) + (sog < 0.5 ? -10 : 0);
+      this.slBands[3 * i + 2] = v.getFloat32(o + 32, true) + (sog < 0.5 ? -10 : 0);
       // Graine stable par navire (hachage de l'identifiant).
       this.seed[i] = ((Math.imul(id ^ (id >>> 16), 0x45d9f3b) >>> 0) % 10007) / 10007;
     }
@@ -212,7 +225,7 @@ export class ShipLayer {
     this.receivedAt = receivedAt;
     this.timeScale = snap.timeScale;
     this.recomputeAmplitudes(cfg);
-    for (const name of ['aLatLon', 'aMotion', 'aSeed']) (this.geometry.getAttribute(name) as THREE.BufferAttribute).needsUpdate = true;
+    for (const name of ['aLatLon', 'aMotion', 'aSeed', 'aSL']) (this.geometry.getAttribute(name) as THREE.BufferAttribute).needsUpdate = true;
     this.geometry.setDrawRange(0, n);
   }
 
@@ -253,6 +266,19 @@ export class ShipLayer {
     renderer.setClearColor(0x000000, 0);
     renderer.clear(true, false, false);
     renderer.render(this.injectScene, this.camera);
+  }
+
+  /** Injecte les sources acoustiques (trois bandes) dans la grille physique. */
+  injectPhysics(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget, domain: Domain, ocean: THREE.Texture, now: number, clock: number): void {
+    const u = this.physicsMaterial.uniforms;
+    u.uDt.value = this.dtSim(now);
+    u.uClock.value = clock;
+    u.uOcean.value = ocean;
+    (u.uDomain.value as THREE.Vector4).set(domain.lonCenter, domain.latTop, domain.lonSpan, domain.latSpan);
+    renderer.setRenderTarget(target);
+    renderer.setClearColor(0x000000, 0);
+    renderer.clear(true, false, false);
+    renderer.render(this.physicsScene, this.camera);
   }
 
   /** Dessine les navires sur la carte plate. */

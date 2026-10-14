@@ -65,7 +65,31 @@ export class Panel {
     waves.addBinding(cfg.waves.amplitude, 'gamma', { label: 'compression', min: 0.1, max: 5, step: 0.05 });
     waves.addBinding(cfg.waves, 'brightness', { label: 'luminosité', min: 0, max: 20, step: 0.1 });
     waves.addBinding(cfg.waves, 'relief', { label: 'relief / reflets', min: 0, max: 1, step: 0.01 });
+    waves.addBinding(cfg.waves, 'shallowSpeed', { label: 'réfraction (plateaux)', min: 0.2, max: 1, step: 0.01 });
     on(waves, 'waves');
+
+    const acc = pane.addFolder({ title: 'Accumulation (bruit durable)' });
+    acc.addBinding(cfg.accumulation, 'quietDb', { label: 'seuil du noir (dB)', min: 80, max: 130, step: 0.5 });
+    acc.addBinding(cfg.accumulation, 'saturationDb', { label: 'saturation (dB)', min: 90, max: 150, step: 0.5 });
+    acc.addBinding(cfg.accumulation, 'gamma', { min: 0.2, max: 5, step: 0.05 });
+    acc.addBinding(cfg.accumulation, 'strength', { label: 'intensité', min: 0, max: 4, step: 0.01 });
+    acc.addBinding(cfg.accumulation, 'riseMinutes', { label: 'montée (min)', min: 0.05, max: 60, step: 0.05 });
+    acc.addBinding(cfg.accumulation, 'fallMinutes', { label: 'décrue (min)', min: 0.05, max: 240, step: 0.5 });
+    acc.addBinding(cfg.accumulation.bandWeights, 'low', { label: 'poids bande basse', min: 0, max: 1, step: 0.01 });
+    acc.addBinding(cfg.accumulation.bandWeights, 'mid', { label: 'poids bande moyenne', min: 0, max: 1, step: 0.01 });
+    acc.addBinding(cfg.accumulation.bandWeights, 'high', { label: 'poids bande haute', min: 0, max: 1, step: 0.01 });
+    acc.addBinding(cfg.palette, 'glow', { label: 'couleur', view: 'color' });
+    on(acc, 'accumulation');
+
+    const inc = pane.addFolder({ title: 'Terra incognita', expanded: false });
+    inc.addBinding(cfg.palette, 'unknownDim', { label: 'luminosité', min: 0, max: 1, step: 0.01 });
+    inc.addBinding(cfg.incognita, 'fog', { label: 'brouillard', min: 0, max: 1, step: 0.01 });
+    inc.addBinding(cfg.incognita, 'scaleDeg', { label: 'échelle (°)', min: 0.5, max: 60, step: 0.5 });
+    inc.addBinding(cfg.incognita, 'drift', { label: 'dérive', min: 0, max: 5, step: 0.05 });
+    inc.addBinding(cfg.incognita, 'grain', { min: 0, max: 1, step: 0.01 });
+    inc.addBinding(cfg.incognita, 'waveKeep', { label: 'ondes dans l\'ombre', min: 0, max: 1, step: 0.01 });
+    inc.addBinding(cfg.palette, 'fog', { label: 'couleur', view: 'color' });
+    on(inc, 'incognita');
 
     const pal = pane.addFolder({ title: 'Palette', expanded: false });
     for (const k of ['background', 'oceanShallow', 'oceanDeep', 'land', 'coast', 'wave', 'ship'] as const) {
@@ -73,7 +97,6 @@ export class Panel {
     }
     pal.addBinding(cfg.palette, 'bathyRelief', { label: 'relief du fond', min: 0, max: 1, step: 0.01 });
     pal.addBinding(cfg.palette, 'coastOpacity', { label: 'trait de côte', min: 0, max: 1, step: 0.01 });
-    pal.addBinding(cfg.palette, 'unknownDim', { label: 'zones non observées', min: 0, max: 1, step: 0.01 });
     on(pal, 'palette');
 
     const rnd = pane.addFolder({ title: 'Rendu', expanded: false });
