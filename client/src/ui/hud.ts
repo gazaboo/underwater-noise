@@ -2,6 +2,7 @@
  * HUD de diagnostic (touche D) : images/s, temps CPU et GPU par image, navires, source.
  * Le temps GPU est mesuré par EXT_disjoint_timer_query_webgl2 quand le pilote le fournit.
  */
+import type { SourceStatus } from '@vacarme/shared';
 
 interface TimerExt {
   TIME_ELAPSED_EXT: number;
@@ -51,8 +52,9 @@ export class GpuTimer {
   }
 }
 
+
 export interface HudInfo {
-  source: string;
+  status: SourceStatus | null;
   connected: boolean;
   ships: number;
   simTime: Date;
@@ -62,6 +64,25 @@ export interface HudInfo {
   canvas: string;
   target: string;
   quality: string;
+}
+
+const SOURCE_NAMES = { live: 'AIS direct', replay: 'replay', simulation: 'simulation' } as const;
+
+function sourceLine(st: SourceStatus | null, connected: boolean): string {
+  if (!connected) return 'serveur déconnecté';
+  if (!st) return 'source ?';
+  let line = `source ${SOURCE_NAMES[st.active]} (mode ${st.mode}${st.hybrid ? ', hybride' : ''})`;
+  if (st.active === 'replay') line += `   ${st.replay.file ?? ''} ×${st.replay.speed}`;
+  return line;
+}
+
+function liveLine(st: SourceStatus | null): string {
+  if (!st) return '';
+  const l = st.live;
+  if (!l.configured) return 'direct : pas de clé AISSTREAM_API_KEY dans .env';
+  const ago = l.lastMessageAgoSec === null ? 'aucun message' : `dernier il y a ${l.lastMessageAgoSec.toFixed(0)} s`;
+  const rec = st.recorder.enabled && st.recorder.file ? `   enregistre ${st.recorder.file.split('/').slice(-2).join('/')}` : '';
+  return `direct : ${l.connected ? 'connecté' : 'déconnecté'}, ${l.messagesPerSec.toFixed(0)} msg/s, ${l.ships} navires suivis, ${ago}${l.error ? `, erreur : ${l.error}` : ''}${rec}`;
 }
 
 export class Hud {
@@ -99,7 +120,8 @@ export class Hud {
     const gpu = Number.isFinite(gpuMs) ? `${gpuMs.toFixed(2)} ms` : 'n/d';
     this.el.textContent = [
       `${this.fps.toFixed(1)} img/s   cpu ${this.cpuMs.toFixed(2)} ms   gpu ${gpu}`,
-      `navires ${i.ships}   source ${i.source}${i.connected ? '' : ' (déconnecté)'}`,
+      `navires ${i.ships}   ${sourceLine(i.status, i.connected)}`,
+      liveLine(i.status),
       `temps simulé ${i.simTime.toISOString().slice(0, 16).replace('T', ' ')} UTC   ×${i.timeScale}`,
       `ondes ${i.simSize}   ${i.steps} pas/image`,
       `rendu ${i.canvas}   cible ${i.target}   profil ${i.quality}`,

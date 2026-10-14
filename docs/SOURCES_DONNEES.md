@@ -6,10 +6,13 @@
 | Trait de côte / terres | Natural Earth 1:10m « land » | Domaine public | idem (masque terre/mer, fraction de terre) |
 | Routes maritimes (mode simulation) | Paquet Python `searoute` 1.6.0 (Apache-2.0), réseau marnet (Oak Ridge National Laboratory / Eurostat) | Apache-2.0 / EUPL — à créditer | `data/routes.json` |
 | Ports et poids de trafic | Liste manuelle (ordres de grandeur), `tools/build_routes.py` | — | `data/routes.json` |
+| AIS en direct | aisstream.io (WebSocket, clé gratuite, sans garantie de service) | conditions d'aisstream.io ; données non redistribuées | `data/recordings/` (non versionné) |
+| AIS historique (replay d'exemple) | Autorité maritime danoise (DMA), aisdata.ais.dk — archive du 26/02/2025, première heure | données ouvertes au titre de la loi danoise sur la réutilisation des informations publiques — **mention de la source ; conditions exactes à confirmer** | `data/replays/dma-2025-02-26.ndjson.gz` |
+| AIS historique (option) | NOAA MarineCadastre (eaux des États-Unis) | domaine public | via `tools/convert_ais.py --noaa` |
 
-À venir : AIS (aisstream.io, J2), habitats AquaMaps (CC-BY-NC 3.0, attribution obligatoire) et observations OBIS (J4).
+À venir : habitats AquaMaps (CC-BY-NC 3.0, attribution obligatoire) et observations OBIS (J4).
 
 ## Crédits à reproduire sur le cartel
 
-> Bathymétrie : NOAA NCEI, ETOPO 2022. Trait de côte : Natural Earth. Routes maritimes : searoute / réseau marnet (ORNL, Eurostat).
+> Données AIS : aisstream.io ; Autorité maritime danoise (DMA). Bathymétrie : NOAA NCEI, ETOPO 2022. Trait de côte : Natural Earth. Routes maritimes : searoute / réseau marnet (ORNL, Eurostat).
 > Niveaux sources des navires : modèle JOMOPANS-ECHO (MacGillivray & de Jong, 2021).

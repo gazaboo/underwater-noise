@@ -184,6 +184,10 @@ export class ShipLayer {
     return this.count;
   }
 
+  get currentTimeScale(): number {
+    return this.timeScale;
+  }
+
   /** Copie un instantané dans les tampons GPU. */
   update(snap: ShipSnapshot, receivedAt: number, cfg: Config): void {
     const n = Math.min(snap.count, MAX_SHIPS);

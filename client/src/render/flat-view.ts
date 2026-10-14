@@ -40,6 +40,8 @@ out vec4 outColor;
 uniform sampler2D uElevN;   // altitude 16 bits (au plus proche)
 uniform sampler2D uElevL;   // fraction de terre en B (linéaire)
 uniform sampler2D uWave;    // R = u
+uniform sampler2D uCoverage; // R = couverture AIS (0 = jamais observé)
+uniform float uUnknownDim;
 uniform vec2 uWaveTexel;
 uniform vec2 uElevTexel;
 
@@ -104,7 +106,12 @@ void main() {
     lightW = 1.0 - exp(-lightW);
     if (abs(lat) > uPolarCap) lightW = 0.0;
 
-    vec3 sea = ocean + uWaveColor * lightW;
+    // --- Terra incognita (rendu simple du J2) : zones non observées par l'AIS assombries.
+    // Le son des navires connus s'y propage bien : les ondes y entrent, mais s'y estompent.
+    float observed = smoothstep(0.03, 0.4, texture(uCoverage, uv).r);
+    float dim = mix(uUnknownDim, 1.0, observed);
+
+    vec3 sea = (ocean + uWaveColor * lightW) * dim;
 
     // --- Terres et trait de côte (fraction de terre interpolée : côte anti-crénelée).
     float frac = texture(uElevL, uv).b;
@@ -134,6 +141,8 @@ export class FlatView {
       uElevN: { value: assets.elevationNearest },
       uElevL: { value: assets.elevationLinear },
       uWave: { value: null },
+      uCoverage: { value: null },
+      uUnknownDim: { value: 1 },
       uWaveTexel: { value: new THREE.Vector2() },
       uElevTexel: { value: new THREE.Vector2(1 / 4096, 1 / 2048) },
       uResolution: { value: new THREE.Vector2() },
@@ -161,9 +170,11 @@ export class FlatView {
     this.pass = new FullscreenPass(rawMaterial(COMPOSITE_FRAG, this.uniforms));
   }
 
-  render(renderer: THREE.WebGLRenderer, wave: THREE.Texture, waveSize: THREE.Vector2Like, view: FlatTransform, cfg: Config, time: number): void {
+  render(renderer: THREE.WebGLRenderer, wave: THREE.Texture, waveSize: THREE.Vector2Like, coverage: THREE.Texture, view: FlatTransform, cfg: Config, time: number): void {
     const u = this.uniforms;
     u.uWave.value = wave;
+    u.uCoverage.value = coverage;
+    u.uUnknownDim.value = cfg.palette.unknownDim;
     (u.uWaveTexel.value as THREE.Vector2).set(1 / waveSize.x, 1 / waveSize.y);
     (u.uResolution.value as THREE.Vector2).set(view.width, view.height);
     (u.uCenter.value as THREE.Vector2).set(view.centerLon, view.centerLat);

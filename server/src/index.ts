@@ -3,20 +3,21 @@
  *
  *  - HTTP : /api/config (lecture, écriture des réglages locaux), /data/* (grilles, routes),
  *           et, en production, le client compilé (client/dist).
- *  - WebSocket /ws : configuration (texte JSON) et instantanés binaires des navires.
- *
- * J1 : source « simulation » uniquement. Les sources AIS en direct et replay arrivent au J2.
+ *  - WebSocket /ws : configuration et état des sources (texte JSON), instantanés binaires des
+ *    navires (1 Hz) et carte de couverture AIS (toutes les 10 s).
+ *  - Sources : AIS direct (aisstream.io), replay de fichiers, simulation — voir sources/manager.ts.
  */
 import { createReadStream, existsSync, statSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer, type WebSocket } from 'ws';
-import { encodeShips, type Config } from '@vacarme/shared';
+import { encodeCoverage, encodeShips, type Config } from '@vacarme/shared';
 import { ConfigStore } from './config-store.ts';
 import { OceanGrid } from './ocean-grid.ts';
+import { COVERAGE_H, COVERAGE_W } from './coverage.ts';
+import { SourceManager } from './sources/manager.ts';
 import { SimulationSource, type SimulationOptions } from './sources/simulation.ts';
-import type { ShipSource } from './sources/source.ts';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '../..');
 const DATA_DIR = join(ROOT, 'data');
@@ -32,6 +33,13 @@ const MIME: Record<string, string> = {
   '.wasm': 'application/wasm',
 };
 
+// Clé aisstream et autres secrets : .env à la racine (jamais commité).
+try {
+  process.loadEnvFile(join(ROOT, '.env'));
+} catch {
+  /* pas de .env : le direct sera désactivé */
+}
+
 const store = new ConfigStore(join(ROOT, 'config'));
 store.watch();
 
@@ -41,7 +49,7 @@ function simOptions(cfg: Config): SimulationOptions {
 
 const grid = new OceanGrid(join(DATA_DIR, 'grid', 'ocean_1024.png'));
 const simulation = new SimulationSource(join(DATA_DIR, 'routes.json'), grid, simOptions(store.config));
-let source: ShipSource = simulation;
+const sources = new SourceManager(store.config, ROOT, simulation, process.env.AISSTREAM_API_KEY?.trim() || undefined);
 
 // ---------------------------------------------------------------- HTTP
 
@@ -104,13 +112,27 @@ function sendSnapshot(ws: WebSocket, buf: ArrayBuffer): void {
   if (ws.readyState === ws.OPEN && ws.bufferedAmount < 4 * buf.byteLength) ws.send(buf);
 }
 
+function shipsBuffer(): { buf: ArrayBuffer; count: number } {
+  const ships = sources.ships();
+  const src = sources.current;
+  return { buf: encodeShips(ships, src.simTimeMs(), src.timeScale()), count: ships.length };
+}
+
+function coverageBuffer(): ArrayBuffer {
+  return encodeCoverage(COVERAGE_W, COVERAGE_H, sources.coverage.toBytes());
+}
+
 wss.on('connection', (ws) => {
   sendConfig(ws);
-  sendSnapshot(ws, encodeShips(source.ships(), source.simTimeMs(), source.timeScale()));
+  const { buf, count } = shipsBuffer();
+  sendSnapshot(ws, buf);
+  ws.send(coverageBuffer());
+  ws.send(JSON.stringify({ type: 'status', status: sources.status(count) }));
 });
 
 store.on('change', (cfg: Config) => {
   simulation.configure(simOptions(cfg));
+  sources.configure(cfg);
   for (const ws of wss.clients) sendConfig(ws);
   restartTicker();
 });
@@ -119,25 +141,40 @@ store.on('change', (cfg: Config) => {
 
 let ticker: NodeJS.Timeout | null = null;
 let last = performance.now();
+let lastCoverage = 0;
+let lastActive = sources.current.name;
 
 function restartTicker(): void {
   if (ticker) clearInterval(ticker);
   ticker = setInterval(() => {
     const now = performance.now();
-    source.tick((now - last) / 1000);
+    sources.tick((now - last) / 1000);
     last = now;
-    const buf = encodeShips(source.ships(), source.simTimeMs(), source.timeScale());
-    for (const ws of wss.clients) sendSnapshot(ws, buf);
+    const { buf, count } = shipsBuffer();
+    const status = JSON.stringify({ type: 'status', status: sources.status(count) });
+    // Couverture : toutes les 10 s, ou immédiatement après une bascule de source.
+    const switched = sources.current.name !== lastActive;
+    lastActive = sources.current.name;
+    const cov = switched || now - lastCoverage > 10_000 ? coverageBuffer() : null;
+    if (cov) lastCoverage = now;
+    for (const ws of wss.clients) {
+      sendSnapshot(ws, buf);
+      if (cov && ws.readyState === ws.OPEN) ws.send(cov);
+      if (ws.readyState === ws.OPEN) ws.send(status);
+    }
   }, 1000 / store.config.server.snapshotHz);
 }
 
 restartTicker();
 const port = Number(process.env.PORT ?? store.config.server.port);
 server.listen(port, () => {
-  console.log(`[vacarme] serveur sur http://localhost:${port} — source : ${source.name}, ${source.ships().length} navires`);
+  console.log(`[vacarme] serveur sur http://localhost:${port}`);
 });
 
-// Évite que source soit vue comme constante : elle deviendra commutable au J2.
-export function setSource(s: ShipSource): void {
-  source = s;
+// Arrêt propre : ferme l'enregistrement en cours et sauvegarde la couverture.
+for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(sig, () => {
+    sources.shutdown();
+    process.exit(0);
+  });
 }

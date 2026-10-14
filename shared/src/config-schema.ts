@@ -45,6 +45,8 @@ const palette = z.object({
   bathyRelief: unit,
   land: color,
   coast: color,
+  /** Luminosité relative des zones non observées par l'AIS (terra incognita) : 1 = aucune différence. */
+  unknownDim: unit,
   coastOpacity: unit,
   wave: color,
   ship: color,
@@ -112,6 +114,52 @@ export const configSchema = z.object({
     /** Écart latéral typique autour des routes (km). */
     laneWidthKm: z.number().min(0).max(200),
     seed: z.number().int(),
+  }),
+  /** Choix de la source de navires. */
+  source: z.object({
+    /** auto : direct si possible, sinon replay, sinon simulation. */
+    mode: z.enum(['auto', 'live', 'replay', 'simulation']),
+    /** En auto : silence du direct (s) avant de basculer. */
+    liveSilenceSec: z.number().min(5).max(3600),
+    /** En auto : durée (s) de bonne santé du direct avant d'y revenir. */
+    liveRecoverSec: z.number().min(0).max(3600),
+    /** Nombre minimal de navires suivis pour considérer le direct exploitable. */
+    liveMinShips: z.number().int().min(0),
+    /** Mode hybride : navires simulés là où la couverture AIS est faible. */
+    hybrid: z.boolean(),
+    hybridCoverageThreshold: unit,
+  }),
+  live: z.object({
+    url: z.string(),
+    /** Position considérée « ancienne » après N minutes sans message (extrapolée, drapeau). */
+    staleAfterMin: z.number().min(0.5),
+    /** Durée maximale d'extrapolation à l'estime (minutes). */
+    maxExtrapolateMin: z.number().min(0),
+    /** Oubli d'un navire après N minutes sans message. */
+    evictAfterMin: z.number().min(1),
+    /** Inclure les navires à quai (vitesse < 0,5 nœud) dans les instantanés. */
+    includeMoored: z.boolean(),
+  }),
+  replay: z.object({
+    /** Fichier .ndjson.gz ou dossier (tous les .ndjson.gz, triés). */
+    path: z.string(),
+    /** Vitesse de lecture (temps du fichier / temps réel). */
+    speed: z.number().min(0.1).max(3600),
+    loop: z.boolean(),
+  }),
+  recorder: z.object({
+    enabled: z.boolean(),
+    dir: z.string(),
+    /** Une position par navire au plus toutes les N secondes. */
+    minIntervalSec: z.number().min(0),
+  }),
+  coverage: z.object({
+    /** Demi-vie de la mémoire de couverture (heures, temps de la source). */
+    halfLifeHours: z.number().min(0.1),
+    /** Gain d'observation par message reçu dans une cellule. */
+    gainPerMessage: z.number().min(0).max(1),
+    /** Couverture en mode simulation : tout observé, ou dernière couverture réelle enregistrée. */
+    simulation: z.enum(['full', 'recorded']),
   }),
   server: z.object({
     port: z.number().int(),

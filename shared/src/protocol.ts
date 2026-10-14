@@ -18,6 +18,13 @@
  */
 
 export const MSG_SHIPS = 1;
+/**
+ * Message « carte de couverture AIS » :
+ *   u8 type (= MSG_COVERAGE)  u8 version  u16 largeur  u16 hauteur  u16 réservé
+ *   puis largeur × hauteur octets (0 = jamais observé, 255 = bien observé), ligne 0 au nord.
+ */
+export const MSG_COVERAGE = 2;
+export const COVERAGE_HEADER_BYTES = 8;
 export const PROTOCOL_VERSION = 1;
 export const HEADER_BYTES = 24;
 export const SHIP_STRIDE = 40;
@@ -102,4 +109,41 @@ export function decodeShip(snap: ShipSnapshot, i: number): ShipRecord {
     slHigh: v.getFloat32(o + 32, true),
     slBroad: v.getFloat32(o + 36, true),
   };
+}
+
+export function encodeCoverage(width: number, height: number, data: Uint8Array): ArrayBuffer {
+  const buf = new ArrayBuffer(COVERAGE_HEADER_BYTES + width * height);
+  const v = new DataView(buf);
+  v.setUint8(0, MSG_COVERAGE);
+  v.setUint8(1, PROTOCOL_VERSION);
+  v.setUint16(2, width, true);
+  v.setUint16(4, height, true);
+  new Uint8Array(buf, COVERAGE_HEADER_BYTES).set(data.subarray(0, width * height));
+  return buf;
+}
+
+export function decodeCoverage(buf: ArrayBuffer): { width: number; height: number; data: Uint8Array } | null {
+  if (buf.byteLength < COVERAGE_HEADER_BYTES) return null;
+  const v = new DataView(buf);
+  if (v.getUint8(0) !== MSG_COVERAGE || v.getUint8(1) !== PROTOCOL_VERSION) return null;
+  const width = v.getUint16(2, true);
+  const height = v.getUint16(4, true);
+  if (buf.byteLength < COVERAGE_HEADER_BYTES + width * height) return null;
+  return { width, height, data: new Uint8Array(buf, COVERAGE_HEADER_BYTES, width * height) };
+}
+
+/** Type de message binaire (premier octet). */
+export function messageType(buf: ArrayBuffer): number {
+  return buf.byteLength > 0 ? new DataView(buf).getUint8(0) : -1;
+}
+
+/** État des sources, envoyé en JSON (message texte { type: 'status', status }). */
+export interface SourceStatus {
+  mode: 'auto' | 'live' | 'replay' | 'simulation';
+  active: 'live' | 'replay' | 'simulation';
+  hybrid: boolean;
+  ships: number;
+  live: { configured: boolean; connected: boolean; messagesPerSec: number; lastMessageAgoSec: number | null; ships: number; error: string | null };
+  replay: { available: boolean; file: string | null; speed: number };
+  recorder: { enabled: boolean; file: string | null };
 }

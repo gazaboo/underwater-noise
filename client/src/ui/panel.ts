@@ -73,6 +73,7 @@ export class Panel {
     }
     pal.addBinding(cfg.palette, 'bathyRelief', { label: 'relief du fond', min: 0, max: 1, step: 0.01 });
     pal.addBinding(cfg.palette, 'coastOpacity', { label: 'trait de côte', min: 0, max: 1, step: 0.01 });
+    pal.addBinding(cfg.palette, 'unknownDim', { label: 'zones non observées', min: 0, max: 1, step: 0.01 });
     on(pal, 'palette');
 
     const rnd = pane.addFolder({ title: 'Rendu', expanded: false });

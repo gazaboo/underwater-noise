@@ -6,7 +6,8 @@ sous-marin des navires — et ce qu'il fait à l'espace de communication des cé
 Chaque navire émet des fronts d'onde qui se propagent sur l'océan, interfèrent, s'arrêtent sur les
 côtes ; là où le trafic est dense, l'océan s'illumine ; ailleurs, il reste noir.
 
-> État : **jalon J1** — carte plate, navires simulés sur les grandes routes, ondes GPU.
+> État : **jalon J2** — carte plate, ondes GPU ; navires en direct (aisstream.io), en replay ou simulés,
+> avec bascule automatique ; carte de couverture AIS.
 > Plan complet et jalons : voir la section « Feuille de route » plus bas.
 
 ## Installation
@@ -17,7 +18,7 @@ Chromium ou Chrome.
 ```bash
 npm install
 npm run data        # télécharge ETOPO 2022 + Natural Earth et construit data/ (≈ 4 min, une seule fois)
-cp .env.example .env  # clé aisstream.io — utile à partir du J2
+cp .env.example .env  # puis y mettre la clé gratuite d'aisstream.io (AISSTREAM_API_KEY=…)
 ```
 
 Les fichiers de `data/` sont versionnés : `npm run data` n'est nécessaire que pour les régénérer.
@@ -52,6 +53,45 @@ npm run build && npm start   # http://localhost:8787
 
 Le curseur disparaît après deux secondes d'immobilité.
 
+## Sources de navires
+
+| Mode (`source.mode`) | Comportement |
+|---|---|
+| `auto` (défaut) | direct si la clé est présente et le flux en bonne santé ; sinon replay ; sinon simulation |
+| `live` | aisstream.io uniquement |
+| `replay` | fichiers de `replay.path` (en boucle, vitesse `replay.speed`) |
+| `simulation` | navires synthétiques sur les grandes routes (`simulation.*`) |
+
+- **Direct** : la clé est lue dans `.env` (`AISSTREAM_API_KEY`), jamais dans le code ni dans le
+  navigateur (aisstream refuse les connexions directes depuis un navigateur : c'est le serveur local
+  qui se connecte, avec compression). Au démarrage, le mode auto reste sur le replay tant que le
+  direct ne suit pas `source.liveMinShips` navires, puis bascule. S'il se tait plus de
+  `source.liveSilenceSec` secondes, retour au replay ; il reprend la main après
+  `source.liveRecoverSec` secondes de bonne santé.
+- **Couverture** : aisstream repose sur des stations côtières (portée ~60 milles) ; la haute mer est
+  peu vue. Les navires perdus de vue poursuivent leur route à l'estime (`live.maxExtrapolateMin`),
+  puis sont oubliés (`live.evictAfterMin`). La carte de couverture (`data/coverage.png`, construite au
+  fil des jours) assombrit les zones jamais observées (`palette.unknownDim`).
+- **Enregistrement** : le flux direct est enregistré dans `data/recordings/AAAA-MM-JJ/HH.ndjson.gz`
+  (heure UTC, une position par navire toutes les 30 s). Pour l'exposition, rejouez vos propres
+  enregistrements : `replay: { path: 'data/recordings' }`.
+- **Mode hybride** (`source.hybrid`, désactivé) : ajoute des navires simulés dans les zones mal couvertes.
+
+Fichier de replay fourni : `data/replays/dma-2025-02-26.ndjson.gz` — une heure de trafic dans les
+eaux danoises (Autorité maritime danoise, données ouvertes). Pour en produire d'autres :
+
+```bash
+uv run tools/convert_ais.py --dma 2025-02-26 --hours 2 --out data/replays/dma-2025-02-26.ndjson.gz
+uv run tools/convert_ais.py --noaa AIS_2024_01_01.csv --hours 2 --out data/replays/noaa.ndjson.gz
+```
+
+Tester le direct sans clé ni réseau : `node scripts/mock-aisstream.mjs` lance un faux aisstream
+local qui rediffuse un fichier de replay ; mettre `AISSTREAM_API_KEY=test` dans `.env` et
+`live: { url: 'ws://localhost:9999' }` dans `config/local.json5`.
+
+Le diagnostic (`D`) affiche la source active, l'état du direct (messages/s, navires suivis, erreur
+éventuelle — par exemple une clé refusée) et le fichier en cours d'enregistrement.
+
 ## Réglages
 
 Tous les paramètres artistiques et physiques sont dans **`config/default.json5`**, commenté ligne à ligne.
@@ -84,9 +124,11 @@ Repères pour régler les ondes :
 
 ```
 shared/   modèle acoustique (JOMOPANS-ECHO, bandes, Thorp), protocole binaire, schéma de config
-server/   serveur local : configuration, sources de navires (simulation ; AIS et replay au J2), WebSocket
+server/   serveur local : configuration, sources (AIS direct, replay, simulation, bascule), enregistreur,
+          carte de couverture, WebSocket
 client/   rendu WebGL2 (Three.js) : simulation d'ondes GPU, navires, composition, HUD, panneau
-tools/    scripts Python (uv) de préparation des données
+tools/    scripts Python (uv) : grilles, routes, conversion d'archives AIS
+scripts/  utilitaires (faux serveur aisstream pour les tests)
 data/     grilles terre/mer et bathymétrie, routes maritimes
 docs/     sources et licences ; modèle physique (J3) ; guide d'exposition (J6)
 ```
@@ -104,14 +146,15 @@ docs/     sources et licences ; modèle physique (J3) ; guide d'exposition (J6)
 ## Tests
 
 ```bash
-npm test         # vitest : modèle acoustique, protocole, classes AIS, géodésie, simulation
+npm test         # vitest : modèle acoustique, protocole, classes AIS, géodésie, simulation,
+                 #         messages aisstream, registre, couverture, enregistreur, replay, direct (serveur factice)
 npm run typecheck
 ```
 
 ## Feuille de route
 
 - [x] **J1** carte plate + navires simulés + ondes
-- [ ] **J2** AIS réel (aisstream.io), replay, bascule automatique, carte de couverture
+- [x] **J2** AIS réel (aisstream.io), replay, bascule automatique, carte de couverture
 - [ ] **J3** champ physique calibré en dB (3 bandes), accumulation, terra incognita, esthétique finale
 - [ ] **J4** cétacés, espace de communication, liens entre groupes
 - [ ] **J5** son

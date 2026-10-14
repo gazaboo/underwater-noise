@@ -49,6 +49,7 @@
     land: '#000000',
     coast: '#1b2a36',
     coastOpacity: 0.55,
+    unknownDim: 0.35, // zones jamais observées par l'AIS : plus sombres (terra incognita ; matière propre au J3)
     wave: '#cfeaff',
     ship: '#e8f4ff',
   },
@@ -107,6 +108,46 @@
     fishingFraction: 0.12, // part de navires de pêche (errance près des côtes)
     laneWidthKm: 25, // dispersion latérale autour des routes
     seed: 42,
+  },
+
+  // Choix de la source de navires.
+  source: {
+    mode: 'auto', // 'auto' : direct (aisstream) si possible, sinon replay, sinon simulation
+    liveSilenceSec: 60, // silence du direct avant bascule
+    liveRecoverSec: 20, // bonne santé requise avant de revenir au direct
+    liveMinShips: 300, // au démarrage, on attend d'avoir assez de navires avant d'afficher le direct
+    hybrid: false, // navires simulés dans les zones non couvertes : désactivé, cela « invente » des données
+    hybridCoverageThreshold: 0.15,
+  },
+
+  // AIS en direct (aisstream.io). La clé se lit dans .env : AISSTREAM_API_KEY=…
+  live: {
+    url: 'wss://stream.aisstream.io/v0/stream',
+    staleAfterMin: 10, // au-delà : position extrapolée, marquée « ancienne »
+    maxExtrapolateMin: 30, // extrapolation à l'estime au plus 30 min (couverture côtière : un navire qui sort de portée continue sa route)
+    evictAfterMin: 180, // oubli après 3 h sans nouvelles
+    includeMoored: false, // les navires à quai sont presque silencieux : non envoyés au rendu
+  },
+
+  // Replay de fichiers enregistrés (.ndjson.gz) — enregistrements du serveur ou archives converties (tools/convert_ais.py).
+  replay: {
+    path: 'data/replays', // fichier ou dossier ; pour rejouer vos propres enregistrements : 'data/recordings'
+    speed: 10, // ×10 : une heure d'archive en 6 minutes
+    loop: true,
+  },
+
+  // Enregistrement du flux direct, pour le rejouer le jour de l'exposition.
+  recorder: {
+    enabled: true,
+    dir: 'data/recordings', // un fichier par heure : AAAA-MM-JJ/HH.ndjson.gz
+    minIntervalSec: 30, // une position par navire toutes les 30 s au plus (≈ 1/10 du volume brut)
+  },
+
+  // Carte de couverture AIS (où l'on « voit » des navires).
+  coverage: {
+    halfLifeHours: 12, // mémoire : une zone non revue depuis 12 h perd la moitié de son score
+    gainPerMessage: 0.25,
+    simulation: 'full', // en simulation : 'full' (tout observé) ou 'recorded' (dernière couverture réelle)
   },
 
   server: {

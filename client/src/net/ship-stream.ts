@@ -2,11 +2,13 @@
  * Flux de navires depuis le serveur local (WebSocket /ws), avec reconnexion automatique.
  * Reçoit aussi la configuration (messages texte) quand elle change côté serveur.
  */
-import { decodeHeader, type Config, type ShipSnapshot } from '@vacarme/shared';
+import { MSG_COVERAGE, MSG_SHIPS, decodeCoverage, decodeHeader, messageType, type Config, type ShipSnapshot, type SourceStatus } from '@vacarme/shared';
 
 export interface StreamEvents {
   onSnapshot(snap: ShipSnapshot, receivedAt: number): void;
   onConfig(cfg: Config): void;
+  onCoverage(width: number, height: number, data: Uint8Array): void;
+  onSourceStatus(status: SourceStatus): void;
   onStatus(connected: boolean): void;
 }
 
@@ -30,12 +32,20 @@ export class ShipStream {
     };
     ws.onmessage = (ev) => {
       if (typeof ev.data === 'string') {
-        const msg = JSON.parse(ev.data) as { type: string; config?: Config };
+        const msg = JSON.parse(ev.data) as { type: string; config?: Config; status?: SourceStatus };
         if (msg.type === 'config' && msg.config) this.events.onConfig(msg.config);
+        else if (msg.type === 'status' && msg.status) this.events.onSourceStatus(msg.status);
         return;
       }
-      const snap = decodeHeader(ev.data as ArrayBuffer);
-      if (snap) this.events.onSnapshot(snap, performance.now());
+      const buf = ev.data as ArrayBuffer;
+      const type = messageType(buf);
+      if (type === MSG_SHIPS) {
+        const snap = decodeHeader(buf);
+        if (snap) this.events.onSnapshot(snap, performance.now());
+      } else if (type === MSG_COVERAGE) {
+        const cov = decodeCoverage(buf);
+        if (cov) this.events.onCoverage(cov.width, cov.height, cov.data);
+      }
     };
     ws.onclose = () => {
       this.events.onStatus(false);

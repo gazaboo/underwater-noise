@@ -3,7 +3,7 @@
  * HUD et panneau de réglage.
  */
 import * as THREE from 'three';
-import { deepMerge, resolveForTarget, type Config, type DisplayTarget } from '@vacarme/shared';
+import { deepMerge, resolveForTarget, type Config, type DisplayTarget, type SourceStatus } from '@vacarme/shared';
 import { loadOceanGrid, loadWorldAssets, type WorldAssets } from './assets.ts';
 import { ShipStream } from './net/ship-stream.ts';
 import { computeFlatTransform, FlatView } from './render/flat-view.ts';
@@ -35,6 +35,9 @@ export class App {
   private readonly flat: FlatView;
   private clock = 0;
   private connected = false;
+  private sourceStatus: SourceStatus | null = null;
+  /** Carte de couverture AIS (360 × 180, ligne 0 au nord). Pleine tant que le serveur n'a rien envoyé. */
+  private readonly coverage = new THREE.DataTexture(new Uint8Array(360 * 180).fill(255), 360, 180, THREE.RedFormat, THREE.UnsignedByteType);
   private lastFrame = performance.now();
   private rebuilding = false;
 
@@ -49,6 +52,9 @@ export class App {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
     this.renderer.autoClear = false;
     this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace; // composition faite à la main (voir hexToVec3)
+    this.coverage.magFilter = this.coverage.minFilter = THREE.LinearFilter;
+    this.coverage.wrapS = THREE.RepeatWrapping;
+    this.coverage.needsUpdate = true;
     this.gpu = new GpuTimer(this.renderer.getContext() as WebGL2RenderingContext);
     this.wave = new WaveSim(assets.oceanWidth, assets.ocean);
     this.wave.clear(this.renderer);
@@ -67,6 +73,8 @@ export class App {
     new ShipStream({
       onSnapshot: (snap, at) => this.ships.update(snap, at, this.cfg),
       onConfig: (c) => this.onServerConfig(c),
+      onCoverage: (w, h, data) => this.onCoverage(w, h, data),
+      onSourceStatus: (st) => (this.sourceStatus = st),
       onStatus: (ok) => (this.connected = ok),
     });
     requestAnimationFrame((t) => this.frame(t));
@@ -156,6 +164,13 @@ export class App {
     return res.ok ? `enregistré (${new Date().toLocaleTimeString()})` : `erreur : ${await res.text()}`;
   }
 
+  private onCoverage(w: number, h: number, data: Uint8Array): void {
+    const img = this.coverage.image as { data: Uint8Array; width: number; height: number };
+    if (img.width !== w || img.height !== h) return;
+    img.data.set(data);
+    this.coverage.needsUpdate = true;
+  }
+
   // ------------------------------------------------------------ entrées
 
   private installKeys(): void {
@@ -203,16 +218,16 @@ export class App {
     }
     const size = r.getDrawingBufferSize(new THREE.Vector2());
     const view = computeFlatTransform(cfg, size.x, size.y);
-    this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, view, cfg, now / 1000);
+    this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, view, cfg, now / 1000);
     this.ships.draw(r, now, view, cfg, r.getPixelRatio());
     this.gpu.end();
 
     this.hud.frame(dt, performance.now() - t0, this.gpu.lastMs, () => ({
-      source: 'simulation',
+      status: this.sourceStatus,
       connected: this.connected,
       ships: this.ships.shipCount,
       simTime: new Date(this.ships.simTimeMs(now)),
-      timeScale: cfg.simulation.timeScale,
+      timeScale: this.ships.currentTimeScale,
       simSize: `${this.wave.width}×${this.wave.height}`,
       steps,
       canvas: `${size.x}×${size.y}`,
