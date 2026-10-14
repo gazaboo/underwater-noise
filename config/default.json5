@@ -1,0 +1,116 @@
+// La carte du vacarme — configuration par défaut.
+//
+// Ce fichier est la référence : chaque paramètre y est commenté.
+// Surcharges, dans l'ordre : config/expo.json5 (si VACARME_MODE=expo), puis
+// config/local.json5 (écrit par le panneau de réglage, ignoré par git).
+// Le serveur recharge ces fichiers à chaud : modifiez, enregistrez, l'image suit.
+{
+  display: {
+    // Cible d'affichage : "screen" (écran du portable) ou "projector" (Epson EB-990U).
+    // Surchargeable par l'URL : ?display=projector
+    target: 'screen',
+    // Mode de rendu. J1 : carte plate uniquement ; le globe et la demi-sphère arrivent au J6.
+    mode: 'flat',
+    // Profil de qualité (voir qualityProfiles). Surchargeable par l'URL : ?quality=light
+    quality: 'expo',
+  },
+
+  qualityProfiles: {
+    // Radeon 780M : 60 images/s visées en 1920×1200 comme en 2256×1504.
+    expo: { visualSimWidth: 2048, visualSimSteps: 3 },
+    light: { visualSimWidth: 1536, visualSimSteps: 2 },
+  },
+
+  view: {
+    flat: {
+      centerLon: 30, // de la côte est américaine à la mer de Chine (en 3:2, 'cover' montre ~210° de longitude)
+      latMin: -62, // on coupe l'océan Austral profond et l'Antarctique…
+      latMax: 78, // …et la banquise arctique
+      fit: 'cover', // 'cover' remplit l'écran (rogne les bords en longitude), 'contain' montre tout
+    },
+  },
+
+  // Rendu final (communs aux deux cibles, puis surchargés dans `targets`).
+  render: {
+    renderScale: 0.75, // fraction de la résolution native (les ondes sont douces : l'agrandissement ne se voit pas)
+    exposure: 1.0,
+    gamma: 1.0,
+    blackLift: 0.0, // relève le noir (0–1)
+    vignette: 0.25,
+    dither: true, // évite les bandes dans les dégradés sombres
+  },
+
+  // Palette : fond noir profond, lumière froide pour les ondes.
+  palette: {
+    background: '#000000',
+    oceanShallow: '#030a10',
+    oceanDeep: '#000102',
+    bathyRelief: 0.4, // relief du fond marin, à peine perceptible
+    land: '#000000',
+    coast: '#1b2a36',
+    coastOpacity: 0.55,
+    wave: '#cfeaff',
+    ship: '#e8f4ff',
+  },
+
+  // Surcharges propres à chaque cible.
+  targets: {
+    // Écran du portable (IPS, vrai noir) : on peut descendre bas dans les noirs.
+    screen: {
+      render: { vignette: 0.3, blackLift: 0.0 },
+    },
+    // Projecteur LCD à lampe : noir gris ; pas de vignettage (géré par le masque du disque au J6).
+    projector: {
+      render: { renderScale: 1.0, vignette: 0.0, gamma: 1.1 },
+      view: { flat: { fit: 'contain' } },
+    },
+  },
+
+  // Ondes visibles (grille visuelle). Paramètres purement artistiques.
+  waves: {
+    courant: 0.45, // vitesse des fronts (cellules par pas à l'équateur) ; max stable ≈ 0,67
+    damping: 0.016, // persistance : plus petit = fronts qui voyagent plus loin (0,004 : tout l'océan sature)
+    coastDamping: 0.35, // 0 = côtes réfléchissantes, 1 = côtes absorbantes
+    polarCapLat: 79, // au-delà : banquise (mur)
+    pulse: {
+      wavelengthCells: 7, // longueur d'onde des fronts (cellules)
+      cycles: 1.5, // cycles par impulsion : 1 à 2 donnent des anneaux nets
+      rate: 0.35, // impulsions par seconde pour un navire de référence
+      gain: 0.8,
+    },
+    amplitude: {
+      slMin: 166, // niveau source large bande (dB re 1 µPa·m) qui donne une amplitude nulle
+      slMax: 192, // niveau qui donne l'amplitude maximale
+      gamma: 1.7, // compression : seuls les navires bruyants marquent fortement
+    },
+    brightness: 2.8,
+    relief: 0.25, // part de l'éclairage « relief » (reflets) dans le rendu des ondes
+  },
+
+  ships: {
+    visible: true,
+    pointSize: 2.2, // en pixels CSS
+    opacity: 0.7,
+  },
+
+  // Bandes d'analyse acoustique (Hz) — utilisées par le champ physique (J3).
+  bands: [
+    { id: 'low', fMin: 10, fMax: 40 }, // rorqual bleu, rorqual commun
+    { id: 'mid', fMin: 100, fMax: 500 }, // baleine à bosse
+    { id: 'high', fMin: 1000, fMax: 10000 }, // orque, cachalot
+  ],
+
+  // Mode simulation (navires synthétiques sur les routes maritimes).
+  simulation: {
+    shipCount: 5000,
+    timeScale: 20, // temps simulé / temps réel : 20 → un navire à 15 nœuds traverse l'Atlantique en ~8 h
+    fishingFraction: 0.12, // part de navires de pêche (errance près des côtes)
+    laneWidthKm: 25, // dispersion latérale autour des routes
+    seed: 42,
+  },
+
+  server: {
+    port: 8787,
+    snapshotHz: 1, // instantanés envoyés au client par seconde
+  },
+}

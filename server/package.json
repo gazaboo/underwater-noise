@@ -1,0 +1,20 @@
+{
+  "name": "@vacarme/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@vacarme/shared": "*",
+    "json5": "^2.2.3",
+    "pngjs": "^7.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/pngjs": "^6.0.5",
+    "@types/ws": "^8.5.12"
+  }
+}
