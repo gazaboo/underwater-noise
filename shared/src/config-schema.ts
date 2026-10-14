@@ -226,6 +226,51 @@ export const configSchema = z.object({
     /** Couverture en mode simulation : tout observé, ou dernière couverture réelle enregistrée. */
     simulation: z.enum(['full', 'recorded']),
   }),
+  /** Cétacés : groupes simulés, espace de communication, liens (J4). */
+  whales: z.object({
+    enabled: z.boolean(),
+    /** Accélération du déplacement des groupes (artistique). */
+    timeScale: z.number().min(0).max(1000),
+    /** Probabilité d'habitat minimale (0–1) pour placer ou déplacer un groupe. */
+    habitatThreshold: unit,
+    /** Positions initiales tirées des observations OBIS quand elles existent. */
+    useSightings: z.boolean(),
+    color: color,
+    /** Espace de communication : remplissage, contour, douceur (dB). */
+    space: z.object({ fill: unit, contour: unit, softnessDb: z.number().min(0.5).max(40), markerSize: z.number().min(0).max(20) }),
+    links: z.object({
+      enabled: z.boolean(),
+      hysteresisDb: z.number().min(0).max(20),
+      breakSec: z.number().min(0.1).max(120),
+      reknitSec: z.number().min(0.1).max(300),
+      ghostSec: z.number().min(0).max(3600),
+      intensity: z.number().min(0).max(4),
+      ghost: unit,
+      /** Vitesse des impulsions le long des fils (fraction du fil par seconde). */
+      pulseSpeed: z.number().min(0.01).max(5),
+    }),
+    species: z.array(
+      z.object({
+        id: z.string(),
+        name: z.string(),
+        latin: z.string(),
+        enabled: z.boolean(),
+        groups: z.number().int().min(0).max(200),
+        band: z.enum(['low', 'mid', 'high']),
+        /** Niveau source de l'appel (dB re 1 µPa·m). */
+        sl: z.number(),
+        /** Seuil de détection (dB). */
+        dt: z.number(),
+        callBandwidthHz: z.number().min(0.1),
+        callIntervalSec: z.number().min(0.5),
+        minDepthM: z.number().min(0),
+        speedKmh: z.number().min(0),
+        /** Exagération visuelle des distances (1 = vraie échelle) : portée réelle trop petite à l'échelle du globe. */
+        visualScale: z.number().min(1).max(100),
+        color: color.optional(),
+      }),
+    ),
+  }),
   server: z.object({
     port: z.number().int(),
     snapshotHz: z.number().min(0.1).max(10),

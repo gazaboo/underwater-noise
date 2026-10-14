@@ -6,8 +6,9 @@ sous-marin des navires — et ce qu'il fait à l'espace de communication des cé
 Chaque navire émet des fronts d'onde qui se propagent sur l'océan, interfèrent, s'arrêtent sur les
 côtes ; là où le trafic est dense, l'océan s'illumine ; ailleurs, il reste noir.
 
-> État : **jalon J3** — navires en direct (aisstream.io), en replay ou simulés ; ondes visibles ;
-> champ de bruit calibré en dB (trois bandes) ; lueur d'accumulation ; terra incognita ; exploration (zoom).
+> État : **jalon J4** — navires en direct (aisstream.io), en replay ou simulés ; ondes visibles ;
+> champ de bruit calibré en dB (trois bandes) ; lueur d'accumulation ; terra incognita ; exploration (zoom) ;
+> cétacés : espace de communication rongé par le bruit, liens entre groupes.
 > Plan complet et jalons : voir la section « Feuille de route » plus bas.
 
 ## Installation
@@ -18,6 +19,8 @@ Chromium ou Chrome.
 ```bash
 npm install
 npm run data        # télécharge ETOPO 2022 + Natural Earth et construit data/ (≈ 4 min, une seule fois)
+# Habitats des cétacés (déjà fournis dans data/habitats) : base AquaMaps (1,2 Go) + OBIS
+#   voir l'en-tête de tools/build_habitats.py
 cp .env.example .env  # puis y mettre la clé gratuite d'aisstream.io (AISSTREAM_API_KEY=…)
 ```
 
@@ -42,6 +45,7 @@ npm run build && npm start   # http://localhost:8787
 | `display` | `screen` (défaut), `projector` | cible d'affichage : écran du portable ou Epson EB-990U |
 | `quality` | `expo` (défaut), `light` | profil de qualité (taille de la simulation, pas par image) |
 | `hud` | (présent) | affiche le diagnostic au démarrage |
+| `scene` | `duo` | scène de test des liens (deux groupes en mer Ligure) |
 
 ### Clavier
 
@@ -129,6 +133,15 @@ Repères pour régler les ondes :
   l'océan s'illumine lentement ; quand le trafic s'en va, la lueur s'efface plus lentement encore.
 - **Terra incognita** : les zones où l'AIS ne voit rien sont dans l'ombre, sous un brouillard lent et
   un grain fin — distinctes du calme connu (noir net, relief du fond à peine perceptible).
+- **Cétacés** (lumière chaude, pâle) : rorquals bleus et communs, baleines à bosse, cachalots, orques,
+  en groupes placés dans leurs habitats (AquaMaps) et près d'observations réelles (OBIS).
+  - **Espace de communication** : autour de chaque groupe, la zone où son appel reste audible, calculée
+    pixel par pixel avec le bruit local — rongée par les couloirs de trafic, coupée par les côtes ;
+    contour pointillé et tremblant là où l'AIS ne voit rien (bruit sous-estimé).
+  - **Liens** : fils de lumière entre groupes qui s'entendent ; les appels y circulent dans le sens de
+    l'écoute ; un lien peut devenir asymétrique (l'un entend, l'autre non), s'effilocher, se rompre, laisser
+    une trace fantôme, se retisser.
+  - Scène de test : `?scene=duo` — deux groupes de rorquals communs en mer Ligure, au seuil de s'entendre.
 
 Modèle, calibration (écart < 1 dB à la loi théorique), niveaux obtenus et limites :
 [`docs/MODELE_PHYSIQUE.md`](docs/MODELE_PHYSIQUE.md).
@@ -179,6 +192,6 @@ npm run typecheck
 - [x] **J1** carte plate + navires simulés + ondes
 - [x] **J2** AIS réel (aisstream.io), replay, bascule automatique, carte de couverture
 - [x] **J3** champ physique calibré en dB (3 bandes), accumulation, terra incognita, exploration (zoom)
-- [ ] **J4** cétacés, espace de communication, liens entre groupes
+- [x] **J4** cétacés, espace de communication, liens entre groupes
 - [ ] **J5** son
 - [ ] **J6** globe, demi-sphère avec un projecteur, mode exposition

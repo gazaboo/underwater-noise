@@ -74,6 +74,13 @@ export class FlatNavigator {
     this.clamp(t);
   }
 
+  /** Place la vue (centre et zoom), avec le lissage habituel. */
+  goTo(lon: number, lat: number, zoom: number): void {
+    this.ensure();
+    this.target = { zoom, centerLon: wrap180(lon), centerLat: lat };
+    this.clamp(this.target);
+  }
+
   reset(): void {
     const b = this.base();
     this.ensure();

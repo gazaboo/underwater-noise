@@ -91,6 +91,30 @@ export class Panel {
     inc.addBinding(cfg.palette, 'fog', { label: 'couleur', view: 'color' });
     on(inc, 'incognita');
 
+    const wh = pane.addFolder({ title: 'Cétacés', expanded: false });
+    wh.addBinding(cfg.whales, 'enabled', { label: 'visibles' });
+    wh.addBinding(cfg.whales, 'color', { label: 'couleur', view: 'color' });
+    wh.addBinding(cfg.whales.space, 'fill', { label: 'remplissage', min: 0, max: 1, step: 0.01 });
+    wh.addBinding(cfg.whales.space, 'contour', { label: 'contour', min: 0, max: 1, step: 0.01 });
+    wh.addBinding(cfg.whales.space, 'softnessDb', { label: 'douceur (dB)', min: 0.5, max: 40, step: 0.5 });
+    wh.addBinding(cfg.whales.space, 'markerSize', { label: 'taille des groupes', min: 0, max: 12, step: 0.1 });
+    wh.addBinding(cfg.whales, 'timeScale', { label: 'vitesse de nage ×', min: 0, max: 300, step: 1 });
+    wh.addBinding(cfg.whales.links, 'enabled', { label: 'liens' });
+    wh.addBinding(cfg.whales.links, 'intensity', { label: 'intensité des fils', min: 0, max: 4, step: 0.01 });
+    wh.addBinding(cfg.whales.links, 'ghost', { label: 'trace fantôme', min: 0, max: 1, step: 0.01 });
+    wh.addBinding(cfg.whales.links, 'pulseSpeed', { label: 'vitesse des appels', min: 0.02, max: 3, step: 0.01 });
+    wh.addBinding(cfg.whales.links, 'breakSec', { label: 'rupture (s)', min: 0.5, max: 60, step: 0.5 });
+    wh.addBinding(cfg.whales.links, 'reknitSec', { label: 'reconnexion (s)', min: 0.5, max: 120, step: 0.5 });
+    for (const sp of cfg.whales.species) {
+      const f = wh.addFolder({ title: sp.name, expanded: false });
+      f.addBinding(sp, 'enabled', { label: 'présente' });
+      f.addBinding(sp, 'groups', { label: 'groupes', min: 0, max: 200, step: 1 });
+      f.addBinding(sp, 'sl', { label: 'niveau source (dB)', min: 120, max: 200, step: 1 });
+      f.addBinding(sp, 'dt', { label: 'seuil de détection (dB)', min: -10, max: 30, step: 0.5 });
+      f.addBinding(sp, 'visualScale', { label: 'exagération visuelle', min: 1, max: 100, step: 1 });
+    }
+    on(wh, 'whales');
+
     const pal = pane.addFolder({ title: 'Palette', expanded: false });
     for (const k of ['background', 'oceanShallow', 'oceanDeep', 'land', 'coast', 'wave', 'ship'] as const) {
       pal.addBinding(cfg.palette, k, { view: 'color' });

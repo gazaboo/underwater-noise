@@ -119,3 +119,64 @@ la lueur s'efface lentement. Correspondance lumière : smoothstep(`quietDb`, `sa
 - **Bandes larges** : une seule fréquence représentative par bande pour l'absorption et la coupure.
 - **Pas de saison, de météo, de profil de célérité** (pas de chenal SOFAR, pas de zones de convergence).
 - **Pôles** : au-delà de ±79°, banquise (mur) ; la grille équirectangulaire y devient instable.
+
+## 8. Cétacés : espace de communication et liens (J4)
+
+Implémentation : `shared/src/acoustics/sonar.ts`, `shared/src/whales/links.ts`, `client/src/whales/`.
+
+### Équation du sonar
+
+Un appel de niveau SL est entendu à la distance r si la marge **SE = SL − TL(r) − NL_appel − DT ≥ 0**
+(Clark et al. 2009 ; Erbe et al. 2016).
+
+- **TL** : même loi que le champ physique (sphérique jusqu'à la profondeur sous l'appelant, puis
+  cylindrique, absorption de la bande + perte empirique).
+- **NL_appel** : bruit au point de **celui qui écoute**, lu dans le champ physique (bande de l'espèce),
+  ramené à la largeur de bande de l'appel : NL_appel = NL_bande − 10·log10(B_bande / B_appel).
+- **DT** : seuil de détection, qui inclut la capacité à reconnaître l'appel.
+
+Paramètres (`config/default.json5`, ordres de grandeur ; Richardson et al. 1995, Erbe et al. 2016) :
+
+| Espèce | Bande | SL (dB re 1 µPa·m) | B_appel | DT | Portée en océan calme* | Exagération visuelle |
+|---|---|---|---|---|---|---|
+| Rorqual bleu | basse | 186 | 5 Hz | 6 dB | ≈ 700–1 000 km | ×1 |
+| Rorqual commun | basse | 189 | 10 Hz | 6 dB | ≈ 900–1 100 km | ×1 |
+| Baleine à bosse | moyenne | 172 | 100 Hz | 6 dB | ≈ 50–150 km | ×4 |
+| Cachalot (codas) | haute | 175 | 5 kHz | 8 dB | ≈ 20–40 km | ×10 |
+| Orque | haute | 165 | 2 kHz | 4 dB | ≈ 2–15 km | ×20 |
+
+\* selon la profondeur sous le groupe ; l'étalement cylindrique rend ces portées optimistes en eau
+profonde, du même ordre que les « centaines de kilomètres » avancées pour les grands rorquals.
+
+**Exagération visuelle** : à l'échelle du globe, l'espace d'une orque (quelques km) serait invisible.
+Les distances d'une espèce sont donc multipliées à l'écran par `visualScale`, et ce facteur s'applique
+de façon cohérente au calcul : une distance d'écran d se traite comme une distance réelle d / visualScale,
+pour l'espace de communication comme pour les liens. C'est un choix artistique, signalé dans le diagnostic.
+
+### Rayon d'écoute et espace de communication
+
+- **Rayon** (diagnostic, son du J5) : portée où SE = 0 avec le bruit au point du groupe (dichotomie),
+  lissée sur ~1,5 s pour « respirer ». Le diagnostic affiche aussi la portée en océan calme.
+- **Espace de communication**, pour chaque pixel autour du groupe : SE avec le bruit **en ce pixel**.
+  La forme n'est pas un cercle : elle est rongée par les couloirs et les ports bruyants, et coupée par
+  les côtes (test des terres le long du segment groupe–pixel). Dans les zones non observées par l'AIS,
+  le bruit est sous-estimé : le contour y est pointillé et tremblant.
+
+### Liens entre groupes
+
+Pour chaque paire d'une même espèce à portée en océan calme, on calcule les deux directions :
+« A entend B » avec le bruit chez A, « B entend A » avec le bruit chez B. Un lien peut donc être
+**asymétrique**. Pas de lien si l'orthodromie traverse les terres.
+
+Dynamique (`whales.links`) : hystérésis de ±2 dB (pas de clignotement), rupture en 5 s
+(effilochage), reconnexion en 14 s, trace fantôme de 3 minutes.
+
+**Indicateur de connectivité** (diagnostic) : nombre de liens vivants, rapporté au nombre de liens qui
+existeraient avec le seul bruit naturel.
+
+### Groupes
+
+Placement : observations OBIS récentes (70 % des groupes) ou tirage pondéré par la probabilité
+d'habitat AquaMaps ; profondeur minimale par espèce (cachalot > 1 000 m). Déplacement : marche aléatoire
+corrélée dans l'habitat, vitesse réelle × `whales.timeScale` (30 par défaut : artistique).
+Les groupes ne sont pas des animaux réels suivis : ce sont des présences plausibles.

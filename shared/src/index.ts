@@ -5,3 +5,5 @@ export * from './ais/ship-class.ts';
 export * from './geo.ts';
 export * from './protocol.ts';
 export * from './config-schema.ts';
+export * from './acoustics/sonar.ts';
+export * from './whales/links.ts';

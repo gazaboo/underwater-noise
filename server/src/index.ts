@@ -88,7 +88,12 @@ const server = createServer(async (req, res) => {
       res.writeHead(204).end();
       return;
     }
-    if (url.pathname.startsWith('/data/') && serveFile(res, DATA_DIR, decodeURIComponent(url.pathname.slice(6)))) return;
+    if (url.pathname.startsWith('/data/')) {
+      // Une donnée absente est un vrai 404 (pas de repli sur la page de l'application).
+      if (serveFile(res, DATA_DIR, decodeURIComponent(url.pathname.slice(6)))) return;
+      res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' }).end('donnée introuvable');
+      return;
+    }
     if (existsSync(CLIENT_DIST)) {
       const rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname.slice(1));
       if (serveFile(res, CLIENT_DIST, rel) || serveFile(res, CLIENT_DIST, 'index.html')) return;

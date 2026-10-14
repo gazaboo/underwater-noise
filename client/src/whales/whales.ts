@@ -1,0 +1,235 @@
+/**
+ * Orchestration des cétacés : groupes, rayon d'écoute (équation du sonar avec le bruit local),
+ * liens entre groupes, indicateur de connectivité, rendu.
+ */
+import * as THREE from 'three';
+import { communicationRange, fray, isAlive, isAsymmetric, newLink, signalExcess, updateLink, type Config, type LinkState } from '@vacarme/shared';
+import type { FlatTransform } from '../render/flat-view.ts';
+import { hexToVec3 } from '../render/fullscreen.ts';
+import type { PhysicsField } from '../sim/physics-sim.ts';
+import { WhaleAgents, alphaOf, bandOf, distanceM, noiseCorrection, type WhaleGroup } from './agents.ts';
+import { FieldReader } from './field-reader.ts';
+import { OceanCpu, type ByteGrid, type SpeciesData } from './geo-grids.ts';
+import { WhaleRenderer, greatCircleArc, type GroupDraw, type LinkDraw } from './render.ts';
+
+interface Link {
+  a: WhaleGroup;
+  b: WhaleGroup;
+  state: LinkState;
+  /** État qu'aurait le lien dans un océan sans navires (pour la connectivité). */
+  quietAlive: boolean;
+  seed: number;
+  draw: LinkDraw;
+}
+
+const BAND_INDEX = { low: 0, mid: 1, high: 2 } as const;
+
+export interface WhaleStats {
+  groups: number;
+  links: number;
+  alive: number;
+  asymmetric: number;
+  quietAlive: number;
+  /** Portée moyenne / portée en océan calme, par espèce. */
+  rangeRatio: Map<string, number>;
+}
+
+export class Whales {
+  readonly agents: WhaleAgents;
+  private readonly reader = new FieldReader();
+  private readonly renderer: WhaleRenderer;
+  private links = new Map<string, Link>();
+  private linkList: Link[] = [];
+  private lastPairs = -1e9;
+  private lastGeometry = -1e9;
+  stats: WhaleStats = { groups: 0, links: 0, alive: 0, asymmetric: 0, quietAlive: 0, rangeRatio: new Map() };
+
+  constructor(
+    private readonly ocean: OceanCpu,
+    data: Map<string, SpeciesData>,
+    elevLinear: THREE.Texture,
+    private readonly coverageAt: (lat: number, lon: number) => number,
+    cfg: Config,
+    private readonly scene?: string,
+  ) {
+    this.agents = new WhaleAgents(ocean, data);
+    this.agents.populate(cfg, scene);
+    this.renderer = new WhaleRenderer(elevLinear);
+  }
+
+  static async create(cfg: Config, oceanUrl: string, elevLinear: THREE.Texture, coverageAt: (lat: number, lon: number) => number, scene?: string): Promise<Whales> {
+    const { ByteGrid, loadSpeciesData } = await import('./geo-grids.ts');
+    const grid = (await ByteGrid.load(oceanUrl)) as ByteGrid;
+    const data = await loadSpeciesData(cfg.whales.species.map((s) => s.id));
+    return new Whales(new OceanCpu(grid), data, elevLinear, coverageAt, cfg, scene);
+  }
+
+  repopulate(cfg: Config): void {
+    this.agents.populate(cfg, this.scene);
+    this.links.clear();
+    this.linkList = [];
+    this.lastPairs = -1e9;
+  }
+
+  configure(cfg: Config): void {
+    this.agents.configure(cfg);
+  }
+
+  /** Le segment A–B reste-t-il en mer (pas de lien à travers les terres) ? */
+  private waterPath(arc: [number, number][]): boolean {
+    for (let i = 1; i < arc.length - 1; i++) if (!this.ocean.isWater(arc[i][0], arc[i][1])) return false;
+    return true;
+  }
+
+  update(renderer: THREE.WebGLRenderer, physics: PhysicsField, cfg: Config, now: number, dtSec: number): void {
+    if (!cfg.whales.enabled) return;
+    this.reader.update(renderer, physics, now);
+    this.agents.move(cfg, dtSec);
+    const groups = this.agents.groups;
+
+    // Bruit local et rayon d'écoute de chaque groupe (lissé : le rayon « respire »).
+    const k = 1 - Math.exp(-dtSec / 1.5);
+    for (const g of groups) {
+      g.coverage = this.coverageAt(g.lat, g.lon);
+      if (!this.reader.ready) continue;
+      const band = BAND_INDEX[g.species.band] + 1;
+      const nl = this.reader.sample(g.lat, g.lon, band);
+      if (!Number.isFinite(nl)) continue;
+      g.noiseCall = nl - noiseCorrection(cfg, g.species);
+      const target = communicationRange(g.species, g.noiseCall, g.depth, alphaOf(cfg, g.species));
+      g.rangeM += (target - g.rangeM) * k;
+    }
+
+    // Paires candidates (même espèce, à portée en océan calme), toutes les 2 s.
+    if (now - this.lastPairs > 2000) {
+      this.lastPairs = now;
+      this.rebuildPairs(cfg);
+    }
+
+    // Marges et états des liens.
+    const opts = cfg.whales.links;
+    let alive = 0;
+    let asym = 0;
+    let quiet = 0;
+    for (const l of this.linkList) {
+      const s = l.a.species;
+      const d = distanceM(l.a.lat, l.a.lon, l.b.lat, l.b.lon) / s.visualScale;
+      const alpha = alphaOf(cfg, s);
+      // A entend B : l'appel part de B (transition selon la profondeur chez B), le bruit compte chez A.
+      const mAB = signalExcess(s, d, l.b.depth, alpha, l.a.noiseCall);
+      const mBA = signalExcess(s, d, l.a.depth, alpha, l.b.noiseCall);
+      updateLink(l.state, mAB, mBA, dtSec, opts);
+      const natural = bandOf(cfg, s).naturalDb - noiseCorrection(cfg, s);
+      l.quietAlive = signalExcess(s, d, Math.min(l.a.depth, l.b.depth), alpha, natural) > 0;
+      if (isAlive(l.state)) alive++;
+      if (isAsymmetric(l.state)) asym++;
+      if (l.quietAlive) quiet++;
+      Object.assign(l.draw, {
+        sAB: l.state.aHearsB.strength,
+        sBA: l.state.bHearsA.strength,
+        fray: fray(l.state),
+        ghost: l.state.ghost,
+        margin: Math.max(mAB, mBA),
+      });
+    }
+
+    // Géométrie des arcs : les groupes bougent lentement, une mise à jour par seconde suffit.
+    if (now - this.lastGeometry > 1000) {
+      this.lastGeometry = now;
+      for (const l of this.linkList) l.draw.arc = greatCircleArc(l.a.lat, l.a.lon, l.b.lat, l.b.lon);
+      this.renderer.setLinkGeometry(this.linkList.map((l) => l.draw));
+    }
+    this.renderer.setLinkStates(this.linkList.map((l) => l.draw));
+
+    const ratio = new Map<string, number[]>();
+    for (const g of groups) {
+      if (!ratio.has(g.species.id)) ratio.set(g.species.id, []);
+      ratio.get(g.species.id)!.push(g.rangeM / Math.max(1, g.quietRangeM));
+    }
+    this.stats = {
+      groups: groups.length,
+      links: this.linkList.length,
+      alive,
+      asymmetric: asym,
+      quietAlive: quiet,
+      rangeRatio: new Map([...ratio].map(([id, v]) => [id, v.reduce((a, b) => a + b, 0) / v.length])),
+    };
+  }
+
+  private rebuildPairs(cfg: Config): void {
+    const groups = this.agents.groups;
+    const next = new Map<string, Link>();
+    for (let i = 0; i < groups.length; i++) {
+      for (let j = i + 1; j < groups.length; j++) {
+        const a = groups[i];
+        const b = groups[j];
+        if (a.species.id !== b.species.id) continue;
+        const d = distanceM(a.lat, a.lon, b.lat, b.lon) / a.species.visualScale;
+        if (d > 1.2 * Math.max(a.quietRangeM, b.quietRangeM)) continue;
+        const key = `${a.id}-${b.id}`;
+        const existing = this.links.get(key);
+        const arc = existing?.draw.arc ?? greatCircleArc(a.lat, a.lon, b.lat, b.lon);
+        if (!this.waterPath(arc)) continue;
+        if (existing) {
+          next.set(key, existing);
+          continue;
+        }
+        const seed = ((a.id * 7919 + b.id * 104729) % 1000) / 1000;
+        next.set(key, {
+          a,
+          b,
+          state: newLink(),
+          quietAlive: false,
+          seed,
+          draw: { arc, sAB: 0, sBA: 0, fray: 0, ghost: 0, margin: -99, seed, period: a.species.callIntervalSec },
+        });
+      }
+    }
+    // Les liens disparus mais encore fantômes restent le temps de s'effacer.
+    for (const [key, l] of this.links) if (!next.has(key) && l.state.ghost > 0.02) next.set(key, l);
+    this.links = next;
+    this.linkList = [...next.values()];
+    this.lastGeometry = -1e9;
+  }
+
+  draw(renderer: THREE.WebGLRenderer, view: FlatTransform, cfg: Config, levels: THREE.Texture, coverage: THREE.Texture, timeSec: number, pixelRatio: number): void {
+    if (!cfg.whales.enabled) return;
+    const base = hexToVec3(cfg.whales.color);
+    const groups: GroupDraw[] = this.agents.groups.map((g) => {
+      const s = g.species;
+      // Rayon visuel maximal : portée en océan calme (le pixel décide ensuite avec le bruit local).
+      const radiusKm = Math.min(2500, (g.quietRangeM / 1000) * s.visualScale * 1.05);
+      const pulse = Math.exp(-Math.pow(g.callPhase / 0.06, 2)) + Math.exp(-Math.pow((1 - g.callPhase) / 0.02, 2));
+      return {
+        lat: g.lat,
+        lon: g.lon,
+        sl: s.sl,
+        dt: s.dt,
+        noiseCorrection: noiseCorrection(cfg, s),
+        depth: g.depth,
+        band: BAND_INDEX[s.band],
+        alpha: alphaOf(cfg, s),
+        visualScale: s.visualScale,
+        radiusKm,
+        color: s.color ? hexToVec3(s.color) : base,
+        pulse,
+      };
+    });
+    this.renderer.setGroups(groups);
+    this.renderer.draw(renderer, view, cfg, levels, coverage, timeSec, pixelRatio);
+  }
+
+  /** Groupe le plus proche d'un point (pour le diagnostic). */
+  nearest(lat: number, lon: number, maxKm = 300): WhaleGroup | null {
+    let best: WhaleGroup | null = null;
+    let bd = maxKm * 1000;
+    for (const g of this.agents.groups) {
+      const d = distanceM(lat, lon, g.lat, g.lon);
+      if (d < bd) {
+        bd = d;
+        best = g;
+      }
+    }
+    return best;
+  }
+}

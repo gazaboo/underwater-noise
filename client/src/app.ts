@@ -10,6 +10,7 @@ import { computeFlatTransform, FlatView, screenToGeo, type FlatTransform } from 
 import { ShipLayer } from './render/ships.ts';
 import { DetailWaves } from './sim/detail.ts';
 import { PhysicsField, calibrate, type CalibrationResult } from './sim/physics-sim.ts';
+import { Whales } from './whales/whales.ts';
 import { WaveSim } from './sim/wave-sim.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
 import { FlatNavigator } from './ui/navigation.ts';
@@ -22,6 +23,7 @@ export interface UrlOverrides {
   target?: DisplayTarget;
   quality?: Config['display']['quality'];
   hud?: boolean;
+  scene?: string;
 }
 
 export class App {
@@ -46,6 +48,8 @@ export class App {
   private cursorInfo = '';
   private lastCursorRead = 0;
   private lastView: FlatTransform | null = null;
+  private whales: Whales | null = null;
+  private speciesKey = '';
   private clock = 0;
   private connected = false;
   private sourceStatus: SourceStatus | null = null;
@@ -94,6 +98,12 @@ export class App {
     this.nav = new FlatNavigator(canvas, () => this.cfg);
     if (overrides.hud) this.hud.toggle(true);
 
+    this.speciesKey = JSON.stringify(this.cfg.whales.species);
+    void Whales.create(this.cfg, `/data/grid/ocean_1024.png`, assets.elevationLinear, (lat, lon) => this.coverageAt(lat, lon), overrides.scene).then((w) => {
+      this.whales = w;
+      if (overrides.scene === 'duo') this.nav.goTo(8.1, 43.4, 22);
+    }, (e) => console.error('[cétacés] initialisation impossible :', e));
+
     new ShipStream({
       onSnapshot: (snap, at) => this.ships.update(snap, at, this.cfg),
       onConfig: (c) => this.onServerConfig(c),
@@ -138,6 +148,10 @@ export class App {
 
   private applyConfig(): void {
     this.physics?.configure(this.cfg);
+    this.whales?.configure(this.cfg);
+    const key = JSON.stringify(this.cfg.whales.species);
+    if (this.whales && key !== this.speciesKey) this.whales.repopulate(this.cfg);
+    this.speciesKey = key;
     this.wave.setParams(this.cfg.waves);
     this.detail?.sim?.setParams(this.cfg.waves);
     this.ships.recomputeAmplitudes(this.cfg);
@@ -204,10 +218,19 @@ export class App {
       ships: c.ships,
       accumulation: c.accumulation,
       incognita: c.incognita,
+      whales: c.whales,
       targets: { [c.display.target]: { render: c.render, view: c.view } },
     };
     const res = await fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     return res.ok ? `enregistré (${new Date().toLocaleTimeString()})` : `erreur : ${await res.text()}`;
+  }
+
+  /** Couverture AIS (0–1) en un point. */
+  private coverageAt(lat: number, lon: number): number {
+    const img = this.coverage.image as { data: Uint8Array; width: number; height: number };
+    const x = Math.min(img.width - 1, Math.floor(((((lon + 180) % 360) + 360) % 360) * (img.width / 360)));
+    const y = Math.min(img.height - 1, Math.max(0, Math.floor((90 - lat) * (img.height / 180))));
+    return img.data[y * img.width + x] / 255;
   }
 
   private onCoverage(w: number, h: number, data: Uint8Array): void {
@@ -215,6 +238,17 @@ export class App {
     if (img.width !== w || img.height !== h) return;
     img.data.set(data);
     this.coverage.needsUpdate = true;
+  }
+
+  /** Ligne du diagnostic consacrée aux cétacés. */
+  private whaleLine(): string {
+    if (!this.whales || !this.cfg.whales.enabled) return '';
+    const st = this.whales.stats;
+    const ranges = [...st.rangeRatio]
+      .map(([id, r]) => `${this.cfg.whales.species.find((s) => s.id === id)?.name.toLowerCase() ?? id} ${(100 * r).toFixed(0)} %`)
+      .join(', ');
+    const pct = st.quietAlive ? ` (${((100 * st.alive) / st.quietAlive).toFixed(0)} % de l'océan sans navires)` : '';
+    return `cétacés ${st.groups} groupes · liens vivants ${st.alive}/${st.quietAlive}${pct} · asymétriques ${st.asymmetric}\nportée d'écoute / océan calme : ${ranges}`;
   }
 
   /** Niveaux de bruit sous le curseur (lecture d'un pixel du champ physique). */
@@ -226,7 +260,11 @@ export class App {
     const lv = this.physics.readLevels(this.renderer, lat, lon);
     const pos = `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'O'}`;
     if (!lv) return pos;
-    return `curseur ${pos} : accumulé ${lv[0].toFixed(0)} dB · basse ${lv[1].toFixed(0)} · moyenne ${lv[2].toFixed(0)} · haute ${lv[3].toFixed(0)} dB re 1 µPa`;
+    const g = this.whales?.nearest(lat, lon, 400 / Math.max(1, this.nav.zoom));
+    const whale = g
+      ? `\n${g.species.name} (${g.species.visualScale > 1 ? `distances ×${g.species.visualScale} à l'écran, ` : ''}bruit ${g.noiseCall.toFixed(0)} dB dans la bande de l'appel) : portée ${(g.rangeM / 1000).toFixed(g.rangeM < 10_000 ? 1 : 0)} km, océan calme ${(g.quietRangeM / 1000).toFixed(0)} km${g.coverage < 0.2 ? ' — zone non observée : bruit sous-estimé' : ''}`
+      : '';
+    return whale ? `curseur ${pos} : accumulé ${lv[0].toFixed(0)} dB · basse ${lv[1].toFixed(0)} · moyenne ${lv[2].toFixed(0)} · haute ${lv[3].toFixed(0)} dB re 1 µPa${whale}` : `curseur ${pos} : accumulé ${lv[0].toFixed(0)} dB · basse ${lv[1].toFixed(0)} · moyenne ${lv[2].toFixed(0)} · haute ${lv[3].toFixed(0)} dB re 1 µPa`;
   }
 
   // ------------------------------------------------------------ entrées
@@ -295,6 +333,7 @@ export class App {
       ph.accumulate(r, Math.min(dt, 250) / 1000, cfg);
       this.physicsClock = (this.physicsClock + 1) % CLOCK_WRAP;
       this.flat.setLevels(ph.levels.texture, ph.width, ph.height);
+      this.whales?.update(r, ph, cfg, now, Math.min(dt, 250) / 1000);
     } else {
       this.flat.setLevels(null);
     }
@@ -302,6 +341,7 @@ export class App {
     this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, view, cfg, now / 1000, detail ? { sim: detail, weight: this.detail.weight } : undefined);
     // Les points grossissent un peu quand on zoome, pour rester lisibles.
     this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
+    if (cfg.physics.enabled) this.whales?.draw(r, view, cfg, this.physics.levels.texture, this.coverage, now / 1000, r.getPixelRatio());
     this.gpu.end();
 
     if (this.hud.visible && now - this.lastCursorRead > 250) {
@@ -311,6 +351,7 @@ export class App {
     this.hud.frame(dt, performance.now() - t0, this.gpu.lastMs, () => ({
       calibration: `calibration ${this.calibration.maxDeviationDb.toFixed(1)} dB d'écart à la loi en 1/r${cfg.physics.enabled ? '' : ' (champ physique désactivé)'}   B : champ ${['rendu', 'accumulé', 'basse', 'moyenne', 'haute'][this.flat.debugField]}`,
       cursor: this.cursorInfo,
+      whales: this.whaleLine(),
       status: this.sourceStatus,
       connected: this.connected,
       ships: this.ships.shipCount,
