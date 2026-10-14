@@ -14,6 +14,8 @@ const qualityProfile = z.object({
   visualSimWidth: z.number().int().min(256).max(4096),
   /** Pas de simulation par image. */
   visualSimSteps: z.number().int().min(1).max(8),
+  /** Largeur de la grille de détail (zoom), en cellules. */
+  detailSimWidth: z.number().int().min(256).max(2048),
 });
 
 const flatView = z.object({
@@ -66,7 +68,11 @@ export const configSchema = z.object({
     quality: z.enum(['expo', 'light']),
   }),
   qualityProfiles: z.object({ expo: qualityProfile, light: qualityProfile }),
-  view: z.object({ flat: flatView }),
+  view: z.object({
+    flat: flatView,
+    /** Grille de détail lancée quand on zoome (exploration). */
+    detail: z.object({ enabled: z.boolean(), minZoom: z.number().min(1), margin: z.number().min(1).max(3) }),
+  }),
   render,
   palette,
   targets: z.object({ screen: targetOverride, projector: targetOverride }),

@@ -3,7 +3,7 @@
  *
  *   ∂²u/∂t² + 2γ ∂u/∂t = c² ∇²u + sources
  *
- * Laplacien sphérique (rayon 1, pas h = Δλ = Δφ) :
+ * Laplacien sphérique (rayon 1, cellules carrées en degrés : Δλ = Δφ = h) :
  *   ∇²u ≈ [ (uE + uW − 2u) / cos²φ + (uN + uS − 2u) − tanφ · h · (uN − uS) / 2 ] / h²
  *
  * Schéma saute-mouton (leapfrog) ; état RG = (u au pas n, u au pas n−1), demi-flottants.
@@ -14,8 +14,12 @@
  * Les cellules de terre restent à 0 (condition de Dirichlet) : les ondes ne traversent pas
  * les continents, elles s'y réfléchissent, atténuées par `coastDamping`.
  *
- * J1 : cette grille ne porte que le canal visuel (ondes pulsées). Les canaux physiques
- * calibrés en dB (trois bandes) arrivent au J3, sur une seconde grille.
+ * Deux usages :
+ *  - grille mondiale (360° × 180°, la longitude boucle) ;
+ *  - grille de détail sur une région (zoom) : bords absorbants (« éponge ») pour que les
+ *    ondes sortent du cadre sans se réfléchir.
+ *
+ * Ce champ est purement visuel. Les canaux physiques calibrés en dB arrivent au J3.
  */
 import * as THREE from 'three';
 import { FullscreenPass, rawMaterial } from '../render/fullscreen.ts';
@@ -27,16 +31,17 @@ uniform sampler2D uState;   // RG : u(n), u(n-1)
 uniform sampler2D uSource;  // R  : injection de ce pas
 uniform sampler2D uOcean;   // R : mer ; B : fraction de terre
 uniform vec2 uTexel;        // 1 / taille de la grille
+uniform float uLatTop;      // latitude du bord nord (radians)
+uniform float uLatSpan;     // étendue en latitude (radians)
+uniform float uSponge;      // largeur de la bordure absorbante (cellules), 0 = aucune
 uniform float uCourant;
 uniform float uDamping;
 uniform float uCoastDamping;
 uniform float uPolarCap;    // radians
 
-const float PI = 3.141592653589793;
-
 void main() {
   vec4 ocean = texture(uOcean, vUv);
-  float lat = (0.5 - vUv.y) * PI; // v = 0 au nord
+  float lat = uLatTop - vUv.y * uLatSpan; // v = 0 au nord
   if (ocean.r < 0.5 || abs(lat) > uPolarCap) {
     outColor = vec4(0.0);
     return;
@@ -50,13 +55,19 @@ void main() {
   float uS = texture(uState, vUv + vec2(0.0, uTexel.y)).r;
 
   float c = max(cos(lat), 0.02);
-  float h = uTexel.y * PI;
+  float h = uTexel.y * uLatSpan;
   float lap = (uE + uW - 2.0 * u) / (c * c) + (uN + uS - 2.0 * u) - tan(lat) * h * (uN - uS) * 0.5;
   float cmax = 0.95 / sqrt(1.0 + 1.0 / (c * c));
   float C = min(uCourant, cmax);
 
-  // Amortissement : global + côtes (cellules partiellement terrestres).
+  // Amortissement : global + côtes (cellules partiellement terrestres) + bordure absorbante.
   float g = uDamping + uCoastDamping * ocean.b;
+  if (uSponge > 0.0) {
+    vec2 cells = vUv / uTexel;
+    float d = min(min(cells.x, 1.0 / uTexel.x - cells.x), min(cells.y, 1.0 / uTexel.y - cells.y));
+    float k = clamp(1.0 - d / uSponge, 0.0, 1.0);
+    g += 0.25 * k * k;
+  }
   float next = (2.0 * u - (1.0 - g) * up + C * C * lap) / (1.0 + g);
   next += texture(uSource, vUv).r;
   // Garde-fou numérique (demi-flottants).
@@ -71,40 +82,63 @@ export interface WaveParams {
   polarCapLat: number;
 }
 
+/** Emprise d'une grille : centre en longitude, bord nord, étendues (degrés). */
+export interface Domain {
+  lonCenter: number;
+  latTop: number;
+  lonSpan: number;
+  latSpan: number;
+}
+
+export const WORLD_DOMAIN: Domain = { lonCenter: 0, latTop: 90, lonSpan: 360, latSpan: 180 };
+
 export class WaveSim {
   readonly width: number;
   readonly height: number;
+  readonly domain: Domain;
+  readonly regional: boolean;
   /** Cible d'injection des sources (rendue par la couche navires à chaque pas). */
   readonly sourceTarget: THREE.WebGLRenderTarget;
   private targets: [THREE.WebGLRenderTarget, THREE.WebGLRenderTarget];
   private readonly pass: FullscreenPass;
   private readonly uniforms: Record<string, THREE.IUniform>;
 
-  constructor(width: number, ocean: THREE.Texture) {
+  /**
+   * @param width largeur de la grille (cellules)
+   * @param ocean masque terre/mer de la grille (R = mer, B = fraction de terre)
+   * @param domain emprise ; par défaut le monde entier. Les cellules sont carrées en degrés.
+   */
+  constructor(width: number, ocean: THREE.Texture, domain: Domain = WORLD_DOMAIN) {
+    this.domain = domain;
+    this.regional = domain.lonSpan < 360;
     this.width = width;
-    this.height = width / 2;
+    this.height = Math.max(8, Math.round((width * domain.latSpan) / domain.lonSpan));
     const make = (format: THREE.AnyPixelFormat) =>
       new THREE.WebGLRenderTarget(this.width, this.height, {
         type: THREE.HalfFloatType,
         format,
         minFilter: THREE.LinearFilter,
         magFilter: THREE.LinearFilter,
-        wrapS: THREE.RepeatWrapping,
+        wrapS: this.regional ? THREE.ClampToEdgeWrapping : THREE.RepeatWrapping,
         wrapT: THREE.ClampToEdgeWrapping,
         depthBuffer: false,
         stencilBuffer: false,
       });
     this.targets = [make(THREE.RGFormat), make(THREE.RGFormat)];
     this.sourceTarget = make(THREE.RedFormat);
+    const deg = Math.PI / 180;
     this.uniforms = {
       uState: { value: this.targets[0].texture },
       uSource: { value: this.sourceTarget.texture },
       uOcean: { value: ocean },
       uTexel: { value: new THREE.Vector2(1 / this.width, 1 / this.height) },
+      uLatTop: { value: domain.latTop * deg },
+      uLatSpan: { value: domain.latSpan * deg },
+      uSponge: { value: this.regional ? Math.max(8, this.width / 24) : 0 },
       uCourant: { value: 0.45 },
       uDamping: { value: 0.004 },
       uCoastDamping: { value: 0.35 },
-      uPolarCap: { value: (79 * Math.PI) / 180 },
+      uPolarCap: { value: 79 * deg },
     };
     this.pass = new FullscreenPass(rawMaterial(STEP_FRAG, this.uniforms));
   }
@@ -116,7 +150,7 @@ export class WaveSim {
     this.uniforms.uPolarCap.value = (p.polarCapLat * Math.PI) / 180;
   }
 
-  /** Effective Courant number at the equator (borné par la stabilité). */
+  /** Nombre de Courant effectif à l'équateur (borné par la stabilité). */
   get courant(): number {
     return Math.min(this.uniforms.uCourant.value as number, 0.95 / Math.SQRT2);
   }

@@ -50,6 +50,14 @@ npm run build && npm start   # http://localhost:8787
 | `P` | panneau de réglage (caché) |
 | `D` | diagnostic : images/s, temps CPU et GPU, navires, source |
 | `F` | plein écran |
+| molette / pincement | zoom centré sur le curseur (jusqu'à ×40) |
+| glisser | déplacer la carte |
+| flèches, `+` / `-` | déplacer, zoomer au clavier |
+| double-clic, `R`, `0` | revenir au cadrage initial |
+
+Au-delà d'un zoom ×2,5 (`view.detail.minZoom`), une **grille d'ondes de détail** couvre la zone
+visible (≈ 6 km par cellule au zoom ×7, contre ≈ 20 km pour la grille mondiale) : les fronts d'onde
+restent fins quand on explore une mer ou un détroit. Elle est recalculée quand on sort de son emprise.
 
 Le curseur disparaît après deux secondes d'immobilité.
 

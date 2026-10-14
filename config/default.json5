@@ -17,8 +17,8 @@
 
   qualityProfiles: {
     // Radeon 780M : 60 images/s visées en 1920×1200 comme en 2256×1504.
-    expo: { visualSimWidth: 2048, visualSimSteps: 3 },
-    light: { visualSimWidth: 1536, visualSimSteps: 2 },
+    expo: { visualSimWidth: 2048, visualSimSteps: 3, detailSimWidth: 1024 },
+    light: { visualSimWidth: 1536, visualSimSteps: 2, detailSimWidth: 768 },
   },
 
   view: {
@@ -28,6 +28,9 @@
       latMax: 78, // …et la banquise arctique
       fit: 'cover', // 'cover' remplit l'écran (rogne les bords en longitude), 'contain' montre tout
     },
+    // Exploration : molette = zoom, glisser = déplacer, double-clic ou R = recadrer.
+    // Au-delà de minZoom, une grille d'ondes fine couvre la zone visible (marge comprise).
+    detail: { enabled: true, minZoom: 2.5, margin: 1.35 },
   },
 
   // Rendu final (communs aux deux cibles, puis surchargés dans `targets`).

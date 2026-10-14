@@ -125,7 +125,7 @@ export class Hud {
       `temps simulé ${i.simTime.toISOString().slice(0, 16).replace('T', ' ')} UTC   ×${i.timeScale}`,
       `ondes ${i.simSize}   ${i.steps} pas/image`,
       `rendu ${i.canvas}   cible ${i.target}   profil ${i.quality}`,
-      `P réglages · D diagnostic · F plein écran`,
+      `molette zoom · glisser déplacer · R recadrer · P réglages · D diagnostic · F plein écran`,
     ].join('\n');
   }
 }

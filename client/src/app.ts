@@ -8,8 +8,10 @@ import { loadOceanGrid, loadWorldAssets, type WorldAssets } from './assets.ts';
 import { ShipStream } from './net/ship-stream.ts';
 import { computeFlatTransform, FlatView } from './render/flat-view.ts';
 import { ShipLayer } from './render/ships.ts';
+import { DetailWaves } from './sim/detail.ts';
 import { WaveSim } from './sim/wave-sim.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
+import { FlatNavigator } from './ui/navigation.ts';
 import { Panel } from './ui/panel.ts';
 
 const CLOCK_WRAP = 1 << 20;
@@ -30,9 +32,11 @@ export class App {
   private readonly ships = new ShipLayer();
   private readonly hud = new Hud();
   private readonly panel: Panel;
+  private readonly nav: FlatNavigator;
   private readonly gpu: GpuTimer;
   private wave: WaveSim;
   private readonly flat: FlatView;
+  private readonly detail: DetailWaves;
   private clock = 0;
   private connected = false;
   private sourceStatus: SourceStatus | null = null;
@@ -59,6 +63,7 @@ export class App {
     this.wave = new WaveSim(assets.oceanWidth, assets.ocean);
     this.wave.clear(this.renderer);
     this.flat = new FlatView(assets);
+    this.detail = new DetailWaves(assets);
     this.panel = new Panel(
       () => this.cfg,
       (path) => this.onPanelChange(path),
@@ -68,6 +73,7 @@ export class App {
     this.resize();
     addEventListener('resize', () => this.resize());
     this.installKeys();
+    this.nav = new FlatNavigator(canvas, () => this.cfg);
     if (overrides.hud) this.hud.toggle(true);
 
     new ShipStream({
@@ -104,6 +110,7 @@ export class App {
 
   private applyConfig(): void {
     this.wave.setParams(this.cfg.waves);
+    this.detail?.sim?.setParams(this.cfg.waves);
     this.ships.recomputeAmplitudes(this.cfg);
   }
 
@@ -115,6 +122,7 @@ export class App {
   }
 
   private onPanelChange(path: string): void {
+    if (path === 'view' || path === 'display') this.nav.forget();
     if (path === 'display') {
       // Changement de cible : on repart de la configuration serveur pour cette cible,
       // en conservant les réglages artistiques communs en cours d'édition.
@@ -211,15 +219,22 @@ export class App {
     const steps = this.profile.visualSimSteps;
 
     this.gpu.begin();
+    const size = r.getDrawingBufferSize(new THREE.Vector2());
+    const view = computeFlatTransform(cfg, size.x, size.y, this.nav.update(dt));
+    const detail = this.detail.update(r, view, this.nav.zoom, cfg, now);
+    const splat = 3 * (this.wave.width / 2048);
     for (let s = 0; s < steps; s++) {
-      this.ships.inject(r, this.wave.sourceTarget, now, this.clock, cfg, this.wave.courant, steps * NOMINAL_FPS);
+      this.ships.inject(r, this.wave.sourceTarget, this.wave.domain, splat, now, this.clock, cfg, this.wave.courant, steps * NOMINAL_FPS);
       this.wave.step(r);
+      if (detail) {
+        this.ships.inject(r, detail.sourceTarget, detail.domain, 3, now, this.clock, cfg, detail.courant, steps * NOMINAL_FPS);
+        detail.step(r);
+      }
       this.clock = (this.clock + 1) % CLOCK_WRAP;
     }
-    const size = r.getDrawingBufferSize(new THREE.Vector2());
-    const view = computeFlatTransform(cfg, size.x, size.y);
-    this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, view, cfg, now / 1000);
-    this.ships.draw(r, now, view, cfg, r.getPixelRatio());
+    this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, view, cfg, now / 1000, detail ? { sim: detail, weight: this.detail.weight } : undefined);
+    // Les points grossissent un peu quand on zoome, pour rester lisibles.
+    this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
     this.gpu.end();
 
     this.hud.frame(dt, performance.now() - t0, this.gpu.lastMs, () => ({
@@ -228,9 +243,9 @@ export class App {
       ships: this.ships.shipCount,
       simTime: new Date(this.ships.simTimeMs(now)),
       timeScale: this.ships.currentTimeScale,
-      simSize: `${this.wave.width}×${this.wave.height}`,
+      simSize: `${this.wave.width}×${this.wave.height}${this.detail.sim ? ` + détail ${this.detail.sim.width}×${this.detail.sim.height} (${(this.detail.sim.domain.lonSpan / this.detail.sim.width * 111).toFixed(1)} km/cellule)` : ''}`,
       steps,
-      canvas: `${size.x}×${size.y}`,
+      canvas: `${size.x}×${size.y}   zoom ×${this.nav.zoom.toFixed(1)} (${view.centerLon.toFixed(1)}°, ${view.centerLat.toFixed(1)}°)`,
       target: cfg.display.target,
       quality: cfg.display.quality,
     }));

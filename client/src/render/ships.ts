@@ -14,6 +14,7 @@ import type { Config, ShipSnapshot } from '@vacarme/shared';
 import { HEADER_BYTES, SHIP_STRIDE } from '@vacarme/shared';
 import { hexToVec3 } from './fullscreen.ts';
 import type { FlatTransform } from './flat-view.ts';
+import type { Domain } from '../sim/wave-sim.ts';
 
 const MAX_SHIPS = 50000;
 
@@ -41,13 +42,15 @@ uniform float uCarrier;     // période de la porteuse (pas)
 uniform float uCycles;
 uniform float uGain;
 uniform float uSplat;       // taille du point (cellules)
+uniform vec4 uDomain;       // emprise de la grille : centre lon, bord nord, étendue lon, étendue lat (degrés)
 out float vSignal;
 ${DEAD_RECKON}
 const float PI = 3.141592653589793;
 void main() {
   vec2 ll = deadReckon(aLatLon, aMotion, uDt);
-  float x = fract((ll.y + 180.0) / 360.0) * 2.0 - 1.0;
-  float v = (90.0 - ll.x) / 180.0;
+  float dLon = mod(ll.y - uDomain.x + 180.0, 360.0) - 180.0;
+  float x = dLon / (0.5 * uDomain.z);
+  float v = (uDomain.y - ll.x) / uDomain.w;
   gl_Position = vec4(x, v * 2.0 - 1.0, 0.0, 1.0);
   gl_PointSize = uSplat;
 
@@ -146,6 +149,7 @@ export class ShipLayer {
         uCycles: { value: 1.5 },
         uGain: { value: 1 },
         uSplat: { value: 3 },
+        uDomain: { value: new THREE.Vector4(0, 90, 360, 180) },
       },
       blending: THREE.AdditiveBlending,
       depthTest: false,
@@ -234,7 +238,7 @@ export class ShipLayer {
   }
 
   /** Injecte les sources du pas courant dans la cible de la simulation. */
-  inject(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget, now: number, clock: number, cfg: Config, courant: number, stepsPerSecond: number): void {
+  inject(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget, domain: Domain, splatCells: number, now: number, clock: number, cfg: Config, courant: number, stepsPerSecond: number): void {
     const u = this.injectMaterial.uniforms;
     const p = cfg.waves.pulse;
     u.uDt.value = this.dtSim(now);
@@ -243,7 +247,8 @@ export class ShipLayer {
     u.uCycles.value = p.cycles;
     u.uPeriodSteps.value = stepsPerSecond / p.rate;
     u.uGain.value = p.gain;
-    u.uSplat.value = 3 * (target.width / 2048);
+    u.uSplat.value = splatCells;
+    (u.uDomain.value as THREE.Vector4).set(domain.lonCenter, domain.latTop, domain.lonSpan, domain.latSpan);
     renderer.setRenderTarget(target);
     renderer.setClearColor(0x000000, 0);
     renderer.clear(true, false, false);
