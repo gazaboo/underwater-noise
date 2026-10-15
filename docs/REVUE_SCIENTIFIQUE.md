@@ -5,8 +5,10 @@ Ce document recense **tout** ce que l'œuvre calcule, affiche ou fait entendre, 
 permettre de distinguer, sans ambiguïté, ce qui est mesuré ou publié de ce qui est approximé, réglé à
 la main ou inventé.
 
-Rédigé par l'assistant de développement (Claude) à la fin du jalon J6, le 15 octobre 2026.
-Les valeurs mesurées l'ont été ce jour-là, sur la machine d'exposition, avec le flux AIS réel.
+Rédigé par l'assistant de développement (Claude) à la fin du jalon J6, le 15 octobre 2026, puis mis à jour
+le même jour après correction des points 1 à 3 de la §11 (bruit naturel, perte empirique, cohérence des
+pertes entre le champ et les cétacés). Les valeurs mesurées l'ont été ce jour-là, sur la machine
+d'exposition, avec le flux AIS réel.
 
 ---
 
@@ -59,9 +61,11 @@ Règle de lecture : seul ce qui est **[S]** ou **[C]** peut être présenté au 
 - « Ces baleines sont là, maintenant » : **non.** Les groupes sont des **présences simulées plausibles**,
   placées dans des habitats réels et près d'observations réelles, mais ce ne sont pas des animaux suivis
   (§6.7). Leur déplacement est accéléré ×30. **[A]**
-- « Un rorqual bleu s'entend à 1 000 km » : **à éviter.** Le modèle donne ~700–1 000 km en océan calme
-  et profond, et bien davantage en eau peu profonde, ce qui est **optimiste** au regard des détections
-  publiées (bleu localisé jusqu'à 200 km, commun suivi jusqu'à 56 km ; Širović et al. 2007) (§6.4). **[!]**
+- « Un rorqual bleu s'entend à 2 000 km » : **à éviter.** En eau profonde, le modèle donne ~1 800–2 400 km
+  pour les rorquals dans un océan **sans aucun navire** (borne haute, étalement cylindrique), bien au-delà des
+  détections publiées dans l'océan bruyant actuel (bleu localisé jusqu'à 200 km, commun suivi jusqu'à
+  56 km ; Širović et al. 2007). Parler plutôt du **rapport** entre portée actuelle et portée sans navires
+  (§6.4). **[!]**
 - « Les orques / cachalots ont un espace de communication de cette taille » : **non.** Leurs distances
   sont **exagérées à l'écran** (×60 et ×40), sinon invisibles à l'échelle du globe (§6.7). **[A]**
 - « Les zones sombres sont calmes » : **pas forcément.** La haute mer est mal couverte par l'AIS terrestre ;
@@ -72,8 +76,9 @@ Règle de lecture : seul ce qui est **[S]** ou **[C]** peut être présenté au 
 ### Ordre de grandeur de l'incertitude totale (estimation, non quantifiée formellement)
 
 Niveau source ±6 dB **[S]** + propagation (loi simplifiée, grille de 39 km, pas de profil de célérité,
-pas de fond réaliste) ±5–10 dB **[!]** + couverture AIS (navires manquants : biais vers le bas, non
-borné) **[!]** + bruit naturel fixé ±10 dB **[!]**. Il serait trompeur d'afficher plus d'un chiffre
+fond calé sur une règle d'usage) ±5–10 dB **[!]** + couverture AIS (navires manquants : biais vers le bas,
+non borné) **[!]** + bruit naturel : modèle empirique publié, mais vent fixé (5 m/s) alors qu'il varie
+(±5 dB en bandes moyenne et haute entre 3 et 10 m/s) **[C]**. Il serait trompeur d'afficher plus d'un chiffre
 significatif à la dizaine de décibels près.
 
 ---
@@ -191,43 +196,60 @@ Sound* ; non revérifiée pour ce projet).
 | Moyenne d'énergie | constante de temps 6 s (temps réel) | [E] | fluctuation résiduelle ≈ ±1 dB [C, estimation] |
 | Absorption | formule de Thorp : 0,11 f²/(1+f²) + 44 f²/(4100+f²) + 2,75·10⁻⁴ f² + 0,003 dB/km (f en kHz) | **[L]** | forme cohérente entre plusieurs sources secondaires ; article original (Thorp 1967) non lu. ≈ 0,003 / 0,008 / 0,25 dB/km pour nos 3 bandes [C] |
 | Conversion absorption → amortissement | g = α·Δx·C / 8,686 par pas | [C] | approximation de faible amortissement ; non vérifiée numériquement séparément **[!]** |
-| Perte sur le plateau (< 200 m) | 0,01 dB/km, rampe de 50 à 200 m | **[E]** | aucune source ; à remplacer par un modèle de perte par le fond |
-| Coupure modale | f_c ≈ c/(4h·√(1 − c²/c_b²)) avec c = 1 500, **c_b = 1 700 m/s** → f_c ≈ 797/h Hz | [L] formule (guide de Pekeris, Jensen et al., *Computational Ocean Acoustics*), **[E]** c_b | amortissement `bottomLoss` = 0,08 par pas sous la coupure : **[E]** |
-| **Perte empirique supplémentaire** | **0,004 dB/km partout** | **[E] — à examiner en priorité** | ajoutée par moi pour ramener le plein Atlantique d'environ 102 à 95 dB en bande basse, sur la base d'une attente **non sourcée** ; elle corrige l'optimisme de l'étalement cylindrique mais sans fondement quantitatif |
+| **Pertes au fond (eau peu profonde)** | perte par rebond × rebonds par km ; rebonds/km = 1000·tan θ/(2h) ; pleine sous 200 m, nulle au-delà de 400 m ; **0,09 dB/rebond à θ = 10°** → 0,08 dB/km par 100 m de fond, 0,16 par 50 m, 0,4 par 20 m | forme [L] (distance de saut d'un rayon, comme dans le modèle de Marsh-Schulkin) ; **valeur [C] calée** | seul le produit (perte × tan θ) compte. **Calé pour que la perte totale suive l'« étalement pratique » 15·log r à ±1,5 dB entre 10 et 50 km par 50–100 m de fond** (test `shared/test/ambient-losses.test.ts`). L'étalement pratique est lui-même une approximation d'usage (k = 1,5, défini p. ex. dans Lucani et al. 2008, **lu**), pas une mesure. Les bornes 200/400 m sont **[E]** (au-delà, la réfraction écarte les trajets du fond **[L]**) |
+| Coupure modale | f_c ≈ c/(4h·√(1 − c²/c_b²)), c = 1 500, **c_b = 1 700 m/s** → ≈ 16 Hz par 50 m, 32 Hz par 25 m | [L] formule (guide de Pekeris, Jensen et al.) ; **[E]** c_b | sous la coupure : **5 dB/km [E]** (extinction en quelques km ; à la résolution de 39 km, cela équivaut à un mur pour la bande). Effet : en mer peu profonde (Malacca, Manche par endroits), la bande basse ne se propage plus |
+| Perte supplémentaire | **0 dB/km** (paramètre conservé, désactivé) | — | **corrigé le 15/10** : la valeur de 0,004 dB/km, non sourcée, a été retirée. Conséquence : en eau profonde, l'étalement cylindrique pur s'applique, borne haute de l'efficacité de propagation |
+| **Un seul modèle de pertes** | `lossRateDbPerKm()` (`shared/src/acoustics/propagation.ts`), transcrit à l'identique en GLSL (`LOSS_UNIFORMS_GLSL`) | [C] | **corrigé le 15/10** : le champ de bruit, l'espace de communication (pixel par pixel, 13 points le long du segment) et les liens (33 points le long de l'orthodromie) utilisent exactement les mêmes pertes |
 | Côtes | cellules de terre à zéro ; amortissement 0,3 × fraction de terre | [E] | côtes absorbantes ; pas de réflexion réaliste |
 | Pôles | au-delà de ±79° : mur (« banquise ») | [A] / contrainte numérique | la grille équirectangulaire devient instable vers les pôles |
 | Non modélisé | profil de célérité, chenal SOFAR, zones de convergence et d'ombre, saisons, nature du fond, directivité des navires, profondeur des sources (sauf via r_t) | **[!]** | |
 
-### 4.5 Bruit naturel (`bands[].naturalDb`) — **[!]**
+### 4.5 Bruit naturel — [S] modèle, [E] vent — **corrigé le 15/10**
 
-Valeurs : 88 dB (basse), 88 dB (moyenne), 92 dB (haute), dB re 1 µPa en niveau de bande, ajoutées en
-énergie au bruit des navires.
+Modèle empirique de densité spectrale (dB re 1 µPa²/Hz, f en kHz), **lu** dans Lucani, Stojanovic &
+Médard (2008, arXiv:0801.0426, éq. 4–8), qui le reprennent de Stojanovic (2007) — lui-même tiré de
+Coates (1990), ajustement des courbes de Wenz (ces deux dernières sources **non lues**) :
 
-**Je les ai estimées de mémoire à partir des courbes de Wenz/Knudsen pour un état de mer ~3 et je n'ai
-pas pu les vérifier** sur la source primaire (Wenz 1962 ; Knudsen et al. 1948). Une source secondaire
-indique que ces courbes sont valables en eau profonde et indicatives à 5–10 dB près. Remarque : dans la
-bande 50–500 Hz, les courbes de Wenz incluent le « trafic lointain » ; notre valeur se veut « sans
-navires » (vent, vagues), donc **plus basse que la courbe de Wenz avec trafic** — choix à justifier.
+- turbulence : 17 − 30·log f ;
+- vent : 50 + 7,5·w^½ + 20·log f − 40·log(f + 0,4), w en m/s ;
+- agitation thermique : −15 + 20·log f ;
+- trafic lointain : 40 + 20(s − 0,5) + 26·log f − 60·log(f + 0,03) — **exclu** : l'œuvre modélise les
+  navires un par un ; l'inclure compterait le trafic deux fois. Conséquence assumée : là où l'AIS ne
+  voit pas les navires, l'œuvre montre un océan plus calme que le réel (§3.1, terra incognita).
 
-À faire : relever les spectres de Wenz (ou d'une référence récente) à 20, 224 et 3 162 Hz pour un état
-de mer donné, et intégrer sur chaque bande.
+Niveaux de bande (intégration numérique, `shared/src/acoustics/ambient.ts`) pour **w = 5 m/s** (choix
+[E] : mer modérée, haut de l'échelle 3 de Beaufort **[L]**) : **83,8 dB** (10–40 Hz, dominé par la
+turbulence), **88,1 dB** (100–500 Hz) et **93,2 dB** (1–10 kHz), tous deux dominés par le vent. Sensibilité
+[C] : bande basse 83,7–84,0 dB de 3 à 10 m/s ; bande moyenne 84,4–95,1 dB ; bande haute 89,4–100,1 dB.
+
+Anciennes valeurs (de mémoire, **retirées**) : 88 / 88 / 92 dB — la bande basse était surestimée de
+~4 dB. Les tests vérifient les composantes contre les équations et les niveaux de bande.
+
+Limites : les courbes de Wenz sont indicatives (5–10 dB) et valables en eau profonde **[S-r]** (via une
+source secondaire) ; pas de pluie, pas de glace, pas de bruits biologiques ; vent identique partout.
 
 ### 4.6 Niveaux obtenus — [C], non validés
 
-Relevé du 15/10/2026 à 07:56 UTC, direct aisstream, 27 307 navires suivis (6 456 en mouvement affichés),
-champ établi depuis 45 s (accumulation encore en montée). Niveaux de bande, dB re 1 µPa :
+Relevé du 15/10/2026 à 08:13 UTC, **après les corrections du 15/10** (bruit naturel du modèle, pas de
+perte supplémentaire, pertes au fond calées), direct aisstream, 16 120 navires suivis (registre en cours
+de reconstitution après un redémarrage, donc trafic incomplet). Niveaux de bande, dB re 1 µPa :
 
 | Lieu | basse (10–40 Hz) | moyenne (100–500 Hz) | haute (1–10 kHz) |
 |---|---|---|---|
-| Manche (50° N, 2° O) | 119 | 127 | 110 |
-| Mer du Nord (55° N, 3° E) | 115 | 125 | 112 |
-| Méditerranée occidentale (38° N, 5° E) | 110 | 115 | 93 |
-| Mer Ligure (43,6° N, 8,2° E) | 109 | 115 | 100 |
-| Détroit de Malacca (3,5° N, 100° E) | 100 | 113 | 92 |
-| Atlantique Nord (40° N, 35° O) | 96 | 100 | 93 |
-| Golfe de Guinée (5° S, 0°) | 93 | 98 | 93 |
-| Pacifique Nord (35° N, 160° O) | 89 | 89 | 92 |
-| Océan Indien Sud (35° S, 75° E) | 88 | 88 | 92 (= bruit naturel) |
+| Manche (50° N, 2° O) | 115 | 124 | 117 |
+| Mer du Nord (55° N, 3° E) | 120 | 118 | 112 |
+| Méditerranée occidentale (38° N, 5° E) | 112 | 115 | 94 |
+| Mer Ligure (43,6° N, 8,2° E) | 105 | 108 | 93 |
+| Détroit de Malacca, dans le couloir (2,5° N, 101° E) | 100 | 100 | — |
+| Malacca, 150 km au nord du couloir (3,5° N, 100° E) | 84 (= naturel) | 88 (= naturel) | 93 |
+| Atlantique Nord (40° N, 35° O) | 96 | 98 | 93 |
+| Golfe de Guinée (5° S, 0°) | 92 | 94 | 93 |
+| Pacifique Nord (35° N, 160° O) | 88 | 89 | 93 |
+| Océan Indien Sud (35° S, 75° E) | 86 | 88 | 93 (= naturel) |
+
+Le cas de Malacca illustre le nouveau modèle : par 25–50 m de fond, la bande basse est sous la coupure
+modale et ne se propage pas ; la bande moyenne perd ~24 dB sur 150 km par réflexions sur le fond. Le
+bruit des mers peu profondes reste local — qualitativement attendu, quantitativement non vérifié.
 
 **Ces niveaux n'ont été comparés à aucune mesure.** Ils dépendent fortement de la couverture AIS (le
 Pacifique Nord et l'océan Indien ne « voient » presque aucun navire) et de l'heure. Attention : nos
@@ -286,8 +308,11 @@ SE = SL − TL(r) − NL_appel − DT ≥ 0. **[L]** (forme passive standard ; p
 Clark et al. 2009, *MEPS* 395:201–222, doi 10.3354/meps08402 **[S-r]** ; revue : Erbe et al. 2016,
 *Mar. Pollut. Bull.* 103:15–38, doi 10.1016/j.marpolbul.2015.12.007 **[S-r]**).
 
-- TL : même loi que §4.4, avec r_t = profondeur sous l'**appelant**, absorption de Thorp + perte
-  empirique ; **sans** les pertes de plateau et de fond du champ physique — **incohérence connue [!]**.
+- TL : même loi et **mêmes pertes** que le champ (§4.4), avec r_t = profondeur sous l'**appelant** ;
+  pertes intégrées le long du trajet réel (13 points pour l'espace affiché, 33 pour les liens).
+  **Corrigé le 15/10** (auparavant, l'équation du sonar ignorait les pertes de plateau et de fond).
+  Exception : le **rayon scalaire** (diagnostic, son) évalue les pertes au point du groupe seulement,
+  faute de trajet défini « dans toutes les directions » **[E]**.
 - Espace de communication (affiché) : pour chaque pixel, SE avec le bruit **en ce pixel** (récepteur
   hypothétique) ; ombre des terres testée sur 12 points du segment. [C] méthode, [L] principe.
 - Rayon (diagnostic, son) : plus grande distance où SE ≥ 0 avec le bruit au point du groupe, par
@@ -297,30 +322,38 @@ Clark et al. 2009, *MEPS* 395:201–222, doi 10.3354/meps08402 **[S-r]** ; revue
 
 ### 6.4 Portées obtenues — [C] et comparaison
 
-Portées en océan sans navires (bruit naturel §4.5), calculées par le code :
+Portées en océan **sans aucun navire** (bruit naturel §4.5, vent 5 m/s), calculées par le code après les
+corrections du 15/10, en fonction de la profondeur sous le groupe (pertes évaluées à cette profondeur) :
 
-| Espèce | fond 4 000 m | fond 100 m | littérature |
-|---|---|---|---|
-| Rorqual bleu | 980 km | 2 650 km | localisé jusqu'à 200 km (Širović et al. 2007) [S-r] |
-| Rorqual commun | 730 km | 2 300 km | suivi jusqu'à 56 km (même article) [S-r] |
-| Baleine à bosse | 54 km | 550 km | — |
-| Cachalot | 1,4 km | 11 km | espace actif médian ~4 km (Jacobs et al. 2024) [S-r] |
-| Orque | 1,4 km | 11 km | — |
+| Espèce | 4 000 m | 1 000 m | 200 m | 100 m | 50 m | littérature |
+|---|---|---|---|---|---|---|
+| Rorqual bleu | 2 375 km | 3 714 km | 612 km | 379 km | 226 km | localisé jusqu'à 200 km (Širović et al. 2007) [S-r] |
+| Rorqual commun | 1 790 km | 3 020 km | 552 km | 347 km | 209 km | suivi jusqu'à 56 km (même article) [S-r] |
+| Baleine à bosse | 55 km | 173 km | 175 km | 141 km | 101 km | — |
+| Cachalot | 1,3 km | 1,6 km | 6,1 km | 9,3 km | 12 km | espace actif médian ~4 km (Jacobs et al. 2024) [S-r] |
+| Orque | 1,3 km | 1,6 km | 6,0 km | 9,2 km | 12 km | — |
 
-Avec +20 dB de bruit (couloir de trafic), les portées sont divisées par 20 à 100 [C] : rorqual commun
-à 4 000 m : 730 → 23 km.
+Avec +20 dB de bruit (couloir de trafic), à 4 000 m : rorqual bleu 2 375 → 116 km ; commun 1 790 → 60 km ;
+baleine à bosse 55 → 1,6 km [C].
+
+Effets des corrections du 15/10 :
+- **eau peu profonde** : les portées irréalistes ont disparu (bleu par 100 m de fond : 2 650 → 379 km),
+  car les appels subissent désormais les pertes au fond et la coupure ;
+- **eau profonde** : les portées des rorquals **augmentent** (bleu : 980 → 2 375 km), parce que la perte
+  arbitraire de 0,004 dB/km a été retirée et que le bruit naturel de la bande basse est plus bas
+  (83,8 au lieu de 88 dB).
 
 **Conclusions honnêtes** :
-1. Pour les **rorquals**, les portées en océan calme sont **optimistes** (étalement cylindrique pur,
-   bruit naturel peut-être bas, DT choisi). Les distances de détection publiées sont bien plus courtes —
-   mais elles dépendent du bruit réel au moment de la mesure, ce ne sont pas des portées maximales.
-2. **En eau peu profonde, les portées sont irréalistes** : r_t = profondeur fait passer en cylindrique
-   très tôt, et l'équation du sonar n'inclut pas la perte par le fond. **Correctif recommandé** :
-   appliquer à l'équation du sonar les mêmes pertes de plateau et de fond que le champ physique, ou
-   borner r_t par en bas (choix à discuter).
-3. Pour le **cachalot**, l'ordre de grandeur est cohérent avec la mesure de Jacobs et al. (1,4 vs ~4 km).
-4. Le **rapport** « portée avec trafic / portée calme » (affiché : 42 %, 56 %, 69 %…) est plus robuste
-   que les portées absolues : il ne dépend que de l'écart de bruit et de la pente de TL.
+1. En eau profonde, les portées des rorquals sont des **bornes hautes** pour un océan sans navires :
+   étalement cylindrique pur, bruit naturel sans trafic lointain, DT choisi. Elles ne doivent pas être
+   comparées directement aux distances de détection publiées, mesurées dans l'océan bruyant actuel.
+   L'ordre de grandeur « des milliers de km avant l'ère industrielle » est une hypothèse ancienne de la
+   littérature (Payne & Webb 1971 **[L], non relu**), à citer avec prudence.
+2. **Non-monotonie** : la portée est plus grande par 1 000 m que par 4 000 m de fond, parce que r_t
+   (transition vers le cylindrique) vaut la profondeur : c'est un artefact de cette convention **[!]**.
+3. Pour le **cachalot**, l'ordre de grandeur reste cohérent avec la mesure de Jacobs et al. (1–12 vs ~4 km).
+4. Le **rapport** « portée avec trafic / portée calme » est la grandeur la plus robuste à montrer : il
+   dépend de l'écart de bruit et de la pente de TL, beaucoup moins des valeurs absolues.
 
 ### 6.5 Liens entre groupes — [A] pour la dynamique
 
@@ -411,7 +444,7 @@ Niveaux de sortie mesurés [C] : −18,5 dBFS RMS en vue mondiale, aucun écrêt
 
 | Vérification | Prouve | Ne prouve pas |
 |---|---|---|
-| 61 tests automatiques (`npm test`) | implémentation conforme aux équations (J-E ±3 dB / figure 7, Thorp, TL, sonar, liens, AIS, géométrie) | que les équations sont adaptées |
+| 71 tests automatiques (`npm test`) | implémentation conforme aux équations (J-E ±3 dB / figure 7, Thorp, TL, sonar, liens, AIS, géométrie) | que les équations sont adaptées |
 | Calibration (0,88 dB) | la grille reproduit 10·log r au loin | la validité de 10·log r en mer réelle |
 | Relevés de niveaux (§4.6) | ordre de grandeur des sorties | leur exactitude (aucune comparaison à des mesures) |
 | Vérification des niveaux d'appel (§6.1) | valeurs dans les plages publiées | articles complets non lus |
@@ -422,10 +455,13 @@ Niveaux de sortie mesurés [C] : −18,5 dBFS RMS en vue mondiale, aucun écrêt
 
 ## 11. Points faibles, par priorité de correction
 
-1. **Bruit naturel (§4.5)** non vérifié — il fixe le « silence » et donc toutes les portées calmes et
-   le seuil visuel. À sourcer en premier.
-2. **Perte empirique de 0,004 dB/km (§4.4)** sans fondement quantitatif ; calée sur une attente non sourcée.
-3. **Équation du sonar des cétacés sans pertes de fond** (§6.4) : portées irréalistes en eau peu profonde.
+1. ~~Bruit naturel non vérifié~~ — **corrigé le 15/10** : modèle empirique publié (§4.5) ; reste le choix
+   du vent (5 m/s, uniforme) **[E]**.
+2. ~~Perte empirique de 0,004 dB/km~~ — **corrigé le 15/10** : retirée. Reste l'optimisme de l'étalement
+   cylindrique en eau profonde (§6.4), désormais affiché comme borne haute.
+3. ~~Équation du sonar sans pertes de fond~~ — **corrigé le 15/10** : un seul modèle de pertes pour le
+   champ et les cétacés, intégré le long du trajet ; pertes au fond **calées** sur l'étalement pratique
+   15·log r (la règle de référence elle-même reste une approximation d'usage).
 4. **Seuils DT et largeurs de bande des appels (§6.2)** non sourcés.
 5. **Niveaux calculés jamais confrontés à des mesures (§4.6).**
 6. **Couverture AIS** : biais non quantifié vers le bas en haute mer.
@@ -447,8 +483,12 @@ Niveaux de sortie mesurés [C] : −18,5 dBFS RMS en vue mondiale, aucun écrêt
 | Holt, Noren & Emmons 2011, *JASA* 130:3100 | plage de SL orque | résumé vérifié |
 | Clark et al. 2009, *MEPS* 395:201–222, doi 10.3354/meps08402 (corrigendum 2016, *MEPS* 554:281) | espace de communication, masquage | résumé vérifié ; corrigendum non lu |
 | Erbe et al. 2016, *Mar. Pollut. Bull.* 103:15–38, doi 10.1016/j.marpolbul.2015.12.007 | masquage, seuils | résumé vérifié (accès libre) |
-| Thorp 1967 (*JASA*) | absorption | **non lu** ; formule vérifiée sur sources secondaires |
-| Wenz 1962 ; Knudsen, Alford & Emling 1948 | bruit naturel | **non lus** ; valeurs de mémoire **[!]** |
+| Lucani, Stojanovic & Médard 2008, arXiv:0801.0426 | modèle de bruit ambiant (éq. 4–8), formule de Thorp (éq. 2), définition de l'étalement pratique (k = 1,5) | **lu** (pages 1–3) |
+| Stojanovic 2007 ; Coates 1990 (*Underwater Acoustic Systems*) | origine du modèle de bruit ambiant | **non lus** (cités par Lucani et al.) |
+| Thorp 1967 (*JASA*) | absorption | **non lu** ; formule identique dans Lucani et al. 2008 (lu) |
+| Wenz 1962 ; Knudsen, Alford & Emling 1948 | courbes de bruit ambiant (à l'origine du modèle de Coates) | **non lus** |
+| Payne & Webb 1971 | hypothèse de portées océaniques des rorquals avant l'ère industrielle | **non lu**, cité de mémoire **[!]** |
+| Marsh & Schulkin (modèle « Colossus ») | notion de distance de saut pour les pertes au fond | **non lu** (notice seulement) |
 | Urick, *Principles of Underwater Sound* | TL sphérique/cylindrique | **non relu** pour ce projet |
 | Jensen, Kuperman, Porter & Schmidt, *Computational Ocean Acoustics* | fréquence de coupure modale | **non relu** pour ce projet |
 | AquaMaps (Kaschner et al.) ; OBIS | habitats, observations | données utilisées ; conditions lues sur les sites |

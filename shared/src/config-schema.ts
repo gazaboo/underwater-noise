@@ -166,8 +166,11 @@ export const configSchema = z.object({
         id: z.enum(['low', 'mid', 'high']),
         fMin: z.number(),
         fMax: z.number(),
-        /** Bruit ambiant naturel dans la bande (dB re 1 µPa, niveau de bande) — Wenz, état de mer ~3. */
-        naturalDb: z.number(),
+        /**
+         * Bruit ambiant naturel dans la bande (dB re 1 µPa, niveau de bande). Calculé par le serveur à partir
+         * du modèle `ambient` (vent) s'il est absent ; une valeur donnée ici le remplace (à documenter).
+         */
+        naturalDb: z.number().optional(),
       }),
     )
     .length(3),
@@ -176,12 +179,21 @@ export const configSchema = z.object({
     enabled: z.boolean(),
     /** Constante de temps de la moyenne d'énergie (s, temps réel). */
     energyTauSec: z.number().min(0.5).max(60),
-    /** Amortissement supplémentaire par pas en eau très peu profonde, sous la fréquence de coupure modale. */
-    bottomLoss: z.number().min(0).max(0.5),
-    /** Perte générique sur le plateau (profondeur < 200 m), dB/km. */
-    shallowLossDbPerKm: z.number().min(0).max(1),
-    /** Perte empirique supplémentaire partout (dB/km) : corrige l'étalement cylindrique, optimiste au large. */
+    /** Pertes au fond en eau peu profonde (< 200 m, nulles au-delà de 400 m) : dB par rebond. */
+    bottomBounceLossDb: z.number().min(0).max(10),
+    /** Angle de rasance effectif des trajets qui touchent le fond (degrés). */
+    grazingAngleDeg: z.number().min(1).max(45),
+    /** Célérité du sédiment (m/s), pour la fréquence de coupure modale. */
+    sedimentSoundSpeed: z.number().min(1510).max(3000),
+    /** Perte sous la fréquence de coupure modale (dB/km). */
+    cutoffLossDbPerKm: z.number().min(0).max(100),
+    /** Perte supplémentaire partout (dB/km) ; 0 par défaut : aucune valeur sourcée. */
     extraLossDbPerKm: z.number().min(0).max(0.1),
+  }),
+  /** Bruit ambiant naturel : modèle empirique (Coates 1990, via Stojanovic 2007 / Lucani et al. 2008), sans trafic. */
+  ambient: z.object({
+    /** Vitesse du vent (m/s) : fixe la composante « vent » (dominante entre ~100 Hz et 10 kHz). */
+    windSpeedMs: z.number().min(0).max(30),
   }),
   /** Accumulation : l'océan se « sature » là où le bruit dure. */
   accumulation: z.object({

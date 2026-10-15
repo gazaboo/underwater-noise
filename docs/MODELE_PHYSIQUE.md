@@ -65,14 +65,14 @@ Elle est obtenue par une **simulation de l'équation des ondes 2D amortie sur la
 - **Terres** : cellules à zéro (Dirichlet) ; côtes absorbantes. Le bruit ne traverse pas les
   continents et diffracte autour des caps.
 - **Absorption** : amortissement par pas g = α·Δx·C / 8,686 (une onde parcourt C cellules par pas).
-- **Plateau continental** (profondeur < 200 m) : perte générique `physics.shallowLossDbPerKm`.
-- **Coupure modale** : sous f_c ≈ c / (4h·√(1 − c²/c_b²)) ≈ 797 / h Hz (fond sédimentaire, c_b ≈ 1 700 m/s),
-  une bande ne se propage plus : amortissement fort `physics.bottomLoss`. Effet : le grondement à
-  20 Hz disparaît sous ~40 m de fond (mer du Nord peu profonde, Baltique en partie).
-- **Correction empirique** `physics.extraLossDbPerKm` (0,004 dB/km par défaut) : l'étalement
-  purement cylindrique surestime le bruit loin des sources (pas de pertes par le fond en eau
-  profonde, pas de zones d'ombre). Sans elle, le plein Atlantique sortait vers 102 dB en bande basse ;
-  avec, vers 95 dB.
+- **Pertes au fond** (eau peu profonde, < 200 m, nulles au-delà de 400 m) : perte par rebond × rebonds
+  par km, 1000·tan θ/(2h) ; 0,09 dB/rebond à θ = 10°, **calé** pour suivre l'étalement pratique
+  15·log r entre 10 et 50 km par 50–100 m de fond.
+- **Coupure modale** : sous f_c ≈ c / (4h·√(1 − c²/c_b²)) ≈ 797 / h Hz (c_b ≈ 1 700 m/s), une bande ne
+  se propage plus : 5 dB/km. Effet : le grondement à 20 Hz disparaît sous ~40 m de fond.
+- **Aucune perte arbitraire** : `physics.extraLossDbPerKm` vaut 0 (l'ancienne valeur de 0,004 dB/km,
+  non sourcée, a été retirée le 15/10).
+- **Un seul modèle de pertes** (`lossRateDbPerKm`) pour le champ de bruit et pour les appels des cétacés.
 - **Sources incohérentes** : chaque navire injecte une porteuse à phase aléatoire lentement
   variable ; les interférences entre navires s'annulent dans la moyenne d'énergie (constante de temps
   `physics.energyTauSec`, 6 s). Fluctuation résiduelle ≈ ±1 dB.
@@ -89,27 +89,15 @@ le diagnostic (touche `D`).
 
 ## 4. Bruit ambiant naturel
 
-Ajouté en énergie au bruit des navires, par bande (`bands[].naturalDb`, dB re 1 µPa, niveau de bande),
-d'après les courbes de Wenz pour un état de mer ~3, sans trafic : 88 dB (basse), 88 dB (moyenne),
-92 dB (haute). Ordres de grandeur seulement : le vent, la pluie et la saison changent ces valeurs de
-±10 dB.
+Modèle empirique de Coates (1990), repris par Stojanovic (2007) et Lucani et al. (2008, éq. 4–8) :
+turbulence + vent + agitation thermique (la composante « trafic lointain » est exclue, les navires étant
+modélisés un par un), intégré sur chaque bande pour un vent de `ambient.windSpeedMs` = 5 m/s :
+83,8 dB (basse), 88,1 dB (moyenne), 93,2 dB (haute), dB re 1 µPa. Détails et sensibilité au vent :
+`REVUE_SCIENTIFIQUE.md` §4.5.
 
-## 5. Niveaux obtenus (direct aisstream, 15 octobre 2026, nuit en Europe, ~6 000 navires suivis)
+## 5. Niveaux obtenus
 
-| Zone | Basse | Moyenne | Haute |
-|---|---|---|---|
-| Manche | 116 dB | 125 dB | 108 dB |
-| Mer du Nord | 108 dB | 120 dB | 101 dB |
-| Méditerranée occidentale | 104 dB | 108 dB | ≈ naturel |
-| Détroit de Malacca | 97 dB | 110 dB | ≈ naturel |
-| Atlantique Nord, 35° O | 95 dB | 96 dB | ≈ naturel |
-| Océan Indien Sud | ≈ naturel | ≈ naturel | ≈ naturel |
-
-Ces niveaux n'ont **pas** été comparés à des mesures publiées pour les mêmes bandes et les mêmes
-lieux (voir `docs/REVUE_SCIENTIFIQUE.md`, §4.6) : ce sont des sorties du modèle, à ne pas présenter
-comme des mesures. Ils ont été relevés avant la borne de vitesse (§1) et avant la correction
-empirique (`extraLossDbPerKm`), puis de nouveau après : voir la revue pour les valeurs à jour. Le niveau
-dépend aussi de la couverture AIS : un navire invisible ne fait pas de bruit dans l'œuvre.
+Voir `REVUE_SCIENTIFIQUE.md` §4.6 (relevés datés, non comparés à des mesures).
 
 ## 6. Accumulation (ce que l'on voit)
 
@@ -138,8 +126,8 @@ Implémentation : `shared/src/acoustics/sonar.ts`, `shared/src/whales/links.ts`,
 Un appel de niveau SL est entendu à la distance r si la marge **SE = SL − TL(r) − NL_appel − DT ≥ 0**
 (Clark et al. 2009 ; Erbe et al. 2016).
 
-- **TL** : même loi que le champ physique (sphérique jusqu'à la profondeur sous l'appelant, puis
-  cylindrique, absorption de la bande + perte empirique).
+- **TL** : même loi et mêmes pertes que le champ physique (sphérique jusqu'à la profondeur sous
+  l'appelant, puis cylindrique ; absorption, pertes au fond et coupure intégrées le long du trajet).
 - **NL_appel** : bruit au point de **celui qui écoute**, lu dans le champ physique (bande de l'espèce),
   ramené à la largeur de bande de l'appel : NL_appel = NL_bande − 10·log10(B_bande / B_appel).
 - **DT** : seuil de détection, qui inclut la capacité à reconnaître l'appel.
@@ -154,10 +142,8 @@ Paramètres (`config/default.json5` ; sources et statut de chaque valeur : `docs
 | Cachalot (codas) | haute | 161 (Jacobs et al. 2024) | 5 kHz | 8 dB | ≈ 1,4 km (4 000 m) ; 11 km (100 m) | ×40 |
 | Orque | haute | 153 (Miller 2006) | 2 kHz | 4 dB | ≈ 1,4 km (4 000 m) ; 11 km (100 m) | ×60 |
 
-\* Les portées des rorquals sont **nettement optimistes** : Širović et al. (2007) localisent des
-rorquals bleus jusqu'à 200 km et suivent des rorquals communs jusqu'à 56 km. En eau peu profonde,
-elles sont irréalistes (l'équation du sonar des cétacés n'inclut pas les pertes par le fond). DT et
-B_appel sont des choix de l'auteur. Voir `docs/REVUE_SCIENTIFIQUE.md` §6.
+\* Valeurs antérieures aux corrections du 15/10 ; les portées à jour (et leur discussion : bornes hautes
+pour un océan sans navires) sont dans `docs/REVUE_SCIENTIFIQUE.md` §6.4.
 
 **Exagération visuelle** : à l'échelle du globe, l'espace d'une orque (quelques km) serait invisible.
 Les distances d'une espèce sont donc multipliées à l'écran par `visualScale`, et ce facteur s'applique

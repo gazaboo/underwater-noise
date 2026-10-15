@@ -6,7 +6,7 @@
  * l'habitat, passerait à terre ou dans une eau trop peu profonde pour l'espèce est refusé : le
  * groupe tourne. La vitesse est artistique (`whales.timeScale`).
  */
-import { DEG, bandCenter, callNoise, communicationRange, destination, thorpAbsorptionDbPerKm, type Config } from '@vacarme/shared';
+import { DEG, bandCenter, callNoise, communicationRange, destination, lossRateDbPerKm, naturalLevel, type Config } from '@vacarme/shared';
 import type { OceanCpu, SpeciesData } from './geo-grids.ts';
 
 export type SpeciesCfg = Config['whales']['species'][number];
@@ -37,15 +37,24 @@ export function bandOf(cfg: Config, s: SpeciesCfg) {
   return cfg.bands.find((b) => b.id === s.band)!;
 }
 
-/** Absorption effective (dB/km) d'une espèce : Thorp à la fréquence de la bande + perte empirique. */
-export function alphaOf(cfg: Config, s: SpeciesCfg): number {
-  return thorpAbsorptionDbPerKm(bandCenter(bandOf(cfg, s))) + cfg.physics.extraLossDbPerKm;
+/**
+ * Taux de perte (dB/km) d'un appel de l'espèce à la profondeur depthM : même modèle que le champ de bruit
+ * (Thorp + fond en eau peu profonde + coupure modale + perte supplémentaire), à la fréquence de la bande.
+ */
+export function lossRateOf(cfg: Config, s: SpeciesCfg, depthM: number): number {
+  return lossRateDbPerKm(depthM, bandCenter(bandOf(cfg, s)), cfg.physics);
+}
+
+/** Bruit naturel de la bande de l'espèce (dB re 1 µPa). */
+export function naturalOf(cfg: Config, s: SpeciesCfg): number {
+  return naturalLevel(bandOf(cfg, s), cfg.ambient.windSpeedMs);
 }
 
 /** Correction bande → largeur de l'appel (dB à retrancher au niveau de bande). */
 export function noiseCorrection(cfg: Config, s: SpeciesCfg): number {
   const b = bandOf(cfg, s);
-  return b.naturalDb - callNoise(b.naturalDb, b.fMax - b.fMin, s.callBandwidthHz);
+  const n = naturalOf(cfg, s);
+  return n - callNoise(n, b.fMax - b.fMin, s.callBandwidthHz);
 }
 
 function rng(seed: number): () => number {
@@ -118,8 +127,10 @@ export class WhaleAgents {
 
   private add(cfg: Config, s: SpeciesCfg, lat: number, lon: number, heading: number): void {
     const depth = Math.max(10, this.ocean.depth(lat, lon));
-    const natural = bandOf(cfg, s).naturalDb - noiseCorrection(cfg, s);
-    const quiet = communicationRange(s, natural, depth, alphaOf(cfg, s));
+    const natural = naturalOf(cfg, s) - noiseCorrection(cfg, s);
+    // Portée scalaire : pertes évaluées au point du groupe (approximation : le trajet réel n'est pas connu
+    // pour une portée « dans toutes les directions »). Les liens et l'espace affiché intègrent le vrai trajet.
+    const quiet = communicationRange(s, natural, depth, lossRateOf(cfg, s, depth));
     this.groups.push({
       id: this.groups.length,
       species: s,
@@ -141,8 +152,8 @@ export class WhaleAgents {
     for (const g of this.groups) {
       const s = cfg.whales.species.find((x) => x.id === g.species.id);
       if (s && g.species.speedKmh !== 0) g.species = s;
-      const natural = bandOf(cfg, g.species).naturalDb - noiseCorrection(cfg, g.species);
-      g.quietRangeM = communicationRange(g.species, natural, g.depth, alphaOf(cfg, g.species));
+      const natural = naturalOf(cfg, g.species) - noiseCorrection(cfg, g.species);
+      g.quietRangeM = communicationRange(g.species, natural, g.depth, lossRateOf(cfg, g.species, g.depth));
     }
   }
 

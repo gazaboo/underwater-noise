@@ -13,7 +13,7 @@
  */
 import type { Config } from '@vacarme/shared';
 import type { FlatTransform } from '../render/flat-view.ts';
-import { DEG } from '@vacarme/shared';
+import { DEG, naturalLevel } from '@vacarme/shared';
 import type { ShipLayer } from '../render/ships.ts';
 import type { FieldReader } from '../whales/field-reader.ts';
 import type { CallEvent } from '../whales/whales.ts';
@@ -193,12 +193,12 @@ export class AudioEngine {
       let k = 0;
       for (const [lat, lon] of listener.samples()) {
         const db = field.sample(lat, lon, 1);
-        const nat = cfg.bands[0].naturalDb;
+        const nat = naturalLevel(cfg.bands[0], cfg.ambient.windSpeedMs);
         if (!Number.isFinite(db) || db <= nat + 0.01) continue; // terre ou silence absolu
         e += Math.pow(10, db / 10);
         k++;
       }
-      const mean = k ? 10 * Math.log10(e / k) : cfg.bands[0].naturalDb;
+      const mean = k ? 10 * Math.log10(e / k) : naturalLevel(cfg.bands[0], cfg.ambient.windSpeedMs);
       const acc = cfg.accumulation;
       this.bedIntensity = Math.max(0, Math.min(1, (mean - acc.quietDb) / (acc.saturationDb - acc.quietDb)));
     }

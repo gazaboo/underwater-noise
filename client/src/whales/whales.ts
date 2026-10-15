@@ -3,10 +3,10 @@
  * liens entre groupes, indicateur de connectivité, rendu.
  */
 import * as THREE from 'three';
-import { communicationRange, fray, isAlive, isAsymmetric, newLink, signalExcess, updateLink, type Config, type LinkState } from '@vacarme/shared';
+import { bandCenter, thorpAbsorptionDbPerKm, communicationRange, fray, isAlive, isAsymmetric, newLink, pathTransmissionLoss, updateLink, type Config, type LinkState } from '@vacarme/shared';
 import type { FlatTransform } from '../render/flat-view.ts';
 import { hexToVec3 } from '../render/fullscreen.ts';
-import { WhaleAgents, alphaOf, bandOf, distanceM, noiseCorrection, type WhaleGroup } from './agents.ts';
+import { WhaleAgents, distanceM, lossRateOf, naturalOf, noiseCorrection, type WhaleGroup } from './agents.ts';
 import type { FieldReader } from './field-reader.ts';
 import { OceanCpu, type ByteGrid, type SpeciesData } from './geo-grids.ts';
 import { WhaleRenderer, greatCircleArc, type GroupDraw, type LinkDraw } from './render.ts';
@@ -60,20 +60,21 @@ export class Whales {
     private readonly ocean: OceanCpu,
     data: Map<string, SpeciesData>,
     elevLinear: THREE.Texture,
+    elevNearest: THREE.Texture,
     private readonly coverageAt: (lat: number, lon: number) => number,
     cfg: Config,
     private readonly scene?: string,
   ) {
     this.agents = new WhaleAgents(ocean, data);
     this.agents.populate(cfg, scene);
-    this.renderer = new WhaleRenderer(elevLinear);
+    this.renderer = new WhaleRenderer(elevLinear, elevNearest);
   }
 
-  static async create(cfg: Config, oceanUrl: string, elevLinear: THREE.Texture, coverageAt: (lat: number, lon: number) => number, scene?: string): Promise<Whales> {
+  static async create(cfg: Config, oceanUrl: string, elevLinear: THREE.Texture, elevNearest: THREE.Texture, coverageAt: (lat: number, lon: number) => number, scene?: string): Promise<Whales> {
     const { ByteGrid, loadSpeciesData } = await import('./geo-grids.ts');
     const grid = (await ByteGrid.load(oceanUrl)) as ByteGrid;
     const data = await loadSpeciesData(cfg.whales.species.map((s) => s.id));
-    return new Whales(new OceanCpu(grid), data, elevLinear, coverageAt, cfg, scene);
+    return new Whales(new OceanCpu(grid), data, elevLinear, elevNearest, coverageAt, cfg, scene);
   }
 
   repopulate(cfg: Config): void {
@@ -110,7 +111,7 @@ export class Whales {
       const nl = this.reader.sample(g.lat, g.lon, band);
       if (!Number.isFinite(nl)) continue;
       g.noiseCall = nl - noiseCorrection(cfg, g.species);
-      const target = communicationRange(g.species, g.noiseCall, g.depth, alphaOf(cfg, g.species));
+      const target = communicationRange(g.species, g.noiseCall, g.depth, lossRateOf(cfg, g.species, g.depth));
       g.rangeM += (target - g.rangeM) * k;
     }
 
@@ -152,13 +153,17 @@ export class Whales {
     for (const l of this.linkList) {
       const s = l.a.species;
       const d = distanceM(l.a.lat, l.a.lon, l.b.lat, l.b.lon) / s.visualScale;
-      const alpha = alphaOf(cfg, s);
-      // A entend B : l'appel part de B (transition selon la profondeur chez B), le bruit compte chez A.
-      const mAB = signalExcess(s, d, l.b.depth, alpha, l.a.noiseCall);
-      const mBA = signalExcess(s, d, l.a.depth, alpha, l.b.noiseCall);
+      // Pertes intégrées le long de l'orthodromie (profondeur à chaque point de l'arc) : même modèle que
+      // le champ de bruit. Étalement : transition à la profondeur sous l'appelant.
+      const rates = l.draw.arc.map(([lat, lon]) => lossRateOf(cfg, s, Math.max(10, this.ocean.depth(lat, lon))));
+      const tlFromB = pathTransmissionLoss(d, l.b.depth, rates);
+      const tlFromA = pathTransmissionLoss(d, l.a.depth, rates);
+      // A entend B : l'appel part de B, le bruit compte chez A.
+      const mAB = s.sl - tlFromB - l.a.noiseCall - s.dt;
+      const mBA = s.sl - tlFromA - l.b.noiseCall - s.dt;
       updateLink(l.state, mAB, mBA, dtSec, opts);
-      const natural = bandOf(cfg, s).naturalDb - noiseCorrection(cfg, s);
-      l.quietAlive = signalExcess(s, d, Math.min(l.a.depth, l.b.depth), alpha, natural) > 0;
+      const natural = naturalOf(cfg, s) - noiseCorrection(cfg, s);
+      l.quietAlive = s.sl - Math.min(tlFromA, tlFromB) - natural - s.dt > 0;
       if (isAlive(l.state)) alive++;
       if (isAsymmetric(l.state)) asym++;
       if (l.quietAlive) quiet++;
@@ -248,7 +253,7 @@ export class Whales {
         noiseCorrection: noiseCorrection(cfg, s),
         depth: g.depth,
         band: BAND_INDEX[s.band],
-        alpha: alphaOf(cfg, s),
+        alpha: thorpAbsorptionDbPerKm(bandCenter(cfg.bands.find((b) => b.id === s.band)!)) + cfg.physics.extraLossDbPerKm,
         visualScale: s.visualScale,
         radiusKm,
         color: s.color ? hexToVec3(s.color) : base,

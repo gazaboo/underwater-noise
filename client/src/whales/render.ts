@@ -8,7 +8,8 @@
  *    effilochage à la rupture, trace fantôme.
  */
 import * as THREE from 'three';
-import type { Config } from '@vacarme/shared';
+import { bandCenter, type Config } from '@vacarme/shared';
+import { LOSS_UNIFORMS_GLSL, lossUniforms, setLossUniforms } from '../sim/physics-sim.ts';
 import type { FlatTransform } from '../render/flat-view.ts';
 import { hexToVec3 } from '../render/fullscreen.ts';
 
@@ -67,8 +68,15 @@ uniform float uScale;
 uniform vec2 uResolution;
 uniform sampler2D uLevels;
 uniform sampler2D uElevL;
+uniform sampler2D uElevN;
 uniform sampler2D uCoverage;
 uniform float uFill, uContour, uSoftness, uTime;
+uniform vec3 uBandFreq;
+${LOSS_UNIFORMS_GLSL}
+float depthAt(vec2 uv) {
+  vec4 e = texture(uElevN, uv);
+  return max(10.0, -((e.r * 255.0 * 256.0 + e.g * 255.0) - 11000.0));
+}
 
 float hav(vec2 a, vec2 b) { // distance (km), a et b en (lat, lon) degrés
   vec2 ra = radians(a), rb = radians(b);
@@ -88,16 +96,23 @@ void main() {
   // Ombre des terres : l'appel ne traverse pas les continents (test le long du segment).
   vec2 dl = ll - vWhale;
   dl.y = mod(dl.y + 180.0, 360.0) - 180.0;
-  for (int i = 1; i < 12; i++) {
+  // Le long du segment : pertes au fond et coupure modale à chaque point (même modèle que le champ).
+  float band = vMisc.x;
+  float fBand = band < 0.5 ? uBandFreq.x : band < 1.5 ? uBandFreq.y : uBandFreq.z;
+  float rate = 0.0;
+  for (int i = 0; i <= 12; i++) {
     vec2 p = vWhale + dl * (float(i) / 12.0);
-    mask *= step(texture(uElevL, uvOf(p)).b, 0.6);
+    vec2 puv = uvOf(p);
+    if (i > 0 && i < 12) mask *= step(texture(uElevL, puv).b, 0.6);
+    float h = depthAt(puv);
+    rate += bottomLossRate(h) + cutoffLossRate(h, vec3(fBand)).x;
   }
+  rate /= 13.0;
   // Équation du sonar au point : SE = SL − TL(d) − NL_appel(x) − DT.
   float r = max(dVis * 1000.0 / vMisc.z, 1.0); // distance vraie (m)
   float rt = max(vCall.w, 10.0);
-  float tl = (r <= rt ? 20.0 * log(r) : 20.0 * log(rt) + 10.0 * log(r / rt)) / log(10.0) + vMisc.y * r / 1000.0;
+  float tl = (r <= rt ? 20.0 * log(r) : 20.0 * log(rt) + 10.0 * log(r / rt)) / log(10.0) + (vMisc.y + rate) * r / 1000.0;
   vec4 lv = texture(uLevels, uv);
-  float band = vMisc.x;
   float nl = (band < 0.5 ? lv.g : band < 1.5 ? lv.b : lv.a) - vCall.z;
   float se = vCall.x - tl - nl - vCall.y;
   float w = fwidth(se) * 1.2 + 1e-4;
@@ -281,7 +296,7 @@ export class WhaleRenderer {
   private linkCount = 0;
   private marks!: THREE.Points;
 
-  constructor(elevLinear: THREE.Texture) {
+  constructor(elevLinear: THREE.Texture, elevNearest: THREE.Texture) {
     // Espace de communication : quads instanciés.
     const quad = new THREE.PlaneGeometry(2, 2);
     this.spaceGeo.index = quad.index;
@@ -299,6 +314,9 @@ export class WhaleRenderer {
         ...flatUniforms(),
         uLevels: { value: null },
         uElevL: { value: elevLinear },
+        uElevN: { value: elevNearest },
+        uBandFreq: { value: new THREE.Vector3(20, 224, 3162) },
+        ...lossUniforms(),
         uCoverage: { value: null },
         uFill: { value: 0.16 },
         uContour: { value: 0.75 },
@@ -436,6 +454,9 @@ export class WhaleRenderer {
     const w = cfg.whales;
     for (const mat of [this.spaceMat, this.markMat, this.linkMat]) setFlat(mat.uniforms, view);
     const su = this.spaceMat.uniforms;
+    setLossUniforms(su, cfg);
+    const [lo, mi, hi] = cfg.bands.map(bandCenter);
+    (su.uBandFreq.value as THREE.Vector3).set(lo, mi, hi);
     su.uLevels.value = levels;
     su.uCoverage.value = coverage;
     su.uFill.value = w.space.fill;

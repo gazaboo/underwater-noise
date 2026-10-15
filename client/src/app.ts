@@ -115,7 +115,7 @@ export class App {
     if (overrides.hud) this.hud.toggle(true);
 
     this.speciesKey = JSON.stringify(this.cfg.whales.species);
-    void Whales.create(this.cfg, `/data/grid/ocean_1024.png`, assets.elevationLinear, (lat, lon) => this.coverageAt(lat, lon), overrides.scene).then((w) => {
+    void Whales.create(this.cfg, `/data/grid/ocean_1024.png`, assets.elevationLinear, assets.elevationNearest, (lat, lon) => this.coverageAt(lat, lon), overrides.scene).then((w) => {
       this.whales = w;
       if (overrides.scene === 'duo') this.nav.goTo(8.1, 43.4, 22);
     }, (e) => console.error('[cétacés] initialisation impossible :', e));

@@ -17,7 +17,40 @@
  * Détails et hypothèses : docs/MODELE_PHYSIQUE.md.
  */
 import * as THREE from 'three';
-import { thorpAbsorptionDbPerKm, bandCenter, type Config } from '@vacarme/shared';
+import { thorpAbsorptionDbPerKm, bandCenter, naturalLevel, BOTTOM_LOSS_FULL_DEPTH, BOTTOM_LOSS_ZERO_DEPTH, type Config } from '@vacarme/shared';
+
+/**
+ * Pertes au fond et coupure modale en GLSL : transcription exacte de lossRateDbPerKm()
+ * (shared/src/acoustics/propagation.ts), hors absorption de Thorp et perte supplémentaire.
+ */
+export const LOSS_UNIFORMS_GLSL = /* glsl */ `
+uniform float uBounceLoss;  // dB par rebond
+uniform float uTanGraze;    // tan(angle de rasance)
+uniform float uSedimentC;   // célérité du sédiment (m/s)
+uniform float uCutoffLoss;  // dB/km sous la coupure
+float bottomLossRate(float depth) {
+  float h = max(depth, 5.0);
+  float w = clamp((${BOTTOM_LOSS_ZERO_DEPTH.toFixed(1)} - h) / (${BOTTOM_LOSS_ZERO_DEPTH.toFixed(1)} - ${BOTTOM_LOSS_FULL_DEPTH.toFixed(1)}), 0.0, 1.0);
+  return uBounceLoss * 1000.0 * uTanGraze / (2.0 * h) * w;
+}
+vec3 cutoffLossRate(float depth, vec3 f) {
+  float h = max(depth, 5.0);
+  float r = 1500.0 / uSedimentC;
+  float fc = 1500.0 / (4.0 * h * sqrt(max(1e-6, 1.0 - r * r)));
+  return uCutoffLoss * clamp((fc / f - 0.8) / 0.4, 0.0, 1.0);
+}`;
+
+export function lossUniforms(): Record<string, THREE.IUniform> {
+  return { uBounceLoss: { value: 0.5 }, uTanGraze: { value: Math.tan(Math.PI / 18) }, uSedimentC: { value: 1700 }, uCutoffLoss: { value: 5 } };
+}
+
+export function setLossUniforms(u: Record<string, THREE.IUniform>, cfg: Config): void {
+  const p = cfg.physics;
+  u.uBounceLoss.value = p.bottomBounceLossDb;
+  u.uTanGraze.value = Math.tan((p.grazingAngleDeg * Math.PI) / 180);
+  u.uSedimentC.value = p.sedimentSoundSpeed;
+  u.uCutoffLoss.value = p.cutoffLossDbPerKm;
+}
 import { FullscreenPass, rawMaterial } from '../render/fullscreen.ts';
 
 /** Paramètres numériques fixes (non artistiques : la calibration en dépend). */
@@ -42,9 +75,8 @@ uniform float uPolarCap;
 uniform vec3 uAlpha;        // absorption par bande (dB/km)
 uniform vec3 uBandFreq;     // fréquence représentative (Hz)
 uniform float uCellKm;
-uniform float uShallowLoss; // dB/km sur le plateau
-uniform float uExtraLoss;   // dB/km partout (correction empirique)
-uniform float uBottomLoss;
+uniform float uExtraLoss;   // dB/km partout (0 par défaut)
+${LOSS_UNIFORMS_GLSL}
 uniform float uDampingScale; // 0 pour la calibration (étalement seul)
 
 const float COURANT = ${PHYS_COURANT.toFixed(3)};
@@ -66,13 +98,10 @@ void main() {
 
   // Pertes par bande, converties en amortissement par pas :
   // une onde parcourt C cellules par pas ; perte d'énergie (dB/cellule) = 8,686 · g / C.
+  // Même modèle de pertes que l'équation du sonar des cétacés (shared/src/acoustics/propagation.ts).
   float depth = 10.0 * pow(1100.0, ocean.g);
-  float shelf = clamp((200.0 - depth) / 150.0, 0.0, 1.0);
-  vec3 dbPerKm = uAlpha + uShallowLoss * shelf + uExtraLoss;
+  vec3 dbPerKm = uAlpha + uExtraLoss + vec3(bottomLossRate(depth)) + cutoffLossRate(depth, uBandFreq);
   vec3 g = dbPerKm * uCellKm * COURANT / 8.686;
-  // Coupure modale en eau peu profonde (fond sédimentaire, c_b ≈ 1700 m/s) : f_c ≈ 797 / h Hz.
-  float fc = 797.0 / depth;
-  g += uBottomLoss * clamp((fc / uBandFreq - 0.8) / 0.4, 0.0, 1.0);
   g *= uDampingScale;
   g += 0.3 * ocean.b; // côtes absorbantes
   if (uSponge > 0.0) {
@@ -196,9 +225,8 @@ export class PhysicsField {
       uAlpha: { value: new THREE.Vector3() },
       uBandFreq: { value: new THREE.Vector3(20, 224, 3162) },
       uCellKm: { value: this.cellMeters / 1000 },
-      uShallowLoss: { value: 0.01 },
       uExtraLoss: { value: 0 },
-      uBottomLoss: { value: 0.08 },
+      ...lossUniforms(),
       uDampingScale: { value: 1 },
     };
     this.eu = { uCur: { value: null }, uEnergy: { value: null }, uBeta: { value: 0.01 } };
@@ -223,11 +251,11 @@ export class PhysicsField {
     const f = [low, mid, high].map(bandCenter);
     (this.su.uAlpha.value as THREE.Vector3).set(...(f.map(thorpAbsorptionDbPerKm) as [number, number, number]));
     (this.su.uBandFreq.value as THREE.Vector3).set(f[0], f[1], f[2]);
-    this.su.uShallowLoss.value = cfg.physics.shallowLossDbPerKm;
     this.su.uExtraLoss.value = cfg.physics.extraLossDbPerKm;
-    this.su.uBottomLoss.value = cfg.physics.bottomLoss;
+    setLossUniforms(this.su, cfg);
     this.su.uPolarCap.value = (cfg.waves.polarCapLat * Math.PI) / 180;
-    (this.au.uNatural.value as THREE.Vector3).set(low.naturalDb, mid.naturalDb, high.naturalDb);
+    const wind = cfg.ambient.windSpeedMs;
+    (this.au.uNatural.value as THREE.Vector3).set(naturalLevel(low, wind), naturalLevel(mid, wind), naturalLevel(high, wind));
     const w = cfg.accumulation.bandWeights;
     (this.au.uWeights.value as THREE.Vector3).set(w.low, w.mid, w.high);
   }

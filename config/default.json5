@@ -131,23 +131,36 @@
   },
 
   // Bandes d'analyse acoustique (Hz) — utilisées par le champ physique (J3).
-  // naturalDb : bruit ambiant naturel (vent, vagues, turbulence) dans la bande, sans navires —
-  // ordres de grandeur d'après les courbes de Wenz pour un état de mer ~3 (dB re 1 µPa, niveau de bande).
+  // Bandes d'analyse. Le bruit naturel de chaque bande (naturalDb) est calculé par le serveur à partir du
+  // modèle `ambient` ci-dessous ; on peut le forcer en ajoutant naturalDb (à documenter alors).
   bands: [
-    { id: 'low', fMin: 10, fMax: 40, naturalDb: 88 }, // rorqual bleu, rorqual commun
-    { id: 'mid', fMin: 100, fMax: 500, naturalDb: 88 }, // baleine à bosse
-    { id: 'high', fMin: 1000, fMax: 10000, naturalDb: 92 }, // orque, cachalot
+    { id: 'low', fMin: 10, fMax: 40 }, // rorqual bleu, rorqual commun
+    { id: 'mid', fMin: 100, fMax: 500 }, // baleine à bosse
+    { id: 'high', fMin: 1000, fMax: 10000 }, // orque, cachalot
   ],
 
+  // Bruit ambiant naturel (sans navires) : turbulence + vent + agitation thermique, modèle empirique de
+  // Coates (1990) repris par Stojanovic (2007) et Lucani et al. (2008, éq. 4–8). La composante « trafic
+  // lointain » est exclue : les navires sont modélisés un par un. Voir docs/REVUE_SCIENTIFIQUE.md §4.5.
+  ambient: {
+    windSpeedMs: 5, // choix : mer modérée (haut de l'échelle 3 de Beaufort). Donne 83,8 / 88,1 / 93,2 dB.
+  },
+
   // Champ de bruit physique : grille calibrée en dB (voir docs/MODELE_PHYSIQUE.md).
+  // Les pertes ci-dessous s'appliquent à l'identique au bruit des navires ET aux appels des cétacés.
   physics: {
     enabled: true,
     energyTauSec: 6, // moyenne de l'énergie : lisse les fluctuations des sources
-    bottomLoss: 0.08, // eau très peu profonde : la bande basse ne se propage plus (coupure modale)
-    shallowLossDbPerKm: 0.01, // perte générique sur le plateau continental (< 200 m)
-    // Correction empirique : l'étalement purement cylindrique (10·log r) surestime le bruit loin des
-    // sources (≈ +5 à 10 dB à 2 000 km). 0,004 dB/km retire ~8 dB sur 2 000 km. 0 = modèle pur.
-    extraLossDbPerKm: 0.004,
+    // Eau peu profonde (< 200 m, rien au-delà de 400 m) : perte par rebond × rebonds par km,
+    // rebonds/km = 1000·tan θ / (2h). Seul le produit (perte × tan θ) compte. Calé (pas mesuré) pour que la
+    // perte totale reproduise l'« étalement pratique » 15·log r entre 10 et 50 km par 50–100 m de fond :
+    // 0,09 dB/rebond à θ = 10° → ≈ 0,08 dB/km par 100 m de fond, 0,16 par 50 m, 0,4 par 20 m.
+    bottomBounceLossDb: 0.09,
+    grazingAngleDeg: 10,
+    // Coupure modale (guide de Pekeris) : f_c = c / (4h·√(1 − c²/c_b²)) ; c_b = 1 700 m/s (fond sableux, empirique).
+    sedimentSoundSpeed: 1700,
+    cutoffLossDbPerKm: 5, // sous la coupure, aucun mode ne se propage : extinction en quelques km (valeur empirique)
+    extraLossDbPerKm: 0, // aucune perte arbitraire (l'ancienne valeur 0,004 dB/km, non sourcée, est retirée)
   },
 
   // Accumulation : l'océan se « sature » progressivement là où le trafic dure.
