@@ -13,6 +13,7 @@ tools/.venv/
 tools/.venv-science/
 data/science/*.json
 !data/science/*.example.json
+!data/science/validation-summary.json
 __pycache__/
 *.log
 

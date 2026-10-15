@@ -204,6 +204,116 @@ class CalibrationTests(unittest.TestCase):
         self.assertEqual(factor, 2.)
 
 
+class ReplayTests(unittest.TestCase):
+    def test_concurrent_requests_have_one_replay_writer(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from replay import exclusive_conversion
+        import time
+        calls = []
+        @exclusive_conversion
+        def convert(source, out):
+            calls.append(source)
+            time.sleep(.02)
+            out.write_text('complete replay')
+            result = {'source': source.name}
+            Path(f'{out}.json').write_text(json.dumps(result))
+            return result
+        with tempfile.TemporaryDirectory() as directory:
+            source, target = Path(directory) / 'source.csv', Path(directory) / 'replay.gz'
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                results = list(pool.map(lambda _: convert(source, target), range(2)))
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(results, [{'source': 'source.csv'}] * 2)
+            self.assertEqual(target.read_text(), 'complete replay')
+            with self.assertRaisesRegex(ValueError, 'autre fichier'):
+                convert(Path(directory) / 'other.csv', target)
+
+
+class SummaryTests(unittest.TestCase):
+    def test_criterion_counts_station_day_band_rows_and_filters_low_bands(self):
+        from summarize import criterion, numeric_range
+        rows = [{'band': b, 'diffL50Db': x} for b, x in [('d125', 3.), ('mid', -3.), ('high', 3.01), ('low', 0.), ('d63', 0.)]]
+        self.assertEqual(criterion(rows), {'comparisons': 3, 'within3Db': 2, 'within3DbFraction': 2 / 3})
+        self.assertIsNone(criterion([])['within3DbFraction'])
+        self.assertEqual(numeric_range([-4., 0., 10.]), {'min': -4., 'median': 0., 'max': 10.})
+        with self.assertRaises(ValueError): numeric_range([math.nan])
+
+    def test_summary_uses_active_scenario_not_era5(self):
+        from summarize import published_summary
+        from unittest.mock import patch
+        specs = [{'id': 'x', 'role': 'holdout'}]
+        records = [{'station': 'x', 'variant': v, 'band': 'mid', 'day': '2019-01-01',
+                    'fMinHz': 100., 'fMaxHz': 500., 'diffL50Db': d} for v, d in [('world-law', 1.), ('world-law-wind5', 12.), ('world-law-calibrated-wind5', -5.)]]
+        with patch('summarize.read', return_value={'name': 'fixture', 'deployment': {'lat': 55., 'lon': 10.}}):
+            a = published_summary('north-sea-reference-v1', {'document': 'fixture', 'version': 1}, specs, records, 'fixture')
+            b = published_summary('north-sea-reference-v2', {'document': 'fixture', 'version': 1}, specs, records, 'fixture')
+        self.assertEqual(a['regions'][0]['bands'][0]['diffL50Db']['median'], 12.)
+        self.assertEqual(b['regions'][0]['bands'][0]['diffL50Db']['median'], -5.)
+        self.assertEqual(a['regions'][0]['days'], 1)
+
+    def test_incomplete_test_is_not_read_or_published(self):
+        from summarize import publish
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        args = SimpleNamespace(protocol=Path('fixture-protocol'), runs=Path('fixture-runs'))
+        with patch('summarize.read', side_effect=[{'stations': []}, {'status': 'started'}]) as reader:
+            with self.assertRaisesRegex(ValueError, 'non terminée'): publish(args)
+        self.assertEqual(reader.call_count, 2)
+
+    def test_publication_keeps_excluded_days_and_validates_real_schema(self):
+        from summarize import publish, VARIANTS
+        from unittest.mock import patch
+        from types import SimpleNamespace
+        import hashlib
+        sha = lambda p: hashlib.sha256(p.read_bytes()).hexdigest()
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); runs = root / 'runs'; runs.mkdir()
+            stations = root / 'stations'; stations.mkdir()
+            days = {'2019-01-01': None, '2019-01-02': None}
+            spec = {'id': 'fixture', 'role': 'holdout', 'days': days}
+            protocol = root / 'protocol.json'
+            protocol.write_text(json.dumps({'version': 1, 'document': 'fixture', 'stations': [spec]}))
+            fixture = {'id': 'fixture', 'name': 'fixture', 'split': 'holdout',
+                       'deployment': {'station': 'FIXTURE', 'lat': 55., 'lon': 10., 'receiverDepthM': 10.},
+                       'qc': {'status': 'reviewed', 'excludeBands': [], 'excludePeriods': [
+                           {'start': '2019-01-02T00:00:00Z', 'end': '2019-01-03T00:00:00Z'}], 'flags': []}}
+            station = stations / 'fixture.json'; station.write_text(json.dumps(fixture))
+            calibration = root / 'calibration.json'
+            calibration.write_text(json.dumps({'physics': {'bottomBounceLossDb': .1}, 'transitionFactor': 1.,
+                'objective': {'reference': 10., 'calibrated': 9.}, 'maxReferenceIdentityErrorDb': 0.,
+                'crossValidation': [], 'inputHashes': {'fixture.json': sha(station)}}))
+            (runs / 'execution.json').write_text(json.dumps({'status': 'complete', 'started': 'fixture', 'completed': 'fixture',
+                'physicsSha256': sha(calibration), 'protocolSha256': sha(protocol)}))
+            for day in days:
+                prefix = 'fixture-' + day.replace('-', '')
+                station_run = runs / f'{prefix}-station.json'; station_run.write_bytes(station.read_bytes())
+                row = {'station': 'FIXTURE', 'start': day + 'T00:15:00Z', 'end': day + 'T00:16:00Z',
+                       'lat': 55., 'lon': 10., 'receiverDepthM': 10., 'bandHz': 125, 'observedDb': 100.}
+                observations = runs / f'{prefix}-observations.csv'
+                with observations.open('w', newline='') as f:
+                    writer = csv.DictWriter(f, fieldnames=list(row)); writer.writeheader(); writer.writerow(row)
+                for variant in VARIANTS:
+                    prediction = {'model': 'ambient-only' if variant == 'ambient-only' else 'world-law',
+                        'profileId': 'fixture', 'parameters': {'physicsSource': 'fixture'}, 'station': fixture['deployment'],
+                        'bands': [{'id': 'd125', 'kind': 'decidecade', 'decidecadesHz': [125], 'fMin': 112., 'fMax': 141.}],
+                        'windows': [{'start': row['start'], 'end': row['end'], 'status': 'ok', 'shipsDb': [100.], 'ambientDb': [80.]}]}
+                    pred = runs / f'{prefix}-{variant}.json'; pred.write_text(json.dumps(prediction))
+                    report = evaluate(prediction, [row], fixture)
+                    report.update(variant=variant, inputHashes={p.name: sha(p) for p in [pred, station_run, observations]})
+                    (runs / f'{prefix}-{variant}-report.json').write_text(json.dumps(report))
+            args = SimpleNamespace(protocol=protocol, runs=runs, calibration=calibration, out=root / 'out',
+                profile='north-sea-reference-v1', document=root / 'report.md', summary=root / 'summary.json')
+            with patch('summarize.HERE', root): publish(args)
+            summary = json.loads(args.summary.read_text())
+            results = json.loads((args.out / 'results.json').read_text())
+            self.assertEqual(summary['regions'][0]['days'], 1)
+            self.assertEqual(len(results['reportsIncludingEmpty']), 10)
+            self.assertEqual(len(results['stationDayBand']), 5)
+            self.assertEqual(len(list((args.out / 'reports').glob('*.json'))), 10)
+            self.assertIn('2019-01-02 | —', args.document.read_text())
+            self.assertTrue((args.out / 'fixture-timeseries.png').exists())
+
+
 class ValidationTests(unittest.TestCase):
     def setUp(self):
         self.prediction = {
