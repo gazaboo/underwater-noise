@@ -1,0 +1,509 @@
+{
+ "size": 2048,
+ "cell": 256,
+ "cols": 8,
+ "source": "Quaternius, Ultimate Stylized Nature (CC0 1.0) ; montagnes, volcans, fumées et nuages procéduraux (tools/ornaments/render_cells.py)",
+ "sprites": [
+  {
+   "name": "forest_tropical_0",
+   "category": "forest_tropical",
+   "index": 0,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.9065
+  },
+  {
+   "name": "forest_tropical_1",
+   "category": "forest_tropical",
+   "index": 1,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.9065
+  },
+  {
+   "name": "forest_tropical_2",
+   "category": "forest_tropical",
+   "index": 2,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.9065
+  },
+  {
+   "name": "forest_tropical_3",
+   "category": "forest_tropical",
+   "index": 3,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.9065
+  },
+  {
+   "name": "forest_temperate_0",
+   "category": "forest_temperate",
+   "index": 4,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.64
+  },
+  {
+   "name": "forest_temperate_1",
+   "category": "forest_temperate",
+   "index": 5,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.64
+  },
+  {
+   "name": "forest_temperate_2",
+   "category": "forest_temperate",
+   "index": 6,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.64
+  },
+  {
+   "name": "forest_temperate_3",
+   "category": "forest_temperate",
+   "index": 7,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.64
+  },
+  {
+   "name": "forest_boreal_0",
+   "category": "forest_boreal",
+   "index": 8,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 3.6328
+  },
+  {
+   "name": "forest_boreal_1",
+   "category": "forest_boreal",
+   "index": 9,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 3.6328
+  },
+  {
+   "name": "forest_boreal_2",
+   "category": "forest_boreal",
+   "index": 10,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 3.6328
+  },
+  {
+   "name": "forest_boreal_3",
+   "category": "forest_boreal",
+   "index": 11,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 3.6328
+  },
+  {
+   "name": "savanna_0",
+   "category": "savanna",
+   "index": 12,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 1.5991
+  },
+  {
+   "name": "savanna_1",
+   "category": "savanna",
+   "index": 13,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 1.5991
+  },
+  {
+   "name": "savanna_2",
+   "category": "savanna",
+   "index": 14,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 1.5991
+  },
+  {
+   "name": "meadow_0",
+   "category": "meadow",
+   "index": 15,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.4951
+  },
+  {
+   "name": "meadow_1",
+   "category": "meadow",
+   "index": 16,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.4951
+  },
+  {
+   "name": "meadow_2",
+   "category": "meadow",
+   "index": 17,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.4951
+  },
+  {
+   "name": "desert_0",
+   "category": "desert",
+   "index": 18,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 1.4003
+  },
+  {
+   "name": "desert_1",
+   "category": "desert",
+   "index": 19,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 1.4003
+  },
+  {
+   "name": "desert_2",
+   "category": "desert",
+   "index": 20,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 1.4003
+  },
+  {
+   "name": "tundra_0",
+   "category": "tundra",
+   "index": 21,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 1.2834
+  },
+  {
+   "name": "tundra_1",
+   "category": "tundra",
+   "index": 22,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 1.2834
+  },
+  {
+   "name": "tundra_2",
+   "category": "tundra",
+   "index": 23,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 1.2834
+  },
+  {
+   "name": "mountain_snow_0",
+   "category": "mountain_snow",
+   "index": 24,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.8397
+  },
+  {
+   "name": "mountain_snow_1",
+   "category": "mountain_snow",
+   "index": 25,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.8397
+  },
+  {
+   "name": "mountain_snow_2",
+   "category": "mountain_snow",
+   "index": 26,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.8397
+  },
+  {
+   "name": "mountain_snow_3",
+   "category": "mountain_snow",
+   "index": 27,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.8397
+  },
+  {
+   "name": "mountain_rock_0",
+   "category": "mountain_rock",
+   "index": 28,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 3.0225
+  },
+  {
+   "name": "mountain_rock_1",
+   "category": "mountain_rock",
+   "index": 29,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 3.0225
+  },
+  {
+   "name": "mountain_rock_2",
+   "category": "mountain_rock",
+   "index": 30,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 3.0225
+  },
+  {
+   "name": "mountain_rock_3",
+   "category": "mountain_rock",
+   "index": 31,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 3.0225
+  },
+  {
+   "name": "mesa_0",
+   "category": "mesa",
+   "index": 32,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.73
+  },
+  {
+   "name": "mesa_1",
+   "category": "mesa",
+   "index": 33,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 2.73
+  },
+  {
+   "name": "volcano_0",
+   "category": "volcano",
+   "index": 34,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 3.0895
+  },
+  {
+   "name": "volcano_1",
+   "category": "volcano",
+   "index": 35,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 3.0895
+  },
+  {
+   "name": "volcano_2",
+   "category": "volcano",
+   "index": 36,
+   "pivot": [
+    0.5,
+    0.24
+   ],
+   "scale": 3.0895
+  },
+  {
+   "name": "smoke_0",
+   "category": "smoke",
+   "index": 37,
+   "pivot": [
+    0.5,
+    0.5
+   ],
+   "scale": 1.2241
+  },
+  {
+   "name": "smoke_1",
+   "category": "smoke",
+   "index": 38,
+   "pivot": [
+    0.5,
+    0.5
+   ],
+   "scale": 1.2241
+  },
+  {
+   "name": "cloud_0",
+   "category": "cloud",
+   "index": 39,
+   "pivot": [
+    0.5,
+    0.5
+   ],
+   "scale": 2.2967
+  },
+  {
+   "name": "cloud_1",
+   "category": "cloud",
+   "index": 40,
+   "pivot": [
+    0.5,
+    0.5
+   ],
+   "scale": 2.2967
+  },
+  {
+   "name": "cloud_2",
+   "category": "cloud",
+   "index": 41,
+   "pivot": [
+    0.5,
+    0.5
+   ],
+   "scale": 2.2967
+  },
+  {
+   "name": "cloud_3",
+   "category": "cloud",
+   "index": 42,
+   "pivot": [
+    0.5,
+    0.5
+   ],
+   "scale": 2.2967
+  }
+ ],
+ "categories": {
+  "forest_tropical": [
+   0,
+   1,
+   2,
+   3
+  ],
+  "forest_temperate": [
+   4,
+   5,
+   6,
+   7
+  ],
+  "forest_boreal": [
+   8,
+   9,
+   10,
+   11
+  ],
+  "savanna": [
+   12,
+   13,
+   14
+  ],
+  "meadow": [
+   15,
+   16,
+   17
+  ],
+  "desert": [
+   18,
+   19,
+   20
+  ],
+  "tundra": [
+   21,
+   22,
+   23
+  ],
+  "mountain_snow": [
+   24,
+   25,
+   26,
+   27
+  ],
+  "mountain_rock": [
+   28,
+   29,
+   30,
+   31
+  ],
+  "mesa": [
+   32,
+   33
+  ],
+  "volcano": [
+   34,
+   35,
+   36
+  ],
+  "smoke": [
+   37,
+   38
+  ],
+  "cloud": [
+   39,
+   40,
+   41,
+   42
+  ]
+ }
+}

@@ -81,7 +81,10 @@
     oceanShallow: '#030a10',
     oceanDeep: '#000102',
     bathyRelief: 0.4, // relief du fond marin, à peine perceptible
-    land: '#000000',
+    land: '#000000', // aplat (land.style = 'flat')
+    // Terres « gouache » (land.style = 'gouache') : discrètes la nuit, pour que les ondes restent le sujet.
+    landLight: 0.3, // luminosité générale des terres (artistique)
+    landTint: '#ffdcb4', // teinte chaude multipliée (artistique)
     coast: '#1b2a36',
     coastOpacity: 0.55,
     unknownDim: 0.4, // zones jamais observées par l'AIS : dans l'ombre (terra incognita)
@@ -99,6 +102,8 @@
     oceanDeep: '#163a56',
     bathyRelief: 0.6,
     land: '#cfc7b4',
+    landLight: 0.95,
+    landTint: '#fff4e4',
     coast: '#4e4a40',
     coastOpacity: 0.8,
     unknownDim: 0.8,
@@ -106,6 +111,67 @@
     fog: '#24445c',
     wave: '#eef8ff',
     ship: '#ffffff',
+  },
+
+  // Terres peintes, façon gouache / aquarelle (inspiration : illustrations du Petit Prince).
+  // Tout est artistique, sauf les couleurs de départ (Natural Earth II, Tom Patterson, domaine public :
+  // couverture du sol stylisée, pas une mesure) et la position des volcans (Smithsonian GVP).
+  land: {
+    // 'illustre' : monde illustré (milieux, paliers de relief, côtes, ornements visibles dans tous les modes,
+    // demi-sphère comprise) ; 'gouache' : première proposition ; 'flat' : aplat palette.land (rendu d'origine).
+    style: 'illustre',
+    // Monde illustré. Cartes précalculées par tools/build_illustrated.py (milieux : interprétation artistique
+    // des couleurs Natural Earth II ; relief : ETOPO, sourcé, exagéré). Toutes les valeurs ci-dessous sont artistiques.
+    illustrated: {
+      // Nuit (installation) : terres sombres et chaudes, discrètes ; les ondes restent le sujet.
+      night: {
+        ice: '#3a4148', tundra: '#302f27', boreal: '#1d2a22', temperate: '#28331e', tropical: '#1b2f1d',
+        grass: '#333a22', savanna: '#403722', sand: '#463a29', rock: '#422e26',
+        mountain: '#40342d', snow: '#5a5f66', beach: '#4b412e',
+        shelf: '#0a1a20', ripple: '#1a3139',
+        ornament: '#6d675b', // pénombre chaude multipliée sur les vignettes (les cratères gardent leur lueur)
+      },
+      // Jour (lecture de la carte, touche J) : palette d'illustration, d'après les références visuelles.
+      day: {
+        ice: '#eef3f8', tundra: '#b6b893', boreal: '#3f7a5a', temperate: '#67a74c', tropical: '#2f8c45',
+        grass: '#a3c868', savanna: '#d8c078', sand: '#ebd197', rock: '#c88d66',
+        mountain: '#ab8678', snow: '#f7f9fc', beach: '#f2e0ae',
+        shelf: '#4aa6b8', ripple: '#d2f1f4',
+        ornament: '#ffffff',
+      },
+      tone: 0.6, // variation de ton héritée de NE II à l'intérieur d'un milieu
+      relief: 1.0, // lumière précalculée : ombré, ombres portées, vallées
+      // Paliers d'altitude (couches de papier) : ombre portée vers le sud-est et liseré éclairé au nord-ouest.
+      terraces: { enabled: true, shadow: 0.45, lip: 0.35, shadowPx: 2.5 },
+      snow: 1.0, // neiges éternelles : limite d'ordre de grandeur selon la latitude
+      rock: 0.7, // roche nue en altitude
+      // Côtes : plage (largeur à l'écran, en pixels CSS), ombre des terres sur la mer, liseré éclairé.
+      coast: { beachPx: 2.5, beach: 0.8, shadowPx: 4, shadow: 0.45, rim: 0.35 },
+      shelf: 0.6, // teinte du plateau continental (profondeur ETOPO < 200 m)
+      // Lignes d'eau fixes le long des côtes, fines et discrètes (à distinguer des ondes, qui bougent).
+      ripples: { enabled: true, spacingPx: 6, strength: 0.18 },
+    },
+    saturation: 1.7, // NE II est pastel : on ravive
+    steps: 5, // paliers de luminosité (aplats) ; 0 = dégradé continu
+    relief: 0.9, // relief ombré d'après ETOPO (lumière chaude au nord-ouest, ombre froide)
+    brushScale: 1.2, // taille des coups de pinceau (degrés)
+    brushWarp: 0.5, // déformation des frontières entre aplats
+    granulation: 0.35, // grain du pigment
+    wetEdge: 0.5, // pigment accumulé le long des côtes
+    // Petits arbres sur les forêts (indice de forêt tiré des couleurs NE II, artistique) et volcans holocènes
+    // émergés (positions : Smithsonian GVP). Carte plate seulement, au-delà de minZoom.
+    // Gouache (première proposition) : minZoom, treeDensity, volcanoSize. Monde illustré : vignettes rendues avec
+    // Blender (pack Quaternius CC0, montagnes et volcans procéduraux), hors d'échelle comme dans un livre illustré ;
+    // size, growth, density, vegetation, mountains, smoke, clouds. volcanoes et smokeSinceYear servent aux deux.
+    ornaments: {
+      enabled: true, minZoom: 3, treeDensity: 0.55, volcanoes: true, volcanoSize: 14, smokeSinceYear: 2010,
+      size: 34, growth: 0.45, density: 1.0, vegetation: true, mountains: true, smoke: true,
+      clouds: { enabled: true, count: 26, opacity: 0.9, speed: 1.0 },
+    },
+    // Grain de papier sur toute l'image (océan compris), en espace écran.
+    paper: { enabled: true, strength: 0.35, scale: 1.0 },
+    // Ciel étoilé et halo d'atmosphère autour du globe à l'écran (jamais projeté hors de la demi-sphère).
+    stars: { enabled: true, density: 0.5, twinkle: 0.5, halo: 0.5 },
   },
 
   // Surcharges propres à chaque cible.

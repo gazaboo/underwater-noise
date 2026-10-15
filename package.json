@@ -17,7 +17,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc -p shared --noEmit && tsc -p server --noEmit && tsc -p client --noEmit",
-    "data": "uv run tools/build_bathymetry.py && uv run tools/build_routes.py"
+    "data": "uv run tools/build_bathymetry.py && uv run tools/build_routes.py && uv run tools/build_landcover.py && uv run tools/build_illustrated.py"
   },
   "engines": {
     "node": ">=20"

@@ -51,6 +51,9 @@ const palette = z.object({
   /** Intensité du relief bathymétrique (0 = invisible). */
   bathyRelief: unit,
   land: color,
+  /** Terres « gouache » : luminosité générale (basse la nuit) et teinte multipliée (chaleur). */
+  landLight: unit,
+  landTint: color,
   coast: color,
   /** Luminosité relative des zones non observées par l'AIS (terra incognita) : 1 = aucune différence. */
   unknownDim: unit,
@@ -61,6 +64,38 @@ const palette = z.object({
   coastOpacity: unit,
   wave: color,
   ship: color,
+});
+
+/** Couleurs du monde illustré (une palette pour la nuit, une pour le jour). Toutes artistiques. */
+const illustratedPalette = z.object({
+  ice: color, tundra: color, boreal: color, temperate: color, tropical: color,
+  grass: color, savanna: color, sand: color, rock: color,
+  /** Roche d'altitude, neiges, plages. */
+  mountain: color, snow: color, beach: color,
+  /** Mer peu profonde du plateau continental, lignes d'eau le long des côtes. */
+  shelf: color, ripple: color,
+  /** Teinte multipliée des ornements (vignettes). */
+  ornament: color,
+});
+
+const illustrated = z.object({
+  night: illustratedPalette,
+  day: illustratedPalette,
+  /** Variation de ton héritée de Natural Earth II à l'intérieur d'un milieu. */
+  tone: unit,
+  /** Lumière précalculée du relief (ombré, ombres portées, vallées). */
+  relief: z.number().min(0).max(2),
+  /** Paliers d'altitude (relief « en couches de papier ») : ombre portée et liseré éclairé. */
+  terraces: z.object({ enabled: z.boolean(), shadow: unit, lip: unit, shadowPx: z.number().min(0).max(20) }),
+  /** Neiges éternelles (limite d'ordre de grandeur selon la latitude) et roche d'altitude. */
+  snow: unit,
+  rock: unit,
+  /** Côtes : plage (largeur à l'écran), ombre portée des terres sur la mer, liseré éclairé. */
+  coast: z.object({ beachPx: z.number().min(0).max(20), beach: unit, shadowPx: z.number().min(0).max(30), shadow: unit, rim: unit }),
+  /** Teinte du plateau continental (mer peu profonde). */
+  shelf: unit,
+  /** Lignes d'eau parallèles aux côtes (fixes : ne pas confondre avec les ondes sonores). */
+  ripples: z.object({ enabled: z.boolean(), spacingPx: z.number().min(2).max(40), strength: unit }),
 });
 
 /** Surcharges propres à une cible d'affichage (écran du portable / projecteur). */
@@ -215,6 +250,56 @@ export const configSchema = z.object({
     fallMinutes: z.number().min(0.01).max(1440),
     /** Intensité de la lueur. */
     strength: z.number().min(0).max(4),
+  }),
+  /** Terres peintes (gouache d'après Natural Earth II) et ornements « Petit Prince ». Paramètres artistiques. */
+  land: z.object({
+    /** 'illustre' : monde illustré (milieux, paliers de relief, côtes, ornements dans tous les modes) ;
+     *  'gouache' : terres peintes de la première proposition ; 'flat' : aplat `palette.land` (rendu d'origine). */
+    style: z.enum(['illustre', 'gouache', 'flat']),
+    /** Monde illustré (land.style = 'illustre'). Cartes précalculées par tools/build_illustrated.py. */
+    illustrated: illustrated,
+    /** Saturation des couleurs Natural Earth II (pastel à l'origine : > 1 les ravive). */
+    saturation: z.number().min(0).max(3),
+    /** Nombre de paliers de luminosité (aplats de gouache) ; 0 = dégradé continu. */
+    steps: z.number().int().min(0).max(12),
+    /** Intensité du relief ombré (lumière chaude, ombre froide). */
+    relief: z.number().min(0).max(2),
+    /** Taille des coups de pinceau (degrés) et amplitude de la déformation des frontières. */
+    brushScale: z.number().min(0.05).max(10),
+    brushWarp: unit,
+    /** Grain du pigment (granulation de l'aquarelle). */
+    granulation: unit,
+    /** Pigment accumulé au bord des côtes (bord « mouillé »). */
+    wetEdge: unit,
+    /** Petits arbres (forêts) et volcans (positions du Smithsonian GVP), visibles au zoom sur la carte plate. */
+    ornaments: z.object({
+      enabled: z.boolean(),
+      /** Zoom à partir duquel ils apparaissent (fondu). */
+      minZoom: z.number().min(1).max(40),
+      /** Part des cellules forestières qui portent un arbre. */
+      treeDensity: unit,
+      volcanoes: z.boolean(),
+      /** Taille des volcans à l'écran (pixels CSS, au zoom d'apparition). */
+      volcanoSize: z.number().min(2).max(80),
+      /** Panache de fumée pour les volcans dont la dernière éruption est postérieure à cette année. */
+      smokeSinceYear: z.number().int(),
+      /** Monde illustré : taille des vignettes (pixels CSS pour une Terre de 1000 px de diamètre). */
+      size: z.number().min(4).max(200),
+      /** Croissance des vignettes avec le zoom (0 = taille fixe à l'écran, 1 = proportionnelle). */
+      growth: z.number().min(0).max(1),
+      /** Densité : plus elle est forte, plus les niveaux de détail apparaissent tôt (vignettes serrées). */
+      density: z.number().min(0.1).max(4),
+      /** Arbres, buissons et pierres ; montagnes ; fumée des volcans récents. */
+      vegetation: z.boolean(),
+      mountains: z.boolean(),
+      smoke: z.boolean(),
+      /** Nuages peints dérivant vers l'est (artistiques, sans lien avec la météo). */
+      clouds: z.object({ enabled: z.boolean(), count: z.number().int().min(0).max(200), opacity: unit, speed: z.number().min(0).max(10) }),
+    }),
+    /** Grain de papier sur toute l'image (espace écran). */
+    paper: z.object({ enabled: z.boolean(), strength: unit, scale: z.number().min(0.2).max(10) }),
+    /** Ciel étoilé et halo d'atmosphère autour du globe (mode globe à l'écran seulement). */
+    stars: z.object({ enabled: z.boolean(), density: unit, twinkle: unit, halo: unit }),
   }),
   /** Matière de la terra incognita (zones non observées par l'AIS). */
   incognita: z.object({
