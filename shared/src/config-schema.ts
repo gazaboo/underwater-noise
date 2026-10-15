@@ -71,6 +71,10 @@ const targetOverride = z.object({
 });
 
 export const configSchema = z.object({
+  science: z.object({
+    mode: z.enum(['reference', 'experimental']).default('reference'),
+    dataset: z.string().default('data/science/north-sea.json'),
+  }).default({}),
   display: z.object({
     target: z.enum(['screen', 'projector']),
     /** flat : carte plate ; globe : globe à l'écran ; hemisphere : demi-sphère éclairée par un projecteur ;

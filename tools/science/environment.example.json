@@ -1,0 +1,18 @@
+{
+  "validFrom": "2019-10-01T00:00:00Z",
+  "validTo": "2019-10-01T00:01:00Z",
+  "depthMode": "receiver",
+  "maxSourceOffsetM": 100,
+  "grid": { "west": 2.99, "north": 55.01, "deltaLon": 0.02, "deltaLat": 0.02, "width": 1, "height": 1 },
+  "sources": [{ "id": "test-source", "lat": 55, "lon": 2.96864 }],
+  "provenance": {
+    "environment": "CAS IDÉAL DE TEST, non représentatif d’une mesure en mer du Nord",
+    "assumptions": ["Fond uniforme de 100 m", "Célérité uniforme 1500 m/s", "Sédiment fluide homogène choisi pour tester le moteur", "Trajet de 2 km approximatif : géométrie illustrative uniquement"]
+  },
+  "paths": [{
+    "sourceId": "test-source", "cellIndex": 0, "receiverDepthM": 50,
+    "bathymetry": [[0, 100], [2000, 100]],
+    "water": { "depthsM": [0, 100], "rangesM": [0], "soundSpeedMs": [[1500], [1500]] },
+    "sediment": { "soundSpeedMs": 1700, "densityGcm3": 1.8, "attenuationDbPerWavelength": 0.5 }
+  }]
+}

@@ -253,7 +253,7 @@ export class PhysicsField {
     (this.su.uBandFreq.value as THREE.Vector3).set(f[0], f[1], f[2]);
     this.su.uExtraLoss.value = cfg.physics.extraLossDbPerKm;
     setLossUniforms(this.su, cfg);
-    this.su.uPolarCap.value = (cfg.waves.polarCapLat * Math.PI) / 180;
+    this.su.uPolarCap.value = (79 * Math.PI) / 180; // numerical domain, independent of visual wave settings
     const wind = cfg.ambient.windSpeedMs;
     (this.au.uNatural.value as THREE.Vector3).set(naturalLevel(low, wind), naturalLevel(mid, wind), naturalLevel(high, wind));
     const w = cfg.accumulation.bandWeights;
@@ -318,6 +318,29 @@ export class PhysicsField {
   get energyTarget(): THREE.WebGLRenderTarget {
     return this.energy[0];
   }
+
+  /** Direct energy readout: independent of visual accumulation, palette and band weights. */
+  readComponents(renderer: THREE.WebGLRenderer, lat: number, lon: number, cfg: Config): number[] | null {
+    const d = this.domain;
+    const dx = ((((lon - d.lonCenter + 180) % 360) + 360) % 360) - 180;
+    const u = dx / d.lonSpan + 0.5, v = (d.latTop - lat) / d.latSpan;
+    if (u < 0 || u >= 1 || v < 0 || v >= 1 || Math.abs(lat) > 79) return null;
+    const image = this.ocean.image as HTMLImageElement;
+    if (image?.width && image?.height) {
+      // Cache the bathymetry mask once; no GPU readback or canvas allocation per cursor update.
+      if (!this.readMask) {
+        const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height;
+        const context = canvas.getContext('2d');
+        if (context) { context.drawImage(image, 0, 0); this.readMask = context.getImageData(0, 0, image.width, image.height); }
+      }
+      if (this.readMask && this.readMask.data[4 * (Math.floor(v * image.height) * image.width + Math.floor(u * image.width))] < 128) return null;
+    }
+    const e = new Float32Array(4);
+    renderer.readRenderTargetPixels(this.energyTarget, Math.floor(u * this.width), Math.floor(v * this.height), 1, 1, e);
+    return cfg.bands.flatMap((band, i) => [e[i] > 0 ? 10 * Math.log10(e[i]) + this.offsetDb : -Infinity, naturalLevel(band, cfg.ambient.windSpeedMs)]);
+  }
+
+  private readMask: ImageData | null = null;
 
   /** Lit les niveaux (dB) en un point. */
   readLevels(renderer: THREE.WebGLRenderer, lat: number, lon: number): [number, number, number, number] | null {

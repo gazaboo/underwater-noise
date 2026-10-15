@@ -20,6 +20,7 @@ import { SourceManager } from './sources/manager.ts';
 import { SimulationSource, type SimulationOptions } from './sources/simulation.ts';
 import { DensityGrid } from './sources/density.ts';
 import { EstimatedSource, type EstimatedOptions } from './sources/estimated.ts';
+import { ScienceStore } from './science-store.ts';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '../..');
 const DATA_DIR = join(ROOT, 'data');
@@ -43,6 +44,7 @@ try {
 }
 
 const store = new ConfigStore(join(ROOT, 'config'));
+const science = new ScienceStore(ROOT);
 store.watch();
 
 function simOptions(cfg: Config): SimulationOptions {
@@ -92,6 +94,11 @@ function readBody(req: IncomingMessage): Promise<string> {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://localhost');
   try {
+    if (url.pathname === '/api/science' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
+      res.end(JSON.stringify({ status: science.status(store.config), dataset: science.read(store.config) }));
+      return;
+    }
     if (url.pathname === '/api/config' && req.method === 'GET') {
       res.writeHead(200, { 'content-type': MIME['.json'] });
       res.end(JSON.stringify(store.config));
@@ -124,6 +131,7 @@ const wss = new WebSocketServer({ server, path: '/ws', perMessageDeflate: false 
 
 function sendConfig(ws: WebSocket): void {
   ws.send(JSON.stringify({ type: 'config', config: store.config }));
+  ws.send(JSON.stringify({ type: 'science', science: science.status(store.config) }));
 }
 
 function sendSnapshot(ws: WebSocket, buf: ArrayBuffer): void {

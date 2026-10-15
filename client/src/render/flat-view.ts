@@ -85,6 +85,10 @@ uniform vec3 uGlowColor;
 uniform vec3 uFogColor;
 uniform float uFogStrength, uFogScale, uFogDrift, uGrain, uWaveKeep;
 uniform int uDebugField;        // 0 : rendu ; 1 : niveau accumulé ; 2–4 : bandes basse, moyenne, haute
+uniform sampler2D uScience;
+uniform vec4 uScienceDomain; // west, north, lon span, lat span
+uniform int uScienceEnabled;
+uniform float uScienceExcess;
 
 uniform vec2 uResolution;
 uniform vec2 uCenter;
@@ -260,6 +264,19 @@ void main() {
       sea = debugRamp(db);
     }
 
+    if (uScienceEnabled > 0) {
+      vec2 scientificUv = vec2((mod(lon + 180.0, 360.0) - 180.0 - uScienceDomain.x) / uScienceDomain.z, (uScienceDomain.y - lat) / uScienceDomain.w);
+      bool inside = all(greaterThanEqual(scientificUv, vec2(0.0))) && all(lessThan(scientificUv, vec2(1.0)));
+      vec4 sampleValue = inside && uScienceEnabled == 1 ? texture(uScience, scientificUv) : vec4(0.0);
+      if (inside && sampleValue.g > 0.5) {
+        float value = clamp((sampleValue.r - (uScienceExcess > 0.5 ? 0.0 : 40.0)) / (uScienceExcess > 0.5 ? 30.0 : 100.0), 0.0, 1.0);
+        sea = mix(vec3(0.025, 0.07, 0.16), vec3(1.0, 0.75, 0.15), value);
+      } else {
+        float hatch = step(0.5, fract((frag.x + frag.y) / 14.0));
+        sea = mix(vec3(0.045, 0.055, 0.065), vec3(0.095, 0.11, 0.12), hatch);
+      }
+    }
+
     // --- Terres et trait de côte (fraction de terre interpolée : côte anti-crénelée).
     float frac = texture(uElevL, uv).b;
     float land = smoothstep(0.42, 0.58, frac);
@@ -296,6 +313,10 @@ export class FlatView {
       uDetailTexel: { value: new THREE.Vector2(1, 1) },
       uDetailWeight: { value: 0 },
       uLevels: { value: null },
+      uScience: { value: null },
+      uScienceDomain: { value: new THREE.Vector4(-20, 65, 35, 17) },
+      uScienceEnabled: { value: 0 },
+      uScienceExcess: { value: 0 },
       uLevelsTexel: { value: new THREE.Vector2(1, 1) },
       uHasLevels: { value: 0 },
       uQuietDb: { value: 95 },
@@ -349,6 +370,13 @@ export class FlatView {
   /** 0 : rendu ; 1 : niveau accumulé ; 2–4 : bandes basse, moyenne, haute. */
   debugField = 0;
 
+  setScience(texture: THREE.Texture | null, grid: { west: number; north: number; deltaLon: number; deltaLat: number; width: number; height: number } | null, excess: boolean, enabled: boolean): void {
+    this.uniforms.uScience.value = texture;
+    this.uniforms.uScienceEnabled.value = enabled ? texture ? 1 : 2 : 0;
+    this.uniforms.uScienceExcess.value = excess ? 1 : 0;
+    if (grid) (this.uniforms.uScienceDomain.value as THREE.Vector4).set(grid.west, grid.north, grid.width * grid.deltaLon, grid.height * grid.deltaLat);
+  }
+
   render(
     renderer: THREE.WebGLRenderer,
     wave: THREE.Texture,
@@ -362,6 +390,7 @@ export class FlatView {
   ): void {
     const u = this.uniforms;
     if (!u.uLevels.value) u.uLevels.value = wave; // texture valide même sans champ physique
+    if (!u.uScience.value) u.uScience.value = wave;
     const acc = cfg.accumulation;
     u.uQuietDb.value = acc.quietDb;
     u.uSatDb.value = acc.saturationDb;

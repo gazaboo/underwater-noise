@@ -10,6 +10,9 @@ data/recordings/
 data/coverage.png
 tools/.cache/
 tools/.venv/
+tools/.venv-science/
+data/science/*.json
+!data/science/*.example.json
 __pycache__/
 *.log
 

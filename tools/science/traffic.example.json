@@ -1,0 +1,9 @@
+{
+  "provenance": "CAS IDÉAL DE TEST : un navire fictif, aucun AIS réel",
+  "windProvenance": "CAS IDÉAL DE TEST : vent uniforme 5 m/s",
+  "assumptions": ["Fixture pour vérifier le logiciel, aucune précision en mer démontrée"],
+  "samples": [{
+    "time": "2019-10-01T00:00:00Z", "durationSec": 60, "windMs": 5, "coverage": "observed",
+    "ships": [{ "lat": 55, "lon": 2.96864, "speedKn": 12, "lengthM": 211, "shipClass": "bulker", "flags": 0 }]
+  }]
+}

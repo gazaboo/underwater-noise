@@ -5,6 +5,9 @@
 // config/local.json5 (écrit par le panneau de réglage, ignoré par git).
 // Le serveur recharge ces fichiers à chaud : modifiez, enregistrez, l'image suit.
 {
+  // Profil physique fixe ; les anciennes surcharges acoustiques locales sont ignorées en référence.
+  // Pour expérimenter : science.mode = 'experimental' (résultats signalés comme tels).
+  science: { mode: 'reference', dataset: 'data/science/north-sea.json' },
   display: {
     // Cible d'affichage : "screen" (écran du portable) ou "projector" (Epson EB-990U).
     // Surchargeable par l'URL : ?display=projector

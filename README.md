@@ -130,7 +130,14 @@ Le diagnostic (`D`) affiche la source active, l'état du direct (messages/s, nav
 
 ## Réglages
 
-Tous les paramètres artistiques et physiques sont dans **`config/default.json5`**, commenté ligne à ligne.
+**Fiabilité des décibels** : le panneau « Fiabilité » en haut à gauche distingue niveaux des navires,
+fond naturel et augmentation du bruit. Le profil physique de référence est fixe ; les réglages
+artistiques ne modifient pas ces lectures. La carte mondiale reste une estimation simplifiée non
+validée. La chaîne RAM régionale 63/125 Hz est disponible, sans champ régional réel fourni par défaut.
+Méthode et outils : [`docs/ACOUSTIQUE_SCIENTIFIQUE.md`](docs/ACOUSTIQUE_SCIENTIFIQUE.md).
+
+Les paramètres sont dans **`config/default.json5`**, commenté ligne à ligne. Le profil de référence fixe
+les hypothèses acoustiques ; `science.mode: 'experimental'` permet les variantes physiques.
 
 - Le serveur recharge la configuration **à chaud** : on modifie, on enregistre, l'image suit.
 - Le panneau (`P`) agit en direct ; « Enregistrer » écrit `config/local.json5` (ignoré par git),
