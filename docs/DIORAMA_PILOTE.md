@@ -1,3 +1,23 @@
+# Diorama : extension au globe entier
+
+Branche `diorama-globe`, issue de `diorama-pilote` (Codex). Le pilote régional (Andes, Amazonie) est étendu à **toute la Terre**, à la demande de l'auteur, pour être testé sur le globe complet.
+
+![Ensemble](captures/diorama-globe/ensemble-60.jpg)
+
+- **Terrain mondial** : grille de 0,25° (expo) ou 0,35° (léger), un sommet par nœud, couture de l'antiméridien soudée, triangles découpés au trait de côte comme dans le pilote. Expo : 392 000 sommets, 734 000 triangles de terrain, 395 000 triangles de falaises, construits en 2 à 3 s au premier affichage puis mis en cache (le zoom ne replace que la végétation).
+- **Relief** : socle et massifs plus modérés que dans le pilote, et calottes glaciaires abaissées. Vus de loin, les massifs du pilote formaient des palissades au limbe. Tout cela est artistique ; le réglage « relief » du panneau `P` permet de les relever.
+- **Couleurs** : limite des neiges selon la latitude (ordre de grandeur) et glaces polaires.
+- **Végétation, rochers, volcans et fumées** : sur toute la Terre (semis régulier sur la sphère, environ 5 100 instances avec les modèles détaillés en expo).
+- **Ombres** : elles couvrent toute la face visible, et le soleil reste fixe par rapport au regard pendant la rotation.
+
+**Mesure sur la Radeon 780M** (Chromium sans fenêtre, Vulkan, 1440×900, profil expo, ombres 4096², MSAA 4×) : 5,3 à 6,2 ms par image en médiane, 90e centile entre 8,2 et 9,6 ms selon la face présentée. À confirmer en 1920×1200 plein écran.
+
+Captures : [Amériques](captures/diorama-globe/ensemble-60.jpg) · [Afrique](captures/diorama-globe/ensemble20.jpg) · [Asie](captures/diorama-globe/ensemble100.jpg) · [Pacifique](captures/diorama-globe/ensemble-150.jpg) · détails [Afrique](captures/diorama-globe/detail-afrique.jpg), [Inde](captures/diorama-globe/detail-inde.jpg), [Caraïbes](captures/diorama-globe/detail-caraibes.jpg), [Indonésie](captures/diorama-globe/detail-indonesie.jpg).
+
+Le diorama reste réservé au **mode globe** (écran). Sur la demi-sphère, il demanderait de rendre la scène 3D avec la caméra du projecteur : c'est possible si le test est concluant.
+
+---
+
 # Pilote : une miniature naturelle des Andes et de l'Amazonie
 
 Branche `diorama-pilote`, issue de `directions-artistiques`. Le pilote couvre **88° O–48° O et 30° S–5° N**, avec raccord progressif au reste du globe. Il s'agit d'une exploration artistique régionale, pas d'une généralisation à toute la Terre.

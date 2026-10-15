@@ -58,7 +58,7 @@ export class SceneSwitcher {
     if (this.loadState === status) return; this.loadState = status;
     this.loadMessage.textContent = status === 'loading' ? 'Préparation de la miniature…' : status === 'error'
       ? 'La miniature n’a pas pu être chargée. La scène précédente est conservée.'
-      : 'Pilote régional · Relief et végétation artistiques · Glissez pour découvrir les volumes.';
+      : 'Globe entier · Relief et végétation artistiques · Glissez pour découvrir les volumes.';
     const cfg = this.getConfig();
     this.retry.hidden = status !== 'error' || cfg.scene.style !== 'diorama' || cfg.display.mode !== 'globe';
   }
@@ -77,7 +77,7 @@ export class SceneSwitcher {
     this.pilot.hidden = cfg.scene.style !== 'diorama' || cfg.display.mode !== 'globe';
     this.loadMessage.hidden = cfg.scene.style !== 'diorama' || cfg.display.mode !== 'globe';
     this.message.textContent = cfg.scene.style === 'diorama' && cfg.display.mode !== 'globe'
-      ? 'Le pilote se visite en mode globe (touche G). Le rendu actuel est conservé ici.' : supported
+      ? 'Le diorama se visite en mode globe (touche G). Le rendu actuel est conservé ici.' : supported
       ? `${cfg.display.mode === 'globe' ? 'Glisser pour tourner' : 'Glisser pour explorer'} · Molette : zoom · J : jour / nuit · P : réglages`
       : 'Rendu actuel pour cette projection. Revenez au globe ou à la carte pour comparer.';
   }

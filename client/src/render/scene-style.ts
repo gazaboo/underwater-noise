@@ -6,7 +6,7 @@ export const SCENE_STYLES: ReadonlyArray<{ id: SceneStyle; title: string; subtit
   { id: 'painted', title: 'Planète peinte', subtitle: '01 · Pigments & lumière' },
   { id: 'sculpted', title: 'Monde sculpté', subtitle: '02 · Argile & volumes' },
   { id: 'faceted', title: 'Atlas facetté', subtitle: '03 · Roches & facettes' },
-  { id: 'diorama', title: 'Diorama pilote', subtitle: '04 · Andes & Amazonie' },
+  { id: 'diorama', title: 'Diorama', subtitle: '04 · Globe entier' },
 ];
 export function supportsSceneStyle(mode: Config['display']['mode']): boolean {
   return mode === 'flat' || mode === 'globe';

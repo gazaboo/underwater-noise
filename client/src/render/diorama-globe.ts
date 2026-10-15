@@ -1,4 +1,4 @@
-/** Miniature naturelle régionale : modèles Blender originaux, terrain séparé des données océaniques. */
+/** Miniature naturelle du globe entier (d'après le pilote régional de Codex) : modèles Blender originaux, terrain séparé des données océaniques. */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { Config } from '@vacarme/shared';
@@ -55,11 +55,13 @@ export class DioramaGlobe {
   private cliffs:THREE.Mesh|null=null;
   private smoke:THREE.Points<THREE.BufferGeometry,THREE.ShaderMaterial>|null=null;
   private buildKey='';
+  private readonly terrains=new Map<string,ReturnType<typeof buildDioramaTerrain>>();
 
   constructor(private readonly assets:WorldAssets,private readonly volcanoes:Volcano[]){
     this.root.matrixAutoUpdate=false;this.root.add(this.body,this.landscape);this.scene.add(this.root,this.sun,this.sun.target,this.ambient);
     this.sun.castShadow=true;this.sun.shadow.bias=-.0003;this.sun.shadow.normalBias=.0015;
-    const c=this.sun.shadow.camera;c.left=-.8;c.right=.8;c.top=.8;c.bottom=-.8;c.near=.1;c.far=10;c.updateProjectionMatrix();
+    // Ombres sur toute la face visible (relief jusqu'à ≈ 1,3 rayon) : boîte centrée sur la Terre.
+    const c=this.sun.shadow.camera;c.left=-1.45;c.right=1.45;c.top=1.45;c.bottom=-1.45;c.near=.1;c.far=10;c.updateProjectionMatrix();
   }
   ensureLoaded(quality:Config['display']['quality']):void{
     if(this.libraries.has(quality)){if(this.loadingQuality!==quality){this.generation++;this.loadingQuality=quality}this.status='ready';return}
@@ -90,7 +92,7 @@ export class DioramaGlobe {
       shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvPigmentPosition=position;vPilotUv=uv;');
       shader.fragmentShader='uniform float uDioramaLight; uniform sampler2D uDioramaWorld; varying vec2 vPilotUv; varying vec3 vPigmentPosition;\n'+shader.fragmentShader;
       shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\ndiffuseColor.rgb*=0.96+0.04*sin(vPigmentPosition.x*2100.0)*sin(vPigmentPosition.z*1900.0+vPigmentPosition.y*1700.0);');
-      shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`outgoingLight=pow(max(outgoingLight,vec3(0.0)),vec3(1.0/2.2))*uDioramaLight;vec2 ll=vec2(vPilotUv.x*360.0-180.0,90.0-vPilotUv.y*180.0);float w=smoothstep(0.0,4.0,min(min(ll.x+88.0,-48.0-ll.x),min(ll.y+30.0,5.0-ll.y)));outgoingLight=mix(texture2D(uDioramaWorld,vec2(vPilotUv.x,1.0-vPilotUv.y)).rgb,outgoingLight,w);\n#include <opaque_fragment>`);
+      shader.fragmentShader=shader.fragmentShader.replace('#include <opaque_fragment>',`outgoingLight=pow(max(outgoingLight,vec3(0.0)),vec3(1.0/2.2))*uDioramaLight;\n#include <opaque_fragment>`);
     };
     return material;
   }
@@ -99,7 +101,7 @@ export class DioramaGlobe {
       if(o instanceof THREE.InstancedMesh)o.dispose();
       if(o instanceof THREE.Mesh||o instanceof THREE.Points){
         // Instances empruntent les géométries GLB mises en cache.
-        if(!(o instanceof THREE.InstancedMesh))o.geometry.dispose();
+        if(!(o instanceof THREE.InstancedMesh)&&!o.userData.cachedTerrain)o.geometry.dispose();
         for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();
       }
     });
@@ -108,16 +110,27 @@ export class DioramaGlobe {
   private rebuild(cfg:Config,zoom:number):void{
     this.grid??=readSurface(this.assets,2048);const grid=this.grid,relief=cfg.scene.relief;
     this.clearLandscape();
-    const terrain=buildDioramaTerrain(grid,cfg.display.quality,relief);
+    const t0=performance.now();
+    // Terrain du globe entier mis en cache (2 à 3 s de construction) : un changement de zoom ne replace que la végétation.
+    const terrainKey=`${cfg.display.quality}:${relief}`;
+    if(!this.terrains.has(terrainKey)){
+      for(const t of this.terrains.values()){t.ground.dispose();t.cliffs.dispose();}
+      this.terrains.clear();this.terrains.set(terrainKey,buildDioramaTerrain(grid,cfg.display.quality,relief));
+    }
+    const terrain=this.terrains.get(terrainKey)!;
     this.ground=new THREE.Mesh(terrain.ground,this.groundMaterial());this.cliffs=new THREE.Mesh(terrain.cliffs,this.groundMaterial());
+    this.ground.userData.cachedTerrain=this.cliffs.userData.cachedTerrain=true;
     this.ground.castShadow=this.ground.receiveShadow=true;this.cliffs.castShadow=this.cliffs.receiveShadow=true;this.landscape.add(this.ground,this.cliffs);
     const placements=new Map<AssetName,Array<{lon:number;lat:number;scale:number;seed:number;bury?:number}>>(ASSETS.map(n=>[n,[]]));
     const hash=(n:number)=>{const v=Math.sin(n*127.1+311.7)*43758.5453;return v-Math.floor(v)};
     const o=cfg.land.ornaments;
     if(o.enabled){
-      const step=cfg.display.quality==='light'?.85:.55,r=DIORAMA_REGION;
-      for(let lat=r.south;lat<r.north;lat+=step)for(let lon=r.west;lon<r.east;lon+=step){
-        const id=(lat+90)*173+lon*31,la=lat+hash(id)*step,lo=lon+hash(id+7)*step,s=sampleSurface(grid,lo,la);
+      // Semis régulier sur la sphère (pas en longitude élargi vers les pôles) ; densité artistique.
+      const step=cfg.display.quality==='light'?1.05:.72,r=DIORAMA_REGION;
+      for(let lat=r.south;lat<r.north;lat+=step){
+        const lonStep=Math.min(30,step/Math.max(.05,Math.cos((lat+step/2)*Math.PI/180)));
+        for(let lon=r.west;lon<r.east;lon+=lonStep){
+        const id=(lat+90)*173+lon*31,la=lat+hash(id)*step,lo=lon+hash(id+7)*lonStep,s=sampleSurface(grid,lo,la);
         const dx=sampleSurface(grid,lo+.15,la).altitude-sampleSurface(grid,lo-.15,la).altitude;
         const dy=sampleSurface(grid,lo,la+.15).altitude-sampleSurface(grid,lo,la-.15).altitude;
         const patch=naturalNoise(lo*1.1,la*1.1),chance=s.forest*o.treeDensity*(patch>.4?1.5:.25)*pilotWeight(lo,la)**2;
@@ -127,8 +140,9 @@ export class DioramaGlobe {
           if(hash(id+19)>.55)placements.get(hash(id+21)>.5?'shrub-a':'shrub-b')!.push({lon:lo+.14,lat:la-.1,scale:.015+hash(id+8)*.01,seed:hash(id+20)});
         }
       }
+      }
       terrain.coast.forEach(([lon,lat],i)=>{
-        if(i%7===0&&pilotWeight(lon,lat)>.6)placements.get(i%2?'rock-a':'rock-b')!.push({lon,lat,scale:.018+hash(i)*.02,seed:hash(i+4),bury:.002});
+        if(i%45===0)placements.get(i%2?'rock-a':'rock-b')!.push({lon,lat,scale:.018+hash(i)*.02,seed:hash(i+4),bury:.002});
       });
     }
     const selected:Volcano[]=[];
@@ -155,6 +169,8 @@ export class DioramaGlobe {
       mesh.castShadow=true;mesh.receiveShadow=true;mesh.frustumCulled=false;this.landscape.add(mesh);
     }
     this.buildSmoke(selected.filter(v=>v[3]!==null&&v[3]>=o.smokeSinceYear),relief);
+    let instances=0;for(const items of placements.values())instances+=items.length;
+    console.info(`[diorama] globe entier construit en ${(performance.now()-t0).toFixed(0)} ms : ${terrain.ground.getAttribute('position').count} sommets de terrain, ${terrain.ground.getIndex()!.count/3} triangles, ${terrain.cliffs.getAttribute('position').count/3} triangles de falaises, ${instances} instances`);
   }
   private buildSmoke(volcanoes:Volcano[],relief:number):void{
     const p:number[]=[],n:number[]=[],east:number[]=[],phase:number[]=[];
@@ -175,8 +191,8 @@ export class DioramaGlobe {
     this.camera.position.set(0,0,cam.dist);this.camera.fov=2*Math.atan(cam.tanHalf)*180/Math.PI;this.camera.aspect=width/height;this.camera.near=.1;this.camera.far=10;this.camera.updateProjectionMatrix();this.camera.updateMatrixWorld();
     this.body.material.uniforms.uWorld.value=world;this.worldUniform.value=world;
     const day=cfg.display.theme==='day';this.sun.intensity=day?2.6:1.1;this.ambient.intensity=day?1.4:.65;this.lightUniform.value=day?1:.43;
-    const focus=earthDirection(-69,-13).multiplyScalar(1.12).applyMatrix4(this.root.matrix);
-    this.sun.target.position.copy(focus);this.sun.position.copy(focus).add(new THREE.Vector3(-3,4,4));
+    // Soleil fixe par rapport au regard (haut gauche, devant) : l'éclairage reste le même pendant la rotation.
+    this.sun.target.position.set(0,0,0);this.sun.position.set(-3,4,4);
     const shadowSize=cfg.display.quality==='light'?2048:4096;
     if(this.sun.shadow.mapSize.x!==shadowSize){this.sun.shadow.map?.dispose();this.sun.shadow.map=null;this.sun.shadow.mapSize.set(shadowSize,shadowSize)}
     this.sun.shadow.camera.updateProjectionMatrix();

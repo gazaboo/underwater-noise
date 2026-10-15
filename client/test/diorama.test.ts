@@ -5,11 +5,12 @@ import { sceneStyleIndex, supportsStyle } from '../src/render/scene-style.ts';
 import type { SurfaceGrid } from '../src/render/terrain-geometry.ts';
 import type { Config } from '@vacarme/shared';
 const grid=(land=1):SurfaceGrid=>({width:4,height:2,altitude:new Float32Array(8).fill(5000),land:new Float32Array(8).fill(land),forest:new Float32Array(8).fill(.5)});
-describe('pilote diorama',()=>{
-  it('raccorde le relief à la limite et exagère les massifs au cœur du pilote',()=>{
-    expect(pilotWeight(-88,-12)).toBe(0);expect(pilotWeight(-70,-12)).toBe(1);
-    expect(dioramaHeight(grid(),-70,-12,.7)).toBeGreaterThan(.2);
-    expect(dioramaHeight(grid(),-88,-12,.7)).toBe(0);
+describe('diorama du globe entier',()=>{
+  it('dresse le relief sur toute la Terre, abaisse les calottes et respecte le réglage',()=>{
+    for(const [lon,lat] of [[-70,-12],[100,30],[-170,60],[179.9,0]])expect(pilotWeight(lon,lat)).toBe(1);
+    expect(dioramaHeight(grid(),-70,-12,.7)).toBeGreaterThan(.1);
+    expect(dioramaHeight(grid(),100,30,.7)).toBeGreaterThan(.1);
+    expect(dioramaHeight(grid(),-40,-80,.7)).toBeLessThan(dioramaHeight(grid(),-40,0,.7));
     expect(dioramaHeight(grid(),-70,-12,0)).toBe(0);
   });
   it('réserve le pilote au globe sans modifier les autres projections',()=>{
@@ -31,6 +32,9 @@ describe('pilote diorama',()=>{
     const v=new THREE.Vector3().fromBufferAttribute(p,index),normal=new THREE.Vector3().fromBufferAttribute(n,index);
     expect(v.length()).toBeGreaterThan(1.05);expect(v.dot(normal)).toBeGreaterThan(0);
     expect(g.ground.getIndex()).not.toBeNull();
+    // Les deux hémisphères et les deux côtés de l'antiméridien sont couverts.
+    let east=false,west=false;for(let i=0;i<p.count;i++){if(p.getX(i)>.5)east=true;if(p.getX(i)<-.5)west=true}
+    expect(east&&west).toBe(true);
     g.ground.dispose();g.cliffs.dispose();
   });
 });
