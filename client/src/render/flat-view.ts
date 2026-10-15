@@ -69,7 +69,14 @@ in vec2 vUv;
 out vec4 outColor;
 
 uniform sampler2D uLandcover;
-uniform int uLandStyle;
+uniform int uLandStyle;          // 0 : aplat ; 1 : gouache ; 2 : monde illustré
+uniform sampler2D uBiome;        // R/16 = milieu, G = ton, B = forêt (au plus proche, mélange manuel)
+uniform sampler2D uShape;        // R = distance signée à la côte, G = altitude lissée, B = lumière
+uniform vec3 uBiomes[9];
+uniform vec3 uMountainC, uSnowC, uBeachC, uShelfC, uRippleC;
+uniform float uTone, uIllRelief, uTerraceShadow, uTerraceLip, uTerracePx, uSnow, uRock;
+uniform float uBeachPx, uBeach, uCoastShadowPx, uCoastShadow, uRim, uShelf, uRippleSpacing, uRipple;
+uniform float uDisplayPxPerDeg; // pixels CSS par degré à l'affichage final (carte, globe, demi-sphère…)
 uniform vec3 uLandTint;
 uniform float uLandLight, uLandSat, uLandSteps, uLandRelief;
 uniform float uBrushScale, uBrushWarp, uGranulation, uWetEdge, uTrees, uTreeDensity;
@@ -244,6 +251,110 @@ vec3 paintedLand(vec2 uv, vec2 ll, float ax, float ay, float fraction) {
   }
   return c*uLandTint*uLandLight;
 }
+// ---------------------------------------------------------------- monde illustré
+// Cartes précalculées (tools/build_illustrated.py) ; ici, seulement des lectures et des mélanges.
+// Constantes de forme et de lumière artistiques ; altitude (ETOPO) et côte (Natural Earth) sourcées.
+
+// Distance signée à la côte (degrés, > 0 sur terre), altitude lissée (m), lumière précalculée (1 = plat).
+vec3 shapeAt(vec2 uv) {
+  vec4 s = texture(uShape, uv);
+  return vec3((s.r * 255.0 - 128.0) / 127.0 * 2.0, s.g * s.g * 7000.0, s.b * 2.0);
+}
+
+// Décalage (uv) vers le soleil (nord-ouest), d'une longueur donnée en pixels d'affichage.
+vec2 towardSun(float px, float lat) {
+  float d = px / max(uDisplayPxPerDeg, 0.05) * 0.7071;
+  return vec2(-d / (360.0 * max(cos(radians(lat)), 0.05)), -d / 180.0);
+}
+
+// Paliers d'altitude (m), comme des couches de papier découpé. Artistiques.
+const float TERRACES[7] = float[7](150.0, 400.0, 800.0, 1400.0, 2200.0, 3200.0, 4500.0);
+float terraceLevel(float e, float aa) {
+  float L = 0.0;
+  for (int i = 0; i < 7; i++) L += smoothstep(TERRACES[i] - aa, TERRACES[i] + aa, e);
+  return L;
+}
+
+// Part de plage selon le milieu : aucune sur la glace, peu sur les côtes rocheuses du nord. Artistique.
+const float BEACHY[9] = float[9](0.0, 0.35, 0.45, 0.8, 1.0, 1.0, 1.0, 1.0, 0.85);
+
+vec3 illustratedLand(vec2 uv, vec2 ll, float lat) {
+  // Milieux : quatre texels voisins, couleurs de la palette mélangées (frontières peintes au précalcul).
+  ivec2 size = textureSize(uBiome, 0);
+  vec2 jit = (vec2(vnoise(ll * 9.0), vnoise(ll * 9.0 + 7.7)) - 0.5) * 0.9 / vec2(size);
+  vec2 pos = (uv + jit) * vec2(size) - 0.5;
+  ivec2 i0 = ivec2(floor(pos));
+  vec2 f = pos - floor(pos);
+  vec3 c = vec3(0.0);
+  float tone = 0.0, forest = 0.0, beachy = 0.0;
+  for (int k = 0; k < 4; k++) {
+    ivec2 o = ivec2(k & 1, k >> 1);
+    ivec2 p = i0 + o;
+    p.x = (p.x % size.x + size.x) % size.x;
+    p.y = clamp(p.y, 0, size.y - 1);
+    vec4 t = texelFetch(uBiome, p, 0);
+    float w = (o.x == 1 ? f.x : 1.0 - f.x) * (o.y == 1 ? f.y : 1.0 - f.y);
+    int cls = clamp(int(t.r * 255.0 / 16.0 + 0.5), 0, 8);
+    c += w * uBiomes[cls];
+    beachy += w * BEACHY[cls];
+    tone += w * t.g;
+    forest += w * t.b;
+  }
+  c *= 1.0 + (tone - 0.5) * 0.85 * 2.0 * uTone;
+
+  // Sous-bois tacheté au zoom (artistique) : la forêt se lit comme des houppiers serrés.
+  float dapple = smoothstep(18.0, 60.0, uDisplayPxPerDeg) * forest;
+  c *= 1.0 - 0.2 * dapple * smoothstep(0.45, 0.75, vnoise(ll * 14.0));
+
+  vec3 sh = shapeAt(uv);
+  float e = sh.y;
+  // Roche d'altitude et neiges : limite des neiges d'ordre de grandeur (≈ 5 500 m sous les tropiques,
+  // au niveau de la mer vers 72°), festonnée.
+  float jitter = (vnoise(ll * 2.5) - 0.5) * 700.0;
+  float snowline = 5200.0 * max(0.0, 1.0 - pow(abs(lat) / 72.0, 2.0)) + 300.0;
+  c = mix(c, uMountainC * (1.0 + (tone - 0.5) * 0.6), uRock * smoothstep(1800.0, 3300.0, e + jitter * 0.5));
+  c = mix(c, uSnowC, uSnow * smoothstep(snowline - 150.0, snowline + 250.0, e + jitter));
+
+  // Paliers : ombre portée du palier supérieur, liseré éclairé du bord tourné vers le soleil.
+  if (uTerraceShadow + uTerraceLip > 0.0) {
+    float aa = fwidth(e) * 0.75 + 4.0;
+    float L0 = terraceLevel(e, aa);
+    float Ls = terraceLevel(shapeAt(uv + towardSun(uTerracePx, lat)).y, aa);
+    float Ll = terraceLevel(shapeAt(uv + towardSun(uTerracePx * 0.45, lat)).y, aa);
+    c *= 1.0 + 0.035 * L0;
+    c *= mix(vec3(1.0), vec3(0.62, 0.66, 0.8), uTerraceShadow * clamp(Ls - L0, 0.0, 1.0));
+    c = mix(c, c * 1.22 + 0.025, uTerraceLip * clamp(L0 - Ll, 0.0, 1.0));
+  }
+
+  // Lumière précalculée : versants éclairés chauds, ombres froides.
+  float Lb = sh.z;
+  vec3 lit = Lb >= 1.0 ? vec3(1.0) + (Lb - 1.0) * vec3(0.85, 0.72, 0.45) : mix(vec3(0.34, 0.4, 0.58), vec3(1.0), Lb);
+  c *= mix(vec3(1.0), lit, uIllRelief);
+
+  // Côte : plage, puis liseré éclairé sur les rivages tournés vers le soleil.
+  float wB = max(uBeachPx / max(uDisplayPxPerDeg, 0.05), 0.004);
+  float beach = (1.0 - smoothstep(wB * 0.65, wB, sh.x)) * uBeach * beachy;
+  c = mix(c, uBeachC * (1.0 + (tone - 0.5) * 0.4), beach);
+  float sunSea = 1.0 - smoothstep(-0.01, 0.01, shapeAt(uv + towardSun(uBeachPx, lat)).x);
+  c = mix(c, c * 1.25 + 0.03, uRim * sunSea * (1.0 - smoothstep(0.0, wB * 0.6, sh.x)));
+  return c;
+}
+
+// Mer côtière : plateau continental, ombre portée des terres, lignes d'eau fixes.
+vec3 illustratedSea(vec3 ocean, vec2 uv, float lat, float depth) {
+  float sd = shapeAt(uv).x;
+  ocean = mix(ocean, uShelfC, uShelf * 0.85 * (1.0 - smoothstep(30.0, 220.0, depth)));
+  float sdl = shapeAt(uv + towardSun(uCoastShadowPx, lat)).x;
+  ocean *= 1.0 - uCoastShadow * smoothstep(-0.015, 0.02, sdl) * step(sd, 0.0);
+  if (uRipple > 0.0) {
+    float x = -sd * uDisplayPxPerDeg / uRippleSpacing;
+    float line = 1.0 - smoothstep(0.0, 0.1 + 1.2 * fwidth(x), abs(fract(x + 0.5) - 0.5));
+    line *= smoothstep(0.5, 0.8, x) * (1.0 - smoothstep(1.5, 3.4, x));
+    ocean = mix(ocean, uRippleC, line * uRipple);
+  }
+  return ocean;
+}
+
 void main() {
   vec2 frag = gl_FragCoord.xy;
   vec2 d = (frag - 0.5 * uResolution) / uScale;
@@ -265,6 +376,7 @@ void main() {
     float shade = dot(n, normalize(vec3(-0.6, 0.5, 0.62))) - 0.62;
     ocean *= 1.0 + uBathyRelief * 6.0 * shade;
     ocean = max(ocean, vec3(0.0));
+    if (uLandStyle == 2) ocean = illustratedSea(ocean, uv, lat, depth);
 
     // --- Ondes : intensité de crête et éclairage « relief » des fronts.
     vec3 wg = waveAt(uWave, uv, uWaveTexel);
@@ -322,6 +434,7 @@ void main() {
     // Mélange (et non ajout) : un trait sombre reste possible sur des terres claires (mode jour).
     vec3 landCol = uLand;
     if (uLandStyle == 1 && land > 0.0) landCol = paintedLand(uv, vec2(uv.x*360.0-180.0,lat), ax, ay, frac);
+    if (uLandStyle == 2 && land > 0.0) landCol = illustratedLand(uv, vec2(uv.x*360.0-180.0,lat), lat);
     col = mix(mix(sea, landCol, land), uCoast, min(coast, 1.0));
   }
 
@@ -351,6 +464,14 @@ export class FlatView {
       uBrushScale: { value: 1 }, uBrushWarp: { value: 0 }, uGranulation: { value: 0 },
       uWetEdge: { value: 0 }, uTrees: { value: 0 }, uTreeDensity: { value: 0 },
       uPaperStrength: { value: 0 }, uPaperScale: { value: 1 },
+      uBiome: { value: assets.landBiome }, uShape: { value: assets.landShape },
+      uBiomes: { value: Array.from({ length: 9 }, v3) },
+      uMountainC: { value: v3() }, uSnowC: { value: v3() }, uBeachC: { value: v3() }, uShelfC: { value: v3() }, uRippleC: { value: v3() },
+      uTone: { value: 0 }, uIllRelief: { value: 0 }, uTerraceShadow: { value: 0 }, uTerraceLip: { value: 0 }, uTerracePx: { value: 2 },
+      uSnow: { value: 0 }, uRock: { value: 0 }, uBeachPx: { value: 2 }, uBeach: { value: 0 },
+      uCoastShadowPx: { value: 3 }, uCoastShadow: { value: 0 }, uRim: { value: 0 }, uShelf: { value: 0 },
+      uRippleSpacing: { value: 5 }, uRipple: { value: 0 },
+      uDisplayPxPerDeg: { value: 5 },
       uElevN: { value: assets.elevationNearest },
       uElevL: { value: assets.elevationLinear },
       uWave: { value: null },
@@ -403,6 +524,46 @@ export class FlatView {
     this.pass = new FullscreenPass(rawMaterial(COMPOSITE_FRAG, this.uniforms));
   }
 
+  /**
+   * Pixels CSS par degré à l'affichage final. Carte plate : déduit du cadrage ; modes globe : fixé par
+   * l'application avant de composer la texture monde (largeurs de plage, d'ombres et de lignes d'eau
+   * constantes à l'écran, quelle que soit la résolution de la texture).
+   */
+  displayPxPerDeg: number | null = null;
+
+  private setIllustrated(cfg: Config, view: FlatTransform): void {
+    const u = this.uniforms;
+    const il = cfg.land.illustrated;
+    const pal = cfg.display.theme === 'day' ? il.day : il.night;
+    const keys = ['ice', 'tundra', 'boreal', 'temperate', 'tropical', 'grass', 'savanna', 'sand', 'rock'] as const;
+    keys.forEach((k, i) => hexToVec3(pal[k], (u.uBiomes.value as THREE.Vector3[])[i]));
+    hexToVec3(pal.mountain, u.uMountainC.value);
+    hexToVec3(pal.snow, u.uSnowC.value);
+    hexToVec3(pal.beach, u.uBeachC.value);
+    hexToVec3(pal.shelf, u.uShelfC.value);
+    hexToVec3(pal.ripple, u.uRippleC.value);
+    u.uTone.value = il.tone;
+    u.uIllRelief.value = il.relief;
+    const t = il.terraces;
+    u.uTerraceShadow.value = t.enabled ? t.shadow : 0;
+    u.uTerraceLip.value = t.enabled ? t.lip : 0;
+    u.uTerracePx.value = t.shadowPx;
+    u.uSnow.value = il.snow;
+    u.uRock.value = il.rock;
+    u.uBeachPx.value = il.coast.beachPx;
+    u.uBeach.value = il.coast.beach;
+    u.uCoastShadowPx.value = il.coast.shadowPx;
+    u.uCoastShadow.value = il.coast.shadow;
+    u.uRim.value = il.coast.rim;
+    u.uShelf.value = il.shelf;
+    u.uRippleSpacing.value = il.ripples.spacingPx;
+    u.uRipple.value = il.ripples.enabled ? il.ripples.strength : 0;
+    u.uDisplayPxPerDeg.value = view.zoom > 0 || this.displayPxPerDeg === null ? view.scale / this.pixelRatio : this.displayPxPerDeg;
+  }
+
+  /** Rapport pixels du tampon / pixels CSS (pour exprimer les largeurs en pixels CSS). */
+  pixelRatio = 1;
+
   /** Champ physique (niveaux en dB) à composer ; null si désactivé. */
   setLevels(levels: THREE.Texture | null, width = 1, height = 1): void {
     this.uniforms.uLevels.value = levels;
@@ -427,7 +588,8 @@ export class FlatView {
     const u = this.uniforms;
     if (!u.uLevels.value) u.uLevels.value = wave; // texture valide même sans champ physique
     const l = cfg.land;
-    u.uLandStyle.value = l.style === 'gouache' ? 1 : 0;
+    u.uLandStyle.value = l.style === 'illustre' ? 2 : l.style === 'gouache' ? 1 : 0;
+    if (l.style === 'illustre') this.setIllustrated(cfg, view);
     hexToVec3(cfg.palette.landTint, u.uLandTint.value);
     u.uLandLight.value = cfg.palette.landLight;
     u.uLandSat.value = l.saturation; u.uLandSteps.value = l.steps; u.uLandRelief.value = l.relief;

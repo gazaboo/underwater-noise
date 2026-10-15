@@ -4,11 +4,12 @@
  */
 import * as THREE from 'three';
 import { deepMerge, resolveForTarget, type Config, type DisplayTarget, type SourceStatus } from '@vacarme/shared';
-import { loadOceanGrid, loadWorldAssets, loadVolcanoes, type Volcano, type WorldAssets } from './assets.ts';
+import { loadOceanGrid, loadOrnaments, loadWorldAssets, loadVolcanoes, type Volcano, type WorldAssets } from './assets.ts';
 import { ShipStream } from './net/ship-stream.ts';
 import { computeFlatTransform, FlatView, screenToGeo, worldTransform, type FlatTransform } from './render/flat-view.ts';
 import { GlobeController, GlobeView, globeCamera, pixelToGeo, viewToEarth, type GlobeMode } from './render/globe-view.ts';
 import { VolcanoLayer } from './render/volcanoes.ts';
+import { OrnamentLayer } from './render/ornaments.ts';
 import { ShipLayer } from './render/ships.ts';
 import { DetailWaves } from './sim/detail.ts';
 import { PhysicsField, calibrate, type CalibrationResult } from './sim/physics-sim.ts';
@@ -43,6 +44,7 @@ export class App {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly ships = new ShipLayer();
   private readonly volcanoes: VolcanoLayer;
+  private readonly ornaments: OrnamentLayer | null;
   private readonly hud = new Hud();
   private readonly panel: Panel;
   private readonly nav: FlatNavigator;
@@ -83,6 +85,7 @@ export class App {
     canvas: HTMLCanvasElement,
     physicsOcean: THREE.Texture,
     volcanoes: Volcano[],
+    ornaments: Awaited<ReturnType<typeof loadOrnaments>> | null,
   ) {
     this.raw = raw;
     this.cfg = this.resolve(raw);
@@ -97,6 +100,7 @@ export class App {
     this.wave.clear(this.renderer);
     this.flat = new FlatView(assets);
     this.volcanoes = new VolcanoLayer(volcanoes);
+    this.ornaments = ornaments ? new OrnamentLayer(ornaments.data, ornaments.atlas, ornaments.image) : null;
     this.detail = new DetailWaves(assets);
     // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale.
     const t0 = performance.now();
@@ -142,8 +146,13 @@ export class App {
     const raw = (await res.json()) as Config;
     const quality = overrides.quality ?? raw.display.quality;
     const profile = raw.qualityProfiles[quality];
-    const [assets, physicsOcean, volcanoes] = await Promise.all([loadWorldAssets(profile.visualSimWidth), loadOceanGrid(profile.physicsSimWidth), loadVolcanoes()]);
-    return new App(raw, overrides, assets, canvas, physicsOcean, volcanoes);
+    // Ornements facultatifs : sans eux (données absentes), le monde illustré reste complet sans vignettes.
+    const ornaments = loadOrnaments().catch((e: unknown) => {
+      console.warn('[ornements] indisponibles :', e);
+      return null;
+    });
+    const [assets, physicsOcean, volcanoes, orn] = await Promise.all([loadWorldAssets(profile.visualSimWidth), loadOceanGrid(profile.physicsSimWidth), loadVolcanoes(), ornaments]);
+    return new App(raw, overrides, assets, canvas, physicsOcean, volcanoes, orn);
   }
 
   private resolve(raw: Config, target?: DisplayTarget): Config {
@@ -412,8 +421,10 @@ export class App {
     let listener = flatListener(view);
     if (flatMode) {
       this.lastGlobe = null;
+      this.flat.pixelRatio = r.getPixelRatio();
       this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, view, cfg, now / 1000, detail ? { sim: detail, weight: this.detail.weight } : undefined);
       this.volcanoes.draw(r, view, cfg, now / 1000);
+      this.ornaments?.draw(r, { mode: 'flat', width: size.x, height: size.y, pixelRatio: r.getPixelRatio(), flat: view }, cfg, now / 1000);
       // Les points grossissent un peu quand on zoome, pour rester lisibles.
       this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
       if (cfg.physics.enabled) this.whales?.draw(r, view, cfg, levels, this.coverage, now / 1000, r.getPixelRatio());
@@ -433,15 +444,19 @@ export class App {
         });
       }
       const world = worldTransform(W);
-      this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, world, cfg, now / 1000, undefined, this.worldTarget);
-      this.ships.draw(r, now, world, cfg, 1, this.worldTarget);
-      if (cfg.physics.enabled) this.whales?.draw(r, world, cfg, levels, this.coverage, now / 1000, 1, this.worldTarget);
+      // Largeurs « à l'écran » du monde illustré (plages, ombres, lignes d'eau) : échelle de l'affichage final.
       this.globeCtl.update(cfg, Math.min(dt, 250) / 1000);
       const facingLat = this.globeCtl.facingLatFor(cfg);
       const M = viewToEarth(facingLat, this.globeCtl.facingLon);
       const gm = mode as GlobeMode;
       const cam = globeCamera(gm, cfg, size.x / size.y, this.globeCtl.zoom);
+      const ornView = { mode: gm, width: size.x, height: size.y, pixelRatio: r.getPixelRatio(), cam, M };
+      this.flat.displayPxPerDeg = OrnamentLayer.pxPerDeg(ornView, cfg);
+      this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, world, cfg, now / 1000, undefined, this.worldTarget);
+      this.ships.draw(r, now, world, cfg, 1, this.worldTarget);
+      if (cfg.physics.enabled) this.whales?.draw(r, world, cfg, levels, this.coverage, now / 1000, 1, this.worldTarget);
       this.globe.render(r, this.worldTarget.texture, gm, cam, M, cfg, size.x, size.y, now / 1000);
+      if (!this.globe.calibration) this.ornaments?.draw(r, ornView, cfg, now / 1000);
       this.lastGlobe = { mode: gm, cam, M, w: size.x, h: size.y };
       if (gm !== 'equirect') listener = globeListener(facingLat, this.globeCtl.facingLon);
     }

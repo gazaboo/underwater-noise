@@ -23,5 +23,10 @@
   "volcanoes": {
     "file": "volcanoes.json",
     "encoding": "[lon, lat, altitude m, année de la dernière éruption ou null], volcans émergés"
+  },
+  "illustrated": {
+    "biome": "land_biome_4096.png — R/16 = milieu illustré (interprétation artistique de NE II), G = ton, B = forêt",
+    "shape": "land_shape_4096.png — R = distance signée à la côte (±2°), G = altitude lissée (racine), B = lumière précalculée",
+    "ornaments": "ornaments.json — placements en bruit bleu ; volcans du GVP, sommets d'ETOPO"
   }
 }

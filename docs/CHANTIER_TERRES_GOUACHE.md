@@ -1,5 +1,8 @@
 # Chantier : terres « gouache » façon Petit Prince
 
+> **Suite** : ce chantier est repris et prolongé par le monde illustré, branche `monde-peint` —
+> voir [`MONDE_ILLUSTRE.md`](MONDE_ILLUSTRE.md). Le style `gouache` reste disponible pour comparaison.
+
 Document de reprise (pour un humain ou un autre agent, ex. Codex). Branche : **`terres-gouache`**
 (partie de `main` au commit 2390e66). Ne pas fusionner dans `main` sans l'accord de l'auteur.
 

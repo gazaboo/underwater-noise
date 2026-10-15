@@ -151,8 +151,36 @@ export class Panel {
     au.addBinding(cfg.audio.whales, 'voices', { label: 'appels simultanés', min: 0, max: 16, step: 1 });
     on(au, 'audio');
 
-    const land = pane.addFolder({ title: 'Terres (gouache)', expanded: false });
-    land.addBinding(cfg.land, 'style', { label: 'style', options: { gouache: 'gouache', aplat: 'flat' } });
+    const land = pane.addFolder({ title: 'Terres', expanded: false });
+    land.addBinding(cfg.land, 'style', { label: 'style', options: { 'monde illustré': 'illustre', gouache: 'gouache', aplat: 'flat' } });
+    const il = cfg.land.illustrated;
+    const ill = land.addFolder({ title: 'Monde illustré', expanded: false });
+    ill.addBinding(il, 'tone', { label: 'nuances (NE II)', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il, 'relief', { label: 'relief', min: 0, max: 2, step: 0.01 });
+    ill.addBinding(il.terraces, 'enabled', { label: 'paliers' });
+    ill.addBinding(il.terraces, 'shadow', { label: 'ombre des paliers', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il.terraces, 'lip', { label: 'liseré des paliers', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il.terraces, 'shadowPx', { label: 'ombre (px)', min: 0, max: 20, step: 0.1 });
+    ill.addBinding(il, 'snow', { label: 'neiges', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il, 'rock', { label: 'roche d’altitude', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il.coast, 'beachPx', { label: 'plage (px)', min: 0, max: 20, step: 0.1 });
+    ill.addBinding(il.coast, 'beach', { label: 'plage', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il.coast, 'shadowPx', { label: 'ombre des côtes (px)', min: 0, max: 30, step: 0.1 });
+    ill.addBinding(il.coast, 'shadow', { label: 'ombre des côtes', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il.coast, 'rim', { label: 'liseré des côtes', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il, 'shelf', { label: 'plateau continental', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il.ripples, 'enabled', { label: 'lignes d’eau' });
+    ill.addBinding(il.ripples, 'spacingPx', { label: 'écart des lignes (px)', min: 2, max: 40, step: 0.5 });
+    ill.addBinding(il.ripples, 'strength', { label: 'intensité des lignes', min: 0, max: 1, step: 0.01 });
+    // Palette du thème affiché (nuit ou jour, touche J) : reconstruire le panneau après un changement de thème.
+    const themePal = cfg.display.theme === 'day' ? il.day : il.night;
+    const ip = ill.addFolder({ title: `Couleurs (${cfg.display.theme === 'day' ? 'jour' : 'nuit'})`, expanded: false });
+    const names: Record<keyof typeof themePal, string> = {
+      ice: 'glace', tundra: 'toundra', boreal: 'forêt boréale', temperate: 'forêt tempérée', tropical: 'forêt tropicale',
+      grass: 'prairie', savanna: 'savane', sand: 'désert de sable', rock: 'désert de roche', mountain: 'roche d’altitude',
+      snow: 'neige', beach: 'plage', shelf: 'plateau continental', ripple: 'lignes d’eau', ornament: 'teinte des vignettes',
+    };
+    for (const k of Object.keys(names) as (keyof typeof themePal)[]) ip.addBinding(themePal, k, { label: names[k], view: 'color' });
     land.addBinding(cfg.palette, 'landLight', { label: 'luminosité nuit', min: 0, max: 1, step: 0.01 });
     land.addBinding(cfg.palette, 'landTint', { label: 'teinte nuit', view: 'color' });
     land.addBinding(cfg.land, 'saturation', { min: 0, max: 3, step: 0.01 });
@@ -169,6 +197,16 @@ export class Panel {
     ornaments.addBinding(o, 'volcanoes', { label: 'volcans' });
     ornaments.addBinding(o, 'volcanoSize', { label: 'taille des volcans', min: 2, max: 80, step: 1 });
     ornaments.addBinding(o, 'smokeSinceYear', { label: 'fumée depuis', min: -10000, max: 2100, step: 1 });
+    ornaments.addBinding(o, 'size', { label: 'taille (illustré)', min: 4, max: 200, step: 1 });
+    ornaments.addBinding(o, 'growth', { label: 'croissance au zoom', min: 0, max: 1, step: 0.01 });
+    ornaments.addBinding(o, 'density', { label: 'densité (illustré)', min: 0.1, max: 4, step: 0.05 });
+    ornaments.addBinding(o, 'vegetation', { label: 'végétation, pierres' });
+    ornaments.addBinding(o, 'mountains', { label: 'montagnes' });
+    ornaments.addBinding(o, 'smoke', { label: 'fumée' });
+    ornaments.addBinding(o.clouds, 'enabled', { label: 'nuages' });
+    ornaments.addBinding(o.clouds, 'count', { label: 'nombre de nuages', min: 0, max: 200, step: 1 });
+    ornaments.addBinding(o.clouds, 'opacity', { label: 'opacité des nuages', min: 0, max: 1, step: 0.01 });
+    ornaments.addBinding(o.clouds, 'speed', { label: 'vitesse des nuages', min: 0, max: 10, step: 0.1 });
     const paper = land.addFolder({ title: 'Papier', expanded: false });
     paper.addBinding(cfg.land.paper, 'enabled', { label: 'activé' });
     paper.addBinding(cfg.land.paper, 'strength', { label: 'intensité', min: 0, max: 1, step: 0.01 });

@@ -535,3 +535,20 @@ La palette Natural Earth II représente des milieux **idéalisés**, et non une 
 Les positions et les années de dernière éruption des volcans holocènes émergés sont **sourcées** (Smithsonian GVP ; citation et extraction dans `SOURCES_DONNEES.md`). Les cônes, tailles et fumées sont **artistiques**. Le seuil `smokeSinceYear` ne constitue ni un indicateur de danger ni un état d'activité en temps réel ; une année inconnue ne produit pas de fumée.
 
 `land.style: 'flat'` restitue les terres en aplat et retire les ornements. Papier et étoiles restent indépendamment désactivables ; les désactiver également permet de retrouver le rendu d'origine. Les ornements n'apparaissent qu'en carte plate zoomée. Les étoiles et le halo sont réservés au mode globe ; le papier respecte le masque des projections.
+
+## Monde illustré : ce qui est donnée, ce qui est dessin
+
+Le style `illustre` (par défaut) ne modifie aucun calcul acoustique : il ne touche qu'au dessin des terres, du
+liseré côtier et des ornements. Détails et tableau de traçabilité complet : `MONDE_ILLUSTRE.md`.
+
+- **Sourcé** : altitude et bathymétrie (ETOPO 2022), trait de côte (Natural Earth), positions et années de
+  dernière éruption des volcans (Smithsonian GVP), sommets portant une montagne (maxima locaux d'ETOPO lissé).
+- **Ordre de grandeur** : limite des neiges éternelles en fonction de la latitude (≈ 5 500 m sous les
+  tropiques, niveau de la mer vers 72°), utilisée pour blanchir les sommets.
+- **Artistique** : les neuf milieux (lecture des couleurs Natural Earth II, qui sont elles-mêmes idéalisées),
+  l'exagération du relief, le soleil, les paliers, plages, ombres et lignes d'eau, ainsi que toutes les
+  vignettes (tailles hors d'échelle, densités, compositions), la fumée (dernière éruption depuis 2010 : ce
+  n'est pas une activité en direct) et les nuages (sans lien avec la météo).
+
+Les lignes d'eau le long des côtes sont **fixes**, fines et peu nombreuses, pour ne pas être confondues avec
+les ondes sonores, qui bougent.

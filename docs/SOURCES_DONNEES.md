@@ -27,3 +27,14 @@
 - **Global Volcanism Program (2026)**, *Volcanoes of the World*, v. 5.4.0 (7 août 2026), E. Venzke (comp.), Smithsonian Institution. [DOI : 10.5479/si.GVP.VOTW5-2026.5.4](https://doi.org/10.5479/si.GVP.VOTW5-2026.5.4). Export WFS des volcans holocènes émergés du **15 octobre 2026**, date consignée dans `data/grid/meta.json`. Fichier `volcanoes.json` : `[longitude, latitude, altitude en m, année de dernière éruption ou null]`, 1 099 positions. Le panache indique seulement une dernière éruption depuis l'année configurée : **il ne décrit pas une activité en direct**.
 
 Les paliers, pinceaux, granulation, couleurs d'éclairage, tailles, densités, seuil de fumée, étoiles et papier sont des choix **artistiques**. Le relief provient de l'altitude ETOPO déjà utilisée par la carte.
+
+## Monde illustré
+
+- Cartes `land_biome_4096.png`, `land_shape_4096.png` et placements `ornaments.json` : **dérivés** des sources
+  ci-dessus (ETOPO 2022, Natural Earth, Natural Earth II, Smithsonian GVP) par `tools/build_illustrated.py`.
+  La classification en milieux illustrés est une interprétation artistique des couleurs NE II.
+- **Quaternius**, *Ultimate Stylized Nature* (mai 2022), [quaternius.com](https://quaternius.com),
+  **CC0 1.0** (domaine public, aucune attribution exigée ; citée par courtoisie). Arbres, buissons, fleurs et
+  rochers des vignettes `data/ornaments/atlas.png`. Le pack lui-même n'est pas versionné.
+- Montagnes, plateaux de grès, volcans, fumées et nuages des vignettes : modèles procéduraux créés pour le
+  projet (`tools/ornaments/render_cells.py`).
