@@ -39,6 +39,10 @@ describe('lecture des messages aisstream', () => {
     expect(parseAisMessage(m)).toEqual([{ kind: 'position', mmsi: 1, lat: 10, lon: 10, sog: undefined, cog: 45 }]);
   });
 
+  it('vitesse aberrante (> 60 nœuds) ignorée', () => {
+    expect(parseAisMessage(position(1, 10, 10, 97.5, 90))[0]).toMatchObject({ sog: undefined, cog: 90 });
+  });
+
   it('position invalide (91, 181) rejetée', () => {
     expect(parseAisMessage(position(1, 91, 181))).toEqual([]);
   });

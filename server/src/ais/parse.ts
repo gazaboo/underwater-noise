@@ -28,7 +28,8 @@ function course(body: Obj): number | undefined {
 
 function speed(body: Obj): number | undefined {
   const sog = num(body.Sog);
-  return sog !== undefined && sog >= 0 && sog < 102.2 ? sog : undefined;
+  // 102,3 = non disponible ; au-delà de 60 nœuds, valeur erronée (aucun navire marchand n'y va).
+  return sog !== undefined && sog >= 0 && sog < 60 ? sog : undefined;
 }
 
 function length(dim: unknown): number | undefined {

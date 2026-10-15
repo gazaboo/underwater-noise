@@ -226,6 +226,29 @@
     ],
   },
 
+  // Son (J5). Un seul bus de sortie + limiteur, sans spatialisation (prévue plus tard dans client/src/audio/output.ts).
+  // Le navigateur n'autorise le son qu'après un geste (clic, touche) ; en kiosque : --autoplay-policy=no-user-gesture-required.
+  audio: {
+    enabled: true,
+    master: 0.7,
+    ships: {
+      volume: 0.7,
+      voices: 12, // les navires les plus forts de la vue
+      refDb: 190, // niveau source donnant le volume plein
+      edgeAttenuationDb: 18, // on entend surtout le centre de la vue : zoomer = tendre l'oreille
+      hysteresisDb: 3, // pas de valse des voix
+      transposeOctaves: 2, // ×4 : audible sur les haut-parleurs d'un portable ; avec un caisson, 0 ou 1
+    },
+    bed: { volume: 0.6 }, // nappe : le grondement de la masse, suit le bruit moyen de la zone affichée
+    whales: {
+      volume: 0.8,
+      voices: 4, // appels simultanés au plus
+      answerDelaySec: 0.6, // pause avant de répondre, une fois l'appel arrivé le long du fil (lien rompu : pas de réponse)
+      // Facteur de fréquence : rorquals ×5 (leurs 15–25 Hz deviennent 75–125 Hz), les autres tels quels.
+      transpose: { blue: 5, fin: 5, humpback: 1, sperm: 1, orca: 1 },
+    },
+  },
+
   server: {
     port: 8787,
     snapshotHz: 1, // instantanés envoyés au client par seconde

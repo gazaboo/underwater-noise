@@ -6,9 +6,9 @@ sous-marin des navires — et ce qu'il fait à l'espace de communication des cé
 Chaque navire émet des fronts d'onde qui se propagent sur l'océan, interfèrent, s'arrêtent sur les
 côtes ; là où le trafic est dense, l'océan s'illumine ; ailleurs, il reste noir.
 
-> État : **jalon J4** — navires en direct (aisstream.io), en replay ou simulés ; ondes visibles ;
+> État : **jalon J5** — navires en direct (aisstream.io), en replay ou simulés ; ondes visibles ;
 > champ de bruit calibré en dB (trois bandes) ; lueur d'accumulation ; terra incognita ; exploration (zoom) ;
-> cétacés : espace de communication rongé par le bruit, liens entre groupes.
+> cétacés : espace de communication rongé par le bruit, liens entre groupes ; son.
 > Plan complet et jalons : voir la section « Feuille de route » plus bas.
 
 ## Installation
@@ -54,6 +54,7 @@ npm run build && npm start   # http://localhost:8787
 | `P` | panneau de réglage (caché) |
 | `D` | diagnostic : images/s, temps CPU et GPU, navires, source, calibration, niveau de bruit sous le curseur |
 | `B` | champ physique en dB (isolignes tous les 10 dB) : accumulé → basse → moyenne → haute → rendu |
+| `M` | couper / rétablir le son |
 | `F` | plein écran |
 | molette / pincement | zoom centré sur le curseur (jusqu'à ×40) |
 | glisser | déplacer la carte |
@@ -142,6 +143,11 @@ Repères pour régler les ondes :
     l'écoute ; un lien peut devenir asymétrique (l'un entend, l'autre non), s'effilocher, se rompre, laisser
     une trace fantôme, se retisser.
   - Scène de test : `?scene=duo` — deux groupes de rorquals communs en mer Ligure, au seuil de s'entendre.
+- **Son** : on entend ce que l'on regarde (zoomer = tendre l'oreille). Les navires les plus forts de la vue
+  ont chacun une voix grave (timbre selon la classe) ; une nappe suit le bruit moyen de la zone ; les
+  cétacés appellent, leurs voix se brouillent quand le bruit les masque ; un lien vivant donne un appel et
+  une réponse, un lien rompu un appel sans réponse. Le son démarre au premier clic ou à la première
+  touche (contrainte des navigateurs) ; `M` le coupe. Détails : `docs/MODELE_PHYSIQUE.md`, section 9.
 
 Modèle, calibration (écart < 1 dB à la loi théorique), niveaux obtenus et limites :
 [`docs/MODELE_PHYSIQUE.md`](docs/MODELE_PHYSIQUE.md).
@@ -193,5 +199,5 @@ npm run typecheck
 - [x] **J2** AIS réel (aisstream.io), replay, bascule automatique, carte de couverture
 - [x] **J3** champ physique calibré en dB (3 bandes), accumulation, terra incognita, exploration (zoom)
 - [x] **J4** cétacés, espace de communication, liens entre groupes
-- [ ] **J5** son
+- [x] **J5** son (sans spatialisation)
 - [ ] **J6** globe, demi-sphère avec un projecteur, mode exposition

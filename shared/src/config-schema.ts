@@ -271,6 +271,34 @@ export const configSchema = z.object({
       }),
     ),
   }),
+  /** Son (J5) : un seul bus de sortie, sans spatialisation. */
+  audio: z.object({
+    enabled: z.boolean(),
+    /** Volume général (0–1), avant le limiteur. */
+    master: unit,
+    ships: z.object({
+      volume: unit,
+      /** Nombre maximal de voix de navires simultanées. */
+      voices: z.number().int().min(0).max(32),
+      /** Niveau source (dB) qui donne le volume plein. */
+      refDb: z.number(),
+      /** Atténuation (dB) entre le centre de la vue et son bord : on entend surtout ce que l'on regarde. */
+      edgeAttenuationDb: z.number().min(0).max(60),
+      /** Écart (dB) qu'un navire doit avoir pour prendre la place d'une voix existante. */
+      hysteresisDb: z.number().min(0).max(20),
+      /** Transposition (octaves) : les vrais 10–60 Hz demandent un caisson de basses. */
+      transposeOctaves: z.number().min(-1).max(4),
+    }),
+    bed: z.object({ volume: unit }),
+    whales: z.object({
+      volume: unit,
+      voices: z.number().int().min(0).max(16),
+      /** Délai d'une réponse (s) le long d'un lien vivant. */
+      answerDelaySec: z.number().min(0).max(20),
+      /** Transposition (facteur de fréquence) par espèce : les infrasons des rorquals sont inaudibles sans cela. */
+      transpose: z.record(z.string(), z.number().min(0.25).max(16)),
+    }),
+  }),
   server: z.object({
     port: z.number().int(),
     snapshotHz: z.number().min(0.1).max(10),

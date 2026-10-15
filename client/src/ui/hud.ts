@@ -57,6 +57,7 @@ export interface HudInfo {
   calibration: string;
   cursor: string;
   whales: string;
+  audio: string;
   status: SourceStatus | null;
   connected: boolean;
   ships: number;
@@ -129,9 +130,10 @@ export class Hud {
       `ondes ${i.simSize}   ${i.steps} pas/image`,
       i.calibration,
       i.whales,
+      i.audio,
       i.cursor,
       `rendu ${i.canvas}   cible ${i.target}   profil ${i.quality}`,
-      `molette zoom · glisser déplacer · R recadrer · B champ physique · P réglages · D diagnostic · F plein écran`,
+      `molette zoom · glisser déplacer · R recadrer · B champ physique · M son · P réglages · D diagnostic · F plein écran`,
     ]
       .filter(Boolean)
       .join('\n');

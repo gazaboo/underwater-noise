@@ -117,6 +117,9 @@ export class ShipLayer {
   private readonly amp = new Float32Array(MAX_SHIPS);
   private readonly seed = new Float32Array(MAX_SHIPS);
   private readonly slBroad = new Float32Array(MAX_SHIPS);
+  private readonly ids = new Uint32Array(MAX_SHIPS);
+  private readonly classes = new Uint8Array(MAX_SHIPS);
+  private readonly lengths = new Uint16Array(MAX_SHIPS);
   /** Niveaux sources par bande (dB re 1 µPa·m) : basse, moyenne, haute. */
   private readonly slBands = new Float32Array(MAX_SHIPS * 3);
   private count = 0;
@@ -196,6 +199,19 @@ export class ShipLayer {
     return this.count;
   }
 
+  /** Données d'un navire pour le son : identifiant, position extrapolée, vitesse, classe, longueur, niveau. */
+  shipAt(i: number, now: number): { id: number; lat: number; lon: number; sog: number; classIndex: number; lengthM: number; slBroad: number } {
+    const dt = this.dtSim(now);
+    const lat0 = this.latLon[2 * i];
+    const lon0 = this.latLon[2 * i + 1];
+    const sog = this.motion[2 * i];
+    const cog = (this.motion[2 * i + 1] * Math.PI) / 180;
+    const dist = sog * 0.514444 * dt;
+    const lat = lat0 + ((dist * Math.cos(cog)) / 6_371_000) * (180 / Math.PI);
+    const lon = lon0 + ((dist * Math.sin(cog)) / (6_371_000 * Math.max(Math.cos((lat0 * Math.PI) / 180), 0.05))) * (180 / Math.PI);
+    return { id: this.ids[i], lat, lon, sog, classIndex: this.classes[i], lengthM: this.lengths[i], slBroad: this.slBroad[i] };
+  }
+
   get currentTimeScale(): number {
     return this.timeScale;
   }
@@ -207,6 +223,9 @@ export class ShipLayer {
     for (let i = 0; i < n; i++) {
       const o = HEADER_BYTES + i * SHIP_STRIDE;
       const id = v.getUint32(o, true);
+      this.ids[i] = id;
+      this.classes[i] = v.getUint8(o + 20);
+      this.lengths[i] = v.getUint16(o + 22, true);
       this.latLon[2 * i] = v.getFloat32(o + 4, true);
       this.latLon[2 * i + 1] = v.getFloat32(o + 8, true);
       this.motion[2 * i] = v.getFloat32(o + 12, true);

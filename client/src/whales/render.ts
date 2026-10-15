@@ -151,7 +151,7 @@ in float aLon0;      // longitude du premier point (pour le repli d'antiméridie
 in float aT;         // 0 en A, 1 en B
 in float aLink;      // indice du lien
 uniform sampler2D uState; // par lien : force A←B, force B←A, effilochage, fantôme
-uniform sampler2D uMeta;  // par lien : marge min (dB), graine, intervalle d'appel (s), espèce
+uniform sampler2D uMeta;  // par lien : marge max (dB), graine, temps depuis le dernier appel de A (s), idem pour B
 out float vT;
 flat out vec4 vState;
 flat out vec4 vMeta;
@@ -184,7 +184,8 @@ void main() {
   float strength = max(sAB, sBA);
   float margin = vMeta.x;
   float seed = vMeta.y;
-  float period = vMeta.z;
+  float sinceA = vMeta.z; // secondes depuis le dernier appel de A
+  float sinceB = vMeta.w;
   // Fil : plus tendu (net) quand la marge est grande ; tremble près du seuil.
   float tension = smoothstep(0.0, 20.0, margin);
   float tremble = exp(-pow(margin / max(uHyst * 2.0, 0.5), 2.0)) * (0.5 + 0.5 * sin(uTime * 23.0 + seed * 50.0 + vT * 40.0));
@@ -192,12 +193,13 @@ void main() {
   // Effilochage : des segments disparaissent, de plus en plus nombreux.
   float seg = hash(floor(vT * 60.0) + seed * 1000.0);
   base *= step(fray * 0.95, seg);
-  // Impulsions : un appel parcourt le fil à chaque intervalle, dans le sens de l'écoute.
+  // Impulsions : chaque appel réel part du groupe et parcourt le fil, dans le sens de l'écoute ;
+  // il n'arrive que si l'autre entend (sinon il s'éteint en chemin : l'appel sans réponse se voit).
   float travel = 1.0 / uPulseSpeed;
-  float ph = mod(uTime + seed * period, max(period, travel)) / travel; // 0..1 pendant le trajet
-  float onWay = step(ph, 1.0);
-  float pAB = sAB * onWay * exp(-pow((vT - (1.0 - ph)) / 0.025, 2.0)); // de B (t = 1) vers A (t = 0)
-  float pBA = sBA * onWay * exp(-pow((vT - ph) / 0.025, 2.0));          // de A vers B
+  float phA = sinceA / travel; // 0..1 pendant le trajet
+  float phB = sinceB / travel;
+  float pBA = step(phA, 1.0) * exp(-pow((vT - phA) / 0.025, 2.0)) * mix(0.25 * (1.0 - phA), 1.0, sBA);       // de A vers B
+  float pAB = step(phB, 1.0) * exp(-pow((vT - (1.0 - phB)) / 0.025, 2.0)) * mix(0.25 * (1.0 - phB), 1.0, sAB); // de B vers A
   float light = uIntensity * (base + 1.6 * (pAB + pBA)) + uGhost * ghost * (1.0 - strength);
   // Extrémités adoucies.
   light *= smoothstep(0.0, 0.03, vT) * smoothstep(1.0, 0.97, vT);
@@ -243,7 +245,9 @@ export interface LinkDraw {
   ghost: number;
   margin: number;
   seed: number;
-  period: number;
+  /** Secondes depuis le dernier appel de A, de B. */
+  sinceA: number;
+  sinceB: number;
 }
 
 export class WhaleRenderer {
@@ -416,7 +420,7 @@ export class WhaleRenderer {
     for (let k = 0; k < Math.min(links.length, this.linkCount); k++) {
       const l = links[k];
       s.set([l.sAB, l.sBA, l.fray, l.ghost], 4 * k);
-      m.set([Number.isFinite(l.margin) ? l.margin : -99, l.seed, l.period, 0], 4 * k);
+      m.set([Number.isFinite(l.margin) ? l.margin : -99, l.seed, l.sinceA, l.sinceB], 4 * k);
     }
     this.stateTex.needsUpdate = true;
     this.metaTex.needsUpdate = true;

@@ -115,6 +115,18 @@ export class Panel {
     }
     on(wh, 'whales');
 
+    const au = pane.addFolder({ title: 'Son', expanded: false });
+    au.addBinding(cfg.audio, 'enabled', { label: 'actif' });
+    au.addBinding(cfg.audio, 'master', { label: 'volume général', min: 0, max: 1, step: 0.01 });
+    au.addBinding(cfg.audio.ships, 'volume', { label: 'navires', min: 0, max: 1, step: 0.01 });
+    au.addBinding(cfg.audio.ships, 'voices', { label: 'voix de navires', min: 0, max: 32, step: 1 });
+    au.addBinding(cfg.audio.ships, 'transposeOctaves', { label: 'transposition (octaves)', min: -1, max: 4, step: 0.5 });
+    au.addBinding(cfg.audio.ships, 'edgeAttenuationDb', { label: 'centre / bord (dB)', min: 0, max: 60, step: 1 });
+    au.addBinding(cfg.audio.bed, 'volume', { label: 'nappe', min: 0, max: 1, step: 0.01 });
+    au.addBinding(cfg.audio.whales, 'volume', { label: 'cétacés', min: 0, max: 1, step: 0.01 });
+    au.addBinding(cfg.audio.whales, 'voices', { label: 'appels simultanés', min: 0, max: 16, step: 1 });
+    on(au, 'audio');
+
     const pal = pane.addFolder({ title: 'Palette', expanded: false });
     for (const k of ['background', 'oceanShallow', 'oceanDeep', 'land', 'coast', 'wave', 'ship'] as const) {
       pal.addBinding(cfg.palette, k, { view: 'color' });

@@ -74,6 +74,12 @@ const F1_LF_NUM = 600; // Hz·kn → f1^LF = 600 Hz × (1 kn / V_C)
 export const L0_METERS = 300 * 0.3048;
 /** En dessous de cette vitesse, on borne le terme de vitesse (évite log(0)). */
 export const MIN_SPEED_KN = 0.5;
+/**
+ * Au-delà de 3 × V_C, on borne la vitesse : le modèle a été ajusté sur des navires à leur vitesse
+ * de transit et sa loi en 60·log(V) diverge hors de ce domaine (un remorqueur à 12 nœuds, une
+ * vedette à 40 nœuds, ou une vitesse AIS erronée donneraient des niveaux irréalistes, > 200 dB).
+ */
+export const MAX_SPEED_RATIO = 3;
 
 const log10 = Math.log10;
 
@@ -106,7 +112,7 @@ export function sourceSpectralDensity(
   shipClass: ShipClass,
 ): number {
   const p = CLASS_PARAMS[shipClass];
-  const v = Math.max(speedKn, MIN_SPEED_KN);
+  const v = Math.min(Math.max(speedKn, MIN_SPEED_KN), MAX_SPEED_RATIO * p.vRef);
   const l = lengthM && lengthM > 0 ? lengthM : p.meanLength;
   return referenceSpectralDensity(f, shipClass) + 60 * log10(v / p.vRef) + 20 * log10(l / L0_METERS);
 }

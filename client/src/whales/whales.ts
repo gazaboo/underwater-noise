@@ -6,9 +6,8 @@ import * as THREE from 'three';
 import { communicationRange, fray, isAlive, isAsymmetric, newLink, signalExcess, updateLink, type Config, type LinkState } from '@vacarme/shared';
 import type { FlatTransform } from '../render/flat-view.ts';
 import { hexToVec3 } from '../render/fullscreen.ts';
-import type { PhysicsField } from '../sim/physics-sim.ts';
 import { WhaleAgents, alphaOf, bandOf, distanceM, noiseCorrection, type WhaleGroup } from './agents.ts';
-import { FieldReader } from './field-reader.ts';
+import type { FieldReader } from './field-reader.ts';
 import { OceanCpu, type ByteGrid, type SpeciesData } from './geo-grids.ts';
 import { WhaleRenderer, greatCircleArc, type GroupDraw, type LinkDraw } from './render.ts';
 
@@ -24,6 +23,14 @@ interface Link {
 
 const BAND_INDEX = { low: 0, mid: 1, high: 2 } as const;
 
+/** Appel d'un groupe (pour le son). Une réponse ne déclenche jamais d'autre réponse. */
+export interface CallEvent {
+  group: WhaleGroup;
+  kind: 'call' | 'answer';
+  /** Nombre de groupes qui entendent cet appel (0 : appel sans réponse). */
+  heardBy: number;
+}
+
 export interface WhaleStats {
   groups: number;
   links: number;
@@ -36,12 +43,17 @@ export interface WhaleStats {
 
 export class Whales {
   readonly agents: WhaleAgents;
-  private readonly reader = new FieldReader();
   private readonly renderer: WhaleRenderer;
   private links = new Map<string, Link>();
+  private reader: FieldReader | null = null;
   private linkList: Link[] = [];
   private lastPairs = -1e9;
   private lastGeometry = -1e9;
+  private readonly prevPhase = new Map<number, number>();
+  private pendingAnswers: { group: WhaleGroup; at: number }[] = [];
+  private events: CallEvent[] = [];
+  /** Appels sans réponse / avec réponse depuis le début (indicateur). */
+  calls = { answered: 0, unanswered: 0 };
   stats: WhaleStats = { groups: 0, links: 0, alive: 0, asymmetric: 0, quietAlive: 0, rangeRatio: new Map() };
 
   constructor(
@@ -66,6 +78,8 @@ export class Whales {
 
   repopulate(cfg: Config): void {
     this.agents.populate(cfg, this.scene);
+    this.prevPhase.clear();
+    this.pendingAnswers = [];
     this.links.clear();
     this.linkList = [];
     this.lastPairs = -1e9;
@@ -81,9 +95,9 @@ export class Whales {
     return true;
   }
 
-  update(renderer: THREE.WebGLRenderer, physics: PhysicsField, cfg: Config, now: number, dtSec: number): void {
+  update(reader: FieldReader, cfg: Config, now: number, dtSec: number): void {
     if (!cfg.whales.enabled) return;
-    this.reader.update(renderer, physics, now);
+    this.reader = reader;
     this.agents.move(cfg, dtSec);
     const groups = this.agents.groups;
 
@@ -91,7 +105,7 @@ export class Whales {
     const k = 1 - Math.exp(-dtSec / 1.5);
     for (const g of groups) {
       g.coverage = this.coverageAt(g.lat, g.lon);
-      if (!this.reader.ready) continue;
+      if (!this.reader?.ready) continue;
       const band = BAND_INDEX[g.species.band] + 1;
       const nl = this.reader.sample(g.lat, g.lon, band);
       if (!Number.isFinite(nl)) continue;
@@ -99,6 +113,30 @@ export class Whales {
       const target = communicationRange(g.species, g.noiseCall, g.depth, alphaOf(cfg, g.species));
       g.rangeM += (target - g.rangeM) * k;
     }
+
+    // Appels et réponses. Un appel naturel (cycle de l'espèce) est entendu par les groupes liés ;
+    // chacun répond quand l'impulsion lui parvient (temps de trajet du fil + courte pause).
+    const travel = 1 / cfg.whales.links.pulseSpeed;
+    for (const g of groups) {
+      const prev = this.prevPhase.get(g.id);
+      this.prevPhase.set(g.id, g.callPhase);
+      if (prev === undefined || g.callPhase >= prev) continue;
+      const hearers = this.linkList.filter((l) => (l.a === g ? l.state.bHearsA.strength > 0.5 : l.b === g && l.state.aHearsB.strength > 0.5));
+      for (const l of hearers) {
+        const partner = l.a === g ? l.b : l.a;
+        if (!this.pendingAnswers.some((p) => p.group === partner)) this.pendingAnswers.push({ group: partner, at: now + 1000 * (travel + cfg.audio.whales.answerDelaySec) });
+      }
+      if (hearers.length) this.calls.answered++;
+      else this.calls.unanswered++;
+      this.events.push({ group: g, kind: 'call', heardBy: hearers.length });
+    }
+    this.pendingAnswers = this.pendingAnswers.filter((p) => {
+      if (now < p.at) return true;
+      p.group.callPhase = 0; // l'appel de réponse part maintenant (visuel et son)
+      this.prevPhase.set(p.group.id, 0);
+      this.events.push({ group: p.group, kind: 'answer', heardBy: 1 });
+      return false;
+    });
 
     // Paires candidates (même espèce, à portée en océan calme), toutes les 2 s.
     if (now - this.lastPairs > 2000) {
@@ -130,6 +168,8 @@ export class Whales {
         fray: fray(l.state),
         ghost: l.state.ghost,
         margin: Math.max(mAB, mBA),
+        sinceA: l.a.callPhase * l.a.species.callIntervalSec,
+        sinceB: l.b.callPhase * l.b.species.callIntervalSec,
       });
     }
 
@@ -181,7 +221,7 @@ export class Whales {
           state: newLink(),
           quietAlive: false,
           seed,
-          draw: { arc, sAB: 0, sBA: 0, fray: 0, ghost: 0, margin: -99, seed, period: a.species.callIntervalSec },
+          draw: { arc, sAB: 0, sBA: 0, fray: 0, ghost: 0, margin: -99, seed, sinceA: 99, sinceB: 99 },
         });
       }
     }
@@ -217,6 +257,13 @@ export class Whales {
     });
     this.renderer.setGroups(groups);
     this.renderer.draw(renderer, view, cfg, levels, coverage, timeSec, pixelRatio);
+  }
+
+  /** Événements d'appel depuis le dernier relevé (consommés par le son). */
+  drainEvents(): CallEvent[] {
+    const e = this.events;
+    this.events = [];
+    return e;
   }
 
   /** Groupe le plus proche d'un point (pour le diagnostic). */

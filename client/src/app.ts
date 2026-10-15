@@ -11,6 +11,8 @@ import { ShipLayer } from './render/ships.ts';
 import { DetailWaves } from './sim/detail.ts';
 import { PhysicsField, calibrate, type CalibrationResult } from './sim/physics-sim.ts';
 import { Whales } from './whales/whales.ts';
+import { FieldReader } from './whales/field-reader.ts';
+import { AudioEngine } from './audio/engine.ts';
 import { WaveSim } from './sim/wave-sim.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
 import { FlatNavigator } from './ui/navigation.ts';
@@ -49,6 +51,9 @@ export class App {
   private lastCursorRead = 0;
   private lastView: FlatTransform | null = null;
   private whales: Whales | null = null;
+  /** Copie processeur du champ de bruit (cétacés, son). */
+  private readonly field = new FieldReader();
+  private readonly audio = new AudioEngine();
   private speciesKey = '';
   private clock = 0;
   private connected = false;
@@ -219,6 +224,7 @@ export class App {
       accumulation: c.accumulation,
       incognita: c.incognita,
       whales: c.whales,
+      audio: c.audio,
       targets: { [c.display.target]: { render: c.render, view: c.view } },
     };
     const res = await fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -248,7 +254,9 @@ export class App {
       .map(([id, r]) => `${this.cfg.whales.species.find((s) => s.id === id)?.name.toLowerCase() ?? id} ${(100 * r).toFixed(0)} %`)
       .join(', ');
     const pct = st.quietAlive ? ` (${((100 * st.alive) / st.quietAlive).toFixed(0)} % de l'océan sans navires)` : '';
-    return `cétacés ${st.groups} groupes · liens vivants ${st.alive}/${st.quietAlive}${pct} · asymétriques ${st.asymmetric}\nportée d'écoute / océan calme : ${ranges}`;
+    const c = this.whales.calls;
+    const heard = c.answered + c.unanswered ? ` · appels entendus ${((100 * c.answered) / (c.answered + c.unanswered)).toFixed(0)} % (isolés compris)` : '';
+    return `cétacés ${st.groups} groupes · liens vivants ${st.alive}/${st.quietAlive}${pct} · asymétriques ${st.asymmetric}${heard}\nportée d'écoute / océan calme : ${ranges}`;
   }
 
   /** Niveaux de bruit sous le curseur (lecture d'un pixel du champ physique). */
@@ -275,6 +283,7 @@ export class App {
       const k = e.key.toLowerCase();
       if (k === 'p') this.panel.toggle();
       else if (k === 'b') this.flat.debugField = (this.flat.debugField + 1) % 5;
+      else if (k === 'm') this.audio.toggleMute();
       else if (k === 'd') this.hud.toggle();
       else if (k === 'f') {
         if (document.fullscreenElement) void document.exitFullscreen();
@@ -333,7 +342,8 @@ export class App {
       ph.accumulate(r, Math.min(dt, 250) / 1000, cfg);
       this.physicsClock = (this.physicsClock + 1) % CLOCK_WRAP;
       this.flat.setLevels(ph.levels.texture, ph.width, ph.height);
-      this.whales?.update(r, ph, cfg, now, Math.min(dt, 250) / 1000);
+      this.field.update(r, ph, now);
+      this.whales?.update(this.field, cfg, now, Math.min(dt, 250) / 1000);
     } else {
       this.flat.setLevels(null);
     }
@@ -344,6 +354,7 @@ export class App {
     if (cfg.physics.enabled) this.whales?.draw(r, view, cfg, this.physics.levels.texture, this.coverage, now / 1000, r.getPixelRatio());
     this.gpu.end();
 
+    this.audio.update(now, cfg, view, this.ships, this.field, this.whales?.drainEvents() ?? []);
     if (this.hud.visible && now - this.lastCursorRead > 250) {
       this.lastCursorRead = now;
       this.cursorInfo = this.readCursor();
@@ -352,6 +363,7 @@ export class App {
       calibration: `calibration ${this.calibration.maxDeviationDb.toFixed(1)} dB d'écart à la loi en 1/r${cfg.physics.enabled ? '' : ' (champ physique désactivé)'}   B : champ ${['rendu', 'accumulé', 'basse', 'moyenne', 'haute'][this.flat.debugField]}`,
       cursor: this.cursorInfo,
       whales: this.whaleLine(),
+      audio: this.audio.status,
       status: this.sourceStatus,
       connected: this.connected,
       ships: this.ships.shipCount,

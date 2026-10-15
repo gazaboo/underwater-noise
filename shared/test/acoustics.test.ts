@@ -41,6 +41,11 @@ describe('JOMOPANS-ECHO — comparaison à la figure 7 de l\'article', () => {
     expect(sourceLevelDecidecade(100, 12, undefined, 'tanker')).toBeCloseTo(sourceLevelDecidecade(100, 12, 186, 'tanker'), 6);
   });
 
+  it('borne la vitesse à 3 × V_C (hors du domaine du modèle, ou vitesse AIS erronée)', () => {
+    expect(sourceLevelDecidecade(100, 95, 80, 'other')).toBeCloseTo(sourceLevelDecidecade(100, 3 * 7.4, 80, 'other'), 6);
+    expect(shipBroadbandLevel(95, 80, 'other')).toBeLessThan(200);
+  });
+
   it('borne la vitesse à 0,5 nœud (navire à quai)', () => {
     expect(Number.isFinite(sourceLevelDecidecade(100, 0, 50, 'tug'))).toBe(true);
   });

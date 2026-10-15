@@ -25,6 +25,11 @@ Implémentation : `shared/src/acoustics/jomopans-echo.ts`.
 - Bandes décidécades : + 10·log10(0,231·f). Bandes de l'œuvre : somme énergétique des décidécades.
 - 13 classes (Table 1 de l'article), correspondance AIS → classe par type, longueur et vitesse.
 
+**Borne de vitesse** : la vitesse est bornée à 3 × V_C. Hors de ce domaine (remorqueur à 12 nœuds,
+vedette rapide, ou vitesse AIS erronée — le flux réel contient des navires déclarés à près de 100 nœuds),
+la loi en 60·log(V) donnerait des niveaux irréalistes (> 200 dB). Les vitesses AIS de plus de 60 nœuds
+sont par ailleurs ignorées.
+
 **Hypothèses** : monopole à 6 m de profondeur ; écart-type des résidus ≈ 6 dB (20 Hz – 20 kHz) ;
 raies de pales sous 20 Hz non modélisées ; vitesse bornée à 0,5 nœud ; longueur inconnue → moyenne
 de la classe ; les rouliers ne sont pas identifiables par l'AIS.
@@ -180,3 +185,26 @@ Placement : observations OBIS récentes (70 % des groupes) ou tirage pondéré p
 d'habitat AquaMaps ; profondeur minimale par espèce (cachalot > 1 000 m). Déplacement : marche aléatoire
 corrélée dans l'habitat, vitesse réelle × `whales.timeScale` (30 par défaut : artistique).
 Les groupes ne sont pas des animaux réels suivis : ce sont des présences plausibles.
+
+## 9. Son (J5) : une traduction, pas une mesure
+
+Le son est une **traduction sensible** du champ calculé, pas une auralisation physique
+(`client/src/audio/`). Un seul bus de sortie, un limiteur, pas de spatialisation.
+
+- **On entend ce que l'on regarde** : navires et groupes de la vue, atténués de
+  `audio.ships.edgeAttenuationDb` (18 dB) entre le centre et le bord. Zoomer revient à tendre l'oreille.
+- **Navires** : 12 voix au plus, attribuées aux navires les plus forts (niveau source JOMOPANS-ECHO
+  moins l'atténuation de bord), avec une hystérésis de 3 dB contre la « valse » des voix. Timbre par
+  classe : fondamental qui baisse avec la longueur (~27 Hz pour 300 m, ~90 Hz pour 30 m), pulsation au
+  rythme de l'arbre d'hélice, cavitation pour les petites unités, génératrice pour les paquebots ;
+  transposition de 2 octaves par défaut (haut-parleurs de portable ; 0 ou 1 avec un caisson).
+- **Nappe** : bruit brun filtré et bourdons graves ; niveau et brillance suivent le niveau moyen de la
+  bande basse dans la zone affichée.
+- **Cétacés** : appels synthétisés d'après les fréquences réelles (rorquals transposés ×5) ; chaque
+  appel naturel ou réponse d'un groupe visible est joué. Le **masquage s'entend** : la clarté
+  (portée actuelle / portée en océan calme) ferme le filtre, baisse le niveau et, sous 0,3, hache
+  l'appel. Un appel entendu par un groupe lié reçoit une **réponse** quand l'impulsion lumineuse arrive
+  le long du fil ; un lien rompu donne un **appel sans réponse**. Une réponse ne déclenche pas de réponse.
+- **Niveaux mesurés** (enregistrement de la sortie, vue mondiale, direct) : ensemble −18,5 dBFS RMS,
+  crêtes −9 dBFS ; navires −20,5, nappe −23, cétacés −25 dBFS ; limiteur au repos ; aucun clic
+  (saut maximal entre échantillons 0,1). Zoomé sur une zone chargée (mer Ligure) : −12,7 dBFS.
