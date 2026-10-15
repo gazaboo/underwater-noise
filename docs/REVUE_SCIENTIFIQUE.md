@@ -497,3 +497,11 @@ Niveaux de sortie mesurés [C] : −18,5 dBFS RMS en vue mondiale, aucun écrêt
 Références citées dans des versions antérieures du code ou des commentaires et **retirées** car je ne les
 avais pas consultées pour les valeurs en question : Richardson et al. 1995 (*Marine Mammals and Noise*),
 comme source des niveaux d'appel.
+
+## Terres « gouache » : données et interprétation artistique
+
+La palette Natural Earth II représente des milieux **idéalisés**, et non une observation actuelle. Les couleurs finales, leur quantification, le relief chaud/froid et la matière sont **artistiques**. L'alpha de `landcover_4096.png` est un indice de vert de cette palette : les arbres et leur densité sont **artistiques**, sans valeur de mesure de couverture forestière.
+
+Les positions et les années de dernière éruption des volcans holocènes émergés sont **sourcées** (Smithsonian GVP ; citation et extraction dans `SOURCES_DONNEES.md`). Les cônes, tailles et fumées sont **artistiques**. Le seuil `smokeSinceYear` ne constitue ni un indicateur de danger ni un état d'activité en temps réel ; une année inconnue ne produit pas de fumée.
+
+`land.style: 'flat'` restitue les terres en aplat et retire les ornements. Papier et étoiles restent indépendamment désactivables ; les désactiver également permet de retrouver le rendu d'origine. Les ornements n'apparaissent qu'en carte plate zoomée. Les étoiles et le halo sont réservés au mode globe ; le papier respecte le masque des projections.

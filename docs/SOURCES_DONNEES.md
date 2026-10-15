@@ -19,3 +19,10 @@
 > Niveaux sources des navires : modèle JOMOPANS-ECHO (MacGillivray & de Jong, 2021).
 > Habitats des cétacés : AquaMaps (www.aquamaps.org), cartes de répartition calculées, CC-BY-NC 3.0.
 > Observations : OBIS (obis.org) et les jeux de données qui y contribuent.
+
+## Terres peintes et volcans
+
+- **Natural Earth II**, Tom Patterson, domaine public : [variante 1:10m sans relief ombré ni eau](https://www.naturalearthdata.com/downloads/10m-raster-data/10m-natural-earth-2/), archive `NE2_HR_LC.zip`. Couleurs de milieux idéalisés, sans prétention de représenter la couverture actuelle du sol. Réduction en RGBA 4096×2048 par `tools/build_landcover.py` ; RGB prolongé de 8 pixels sur la mer pour le filtrage côtier. Alpha : indice artistique dérivé de l'excès de vert, sans valeur de mesure forestière.
+- **Global Volcanism Program (2026)**, *Volcanoes of the World*, v. 5.4.0 (7 août 2026), E. Venzke (comp.), Smithsonian Institution. [DOI : 10.5479/si.GVP.VOTW5-2026.5.4](https://doi.org/10.5479/si.GVP.VOTW5-2026.5.4). Export WFS des volcans holocènes émergés du **15 octobre 2026**, date consignée dans `data/grid/meta.json`. Fichier `volcanoes.json` : `[longitude, latitude, altitude en m, année de dernière éruption ou null]`, 1 099 positions. Le panache indique seulement une dernière éruption depuis l'année configurée : **il ne décrit pas une activité en direct**.
+
+Les paliers, pinceaux, granulation, couleurs d'éclairage, tailles, densités, seuil de fumée, étoiles et papier sont des choix **artistiques**. Le relief provient de l'altitude ETOPO déjà utilisée par la carte.

@@ -147,19 +147,48 @@ export class Panel {
     au.addBinding(cfg.audio.whales, 'voices', { label: 'appels simultanés', min: 0, max: 16, step: 1 });
     on(au, 'audio');
 
+    const land = pane.addFolder({ title: 'Terres (gouache)', expanded: false });
+    land.addBinding(cfg.land, 'style', { label: 'style', options: { gouache: 'gouache', aplat: 'flat' } });
+    land.addBinding(cfg.palette, 'landLight', { label: 'luminosité nuit', min: 0, max: 1, step: 0.01 });
+    land.addBinding(cfg.palette, 'landTint', { label: 'teinte nuit', view: 'color' });
+    land.addBinding(cfg.land, 'saturation', { min: 0, max: 3, step: 0.01 });
+    land.addBinding(cfg.land, 'steps', { label: 'paliers', min: 0, max: 12, step: 1 });
+    land.addBinding(cfg.land, 'relief', { min: 0, max: 2, step: 0.01 });
+    land.addBinding(cfg.land, 'brushScale', { label: 'pinceau (°)', min: 0.05, max: 10, step: 0.05 });
+    for (const k of ['brushWarp', 'granulation', 'wetEdge'] as const)
+      land.addBinding(cfg.land, k, { min: 0, max: 1, step: 0.01 });
+    const ornaments = land.addFolder({ title: 'Ornements', expanded: false });
+    const o = cfg.land.ornaments;
+    ornaments.addBinding(o, 'enabled', { label: 'activés' });
+    ornaments.addBinding(o, 'minZoom', { label: 'zoom minimal', min: 1, max: 40, step: 0.1 });
+    ornaments.addBinding(o, 'treeDensity', { label: 'densité des arbres', min: 0, max: 1, step: 0.01 });
+    ornaments.addBinding(o, 'volcanoes', { label: 'volcans' });
+    ornaments.addBinding(o, 'volcanoSize', { label: 'taille des volcans', min: 2, max: 80, step: 1 });
+    ornaments.addBinding(o, 'smokeSinceYear', { label: 'fumée depuis', min: -10000, max: 2100, step: 1 });
+    const paper = land.addFolder({ title: 'Papier', expanded: false });
+    paper.addBinding(cfg.land.paper, 'enabled', { label: 'activé' });
+    paper.addBinding(cfg.land.paper, 'strength', { label: 'intensité', min: 0, max: 1, step: 0.01 });
+    paper.addBinding(cfg.land.paper, 'scale', { label: 'échelle', min: 0.2, max: 10, step: 0.1 });
+    const stars = land.addFolder({ title: 'Étoiles (globe)', expanded: false });
+    stars.addBinding(cfg.land.stars, 'enabled', { label: 'activées' });
+    for (const k of ['density', 'twinkle', 'halo'] as const)
+      stars.addBinding(cfg.land.stars, k, { min: 0, max: 1, step: 0.01 });
+    on(land, 'land');
+
     const pal = pane.addFolder({ title: 'Palette', expanded: false });
-    for (const k of ['background', 'oceanShallow', 'oceanDeep', 'land', 'coast', 'wave', 'ship'] as const) {
+    for (const k of ['background', 'oceanShallow', 'oceanDeep', 'land', 'landTint', 'coast', 'wave', 'ship'] as const) {
       pal.addBinding(cfg.palette, k, { view: 'color' });
     }
+    pal.addBinding(cfg.palette, 'landLight', { label: 'luminosité des terres', min: 0, max: 1, step: 0.01 });
     pal.addBinding(cfg.palette, 'bathyRelief', { label: 'relief du fond', min: 0, max: 1, step: 0.01 });
     pal.addBinding(cfg.palette, 'coastOpacity', { label: 'trait de côte', min: 0, max: 1, step: 0.01 });
     on(pal, 'palette');
 
     const day = pane.addFolder({ title: 'Palette de jour (J)', expanded: false });
-    for (const k of ['background', 'oceanShallow', 'oceanDeep', 'land', 'coast', 'wave', 'glow', 'fog', 'ship'] as const) {
+    for (const k of ['background', 'oceanShallow', 'oceanDeep', 'land', 'landTint', 'coast', 'wave', 'glow', 'fog', 'ship'] as const) {
       if (cfg.dayPalette[k] !== undefined) day.addBinding(cfg.dayPalette, k, { view: 'color' });
     }
-    for (const k of ['bathyRelief', 'coastOpacity', 'unknownDim'] as const) {
+    for (const k of ['landLight', 'bathyRelief', 'coastOpacity', 'unknownDim'] as const) {
       if (cfg.dayPalette[k] !== undefined) day.addBinding(cfg.dayPalette, k, { min: 0, max: 1, step: 0.01 });
     }
     on(day, 'palette');

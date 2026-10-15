@@ -211,3 +211,11 @@ npm run typecheck
 - [x] **J4** cétacés, espace de communication, liens entre groupes
 - [x] **J5** son (sans spatialisation)
 - [x] **J6** globe, demi-sphère avec un projecteur, mode exposition
+
+### Terres « gouache »
+
+Les terres utilisent les couleurs idéalisées de Natural Earth II, stylisées dans le shader : aplats doux, relief chaud/froid, granulation et pigment sur les côtes. La nuit, leur lumière reste discrète pour laisser les ondes au premier plan. `J` bascule entre palettes nuit et jour.
+
+Le panneau `P`, dossier **Terres (gouache)**, règle la matière et active séparément ornements, papier et étoiles. Les arbres et volcans apparaissent au zoom en carte plate ; étoiles et halo entourent uniquement le globe à l'écran. Les réglages sont enregistrés dans `config/local.json5` par le bouton du panneau. La palette de jour dispose de ses propres réglages `landLight` et `landTint`.
+
+Pour retrouver l'ancien rendu, choisir `land.style: 'flat'` et désactiver `land.paper.enabled` ainsi que `land.stars.enabled`. Les positions des volcans sont sourcées (Smithsonian GVP) ; arbres, indice de forêt, fumée et traitement des couleurs sont **artistiques**, sans mesure de couverture forestière ni activité volcanique en direct. Voir `docs/SOURCES_DONNEES.md` et `docs/REVUE_SCIENTIFIQUE.md`. `npm run data` reconstruit aussi les données des terres.
