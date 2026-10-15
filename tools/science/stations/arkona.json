@@ -1,0 +1,64 @@
+{
+  "id": "arkona",
+  "name": "ICES 2654 — Arkona Deep, Arkona Deep",
+  "split": "calibration",
+  "stratum": "belts-baltic",
+  "splitNote": "Rôle fixé par docs/VALIDATION_PROTOCOLE.md (v1), tirage stratifié avant tout calcul.",
+  "deployment": {
+    "station": "2654",
+    "lat": 54.88333,
+    "lon": 13.86667,
+    "waterDepthM": 45.14,
+    "heightAboveBottomM": 3.0,
+    "receiverDepthM": 42.14,
+    "timestampConvention": "start",
+    "source": "Position : dictionnaire de stations ICES (Station_Code 2654, ±0.0163°), instantané du 15/10/2026. Profondeur d'eau : EMODnet Bathymetry à cette position (45.14 m, GERMANY-BALTIC-SEA-DTM), marée ignorée. Hauteur au-dessus du fond : métadonnée ICES MeasurementHeight de chaque fichier. Convention d'horodatage « début de fenêtre » NON confirmée par le producteur."
+  },
+  "ices": {
+    "files": {
+      "2019-02-20": {
+        "uploadId": 1355,
+        "file": "2882_ARK_20190201_20190228.h5",
+        "sha256": "8f7c65b1b8c228ca4b1ef85935737fe6b976842b7eee377328e5d08820b41fc7",
+        "segment": null,
+        "heightAboveBottomM": 3.0
+      },
+      "2019-04-16": {
+        "uploadId": 1357,
+        "file": "2884_ARK_20190401_20190420.h5",
+        "sha256": "21fea166e7fafd7d13a0e9b20fdd376d8d262667db2a83b6b55317be8d619d6a",
+        "segment": null,
+        "heightAboveBottomM": 3.0
+      },
+      "2019-11-12": {
+        "uploadId": 1363,
+        "file": "2890_ARK_20191101_20191130.h5",
+        "sha256": "1cf2c76875af377c4e986e526fc88e8b9850c4e14c31b923b60f3f4db6517a31",
+        "segment": null,
+        "heightAboveBottomM": 3.0
+      }
+    }
+  },
+  "ais": {
+    "source": "DMA (aisdata.ais.dk), AIS terrestre danois",
+    "coverageNote": "À quantifier par le diagnostic de rayon."
+  },
+  "qc": {
+    "status": "reviewed",
+    "excludeBands": [],
+    "excludePeriods": [],
+    "flags": [
+      {
+        "bandsUpToHz": 63,
+        "flag": "flow-noise-susceptible",
+        "note": "Critère 5 du protocole : décidécades ≤ 63 Hz évaluées mais exclues du calage.",
+        "source": "Basan et al. 2024, §4.2.3 (lu)"
+      }
+    ],
+    "notes": [
+      "Étalonnage déclaré dans tous les jours ; absence de chevauchement dans les segments retenus. Aucun autre événement d’intervention documenté dans les métadonnées consultées. Des pics non attribués restent conservés.",
+      "Critères écrits du protocole appliqués par l’agent sur les mesures seules ; pas une revue d’acousticien. Figures et rapports QC examinés le 15/10/2026, avant toute comparaison sur les stations de test."
+    ],
+    "reviewedDate": "2026-10-15"
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "id": "stevns",
+  "name": "ICES 12866 — DKMst038, BIAS Stevns",
+  "split": "calibration",
+  "stratum": "belts-baltic",
+  "splitNote": "Rôle fixé par docs/VALIDATION_PROTOCOLE.md (v1), tirage stratifié avant tout calcul.",
+  "deployment": {
+    "station": "12866",
+    "lat": 55.198875,
+    "lon": 12.25897917,
+    "waterDepthM": 10.33,
+    "heightAboveBottomM": 2.0,
+    "receiverDepthM": 8.33,
+    "timestampConvention": "start",
+    "source": "Position : dictionnaire de stations ICES (Station_Code 12866, ±0.003°), instantané du 15/10/2026. Profondeur d'eau : EMODnet Bathymetry à cette position (10.33 m, DDM2024_50m), marée ignorée. Hauteur au-dessus du fond : métadonnée ICES MeasurementHeight de chaque fichier. Convention d'horodatage « début de fenêtre » NON confirmée par le producteur."
+  },
+  "ices": {
+    "files": {
+      "2019-02-20": {
+        "uploadId": 192,
+        "file": "606_ICES_HELCOM_DKMst038_20181217_Month2.h5",
+        "sha256": "66ad79ca863446bc4a4569b405f70373cee8484625af0bae394ea230825a89cc",
+        "segment": null,
+        "heightAboveBottomM": 2.0
+      },
+      "2019-04-16": {
+        "uploadId": 191,
+        "file": "608_ICES_HELCOM_DKMst038_20190403_Month4.h5",
+        "sha256": "9b30ec6db47757d0d11a87b22e01cad556df539154bad35964d9db05fd42c6f4",
+        "segment": null,
+        "heightAboveBottomM": 2.0
+      },
+      "2019-06-05": {
+        "uploadId": 189,
+        "file": "610_ICES_HELCOM_DKMst038_20190403_Month6.h5",
+        "sha256": "600d92b8ce0923321b3f0ade753f5b62a5369829826ebea501baa11dc5eb2f6f",
+        "segment": null,
+        "heightAboveBottomM": 2.0
+      }
+    }
+  },
+  "ais": {
+    "source": "DMA (aisdata.ais.dk), AIS terrestre danois",
+    "coverageNote": "À quantifier par le diagnostic de rayon."
+  },
+  "qc": {
+    "status": "reviewed",
+    "excludeBands": [],
+    "excludePeriods": [
+      {
+        "start": "2019-02-20T00:00:00Z",
+        "end": "2019-02-20T23:59:59.999999Z",
+        "reason": "Silence instrumental persistant, écart n° 3 approuvé ; même hydrophone et spectre que le silence de Hjelm [C].",
+        "source": "docs/validation/qc/stevns-qc.json ; docs/VALIDATION_PROTOCOLE.md §8.3"
+      }
+    ],
+    "flags": [
+      {
+        "bandsUpToHz": 63,
+        "flag": "flow-noise-susceptible",
+        "note": "Critère 5 du protocole : décidécades ≤ 63 Hz évaluées mais exclues du calage.",
+        "source": "Basan et al. 2024, §4.2.3 (lu)"
+      }
+    ],
+    "notes": [
+      "Étalonnage déclaré dans tous les jours ; absence de chevauchement dans les segments retenus. Aucun autre événement d’intervention documenté dans les métadonnées consultées. Des pics non attribués restent conservés.",
+      "Critères écrits du protocole appliqués par l’agent sur les mesures seules ; pas une revue d’acousticien. Figures et rapports QC examinés le 15/10/2026, avant toute comparaison sur les stations de test."
+    ],
+    "reviewedDate": "2026-10-15"
+  }
+}

@@ -1,0 +1,298 @@
+{
+  "schemaVersion": 1,
+  "profileId": "north-sea-reference-v1",
+  "protocol": "docs/VALIDATION_PROTOCOLE.md v1 (§8 inclus)",
+  "generated": "2026-10-15T16:16:52.610526+00:00",
+  "numberStatus": "[C] : écarts et dénombrements ; coordonnées [S], emprises de repérage [A].",
+  "variant": "world-law-wind5",
+  "regions": [
+    {
+      "id": "anholt",
+      "label": "ICES 12868 — DKMst104, BIAS Anholt",
+      "regime": "shallow",
+      "bounds": {
+        "west": 11.185720830000001,
+        "south": 56.9042025,
+        "east": 11.22572083,
+        "north": 56.9442025
+      },
+      "stations": [
+        "anholt"
+      ],
+      "days": 3,
+      "bands": [
+        {
+          "band": "d63",
+          "fMinHz": 56.234132519034915,
+          "fMaxHz": 70.7945784384138,
+          "comparisons": 3,
+          "diffL50Db": {
+            "min": 4.679197034251615,
+            "median": 13.226641257283006,
+            "max": 18.07291967350193
+          },
+          "within3DbFraction": 0.0
+        },
+        {
+          "band": "d125",
+          "fMinHz": 112.20184543019639,
+          "fMaxHz": 141.25375446227545,
+          "comparisons": 3,
+          "diffL50Db": {
+            "min": 21.607629005865647,
+            "median": 25.316303896665246,
+            "max": 33.4633960290696
+          },
+          "within3DbFraction": 0.0
+        },
+        {
+          "band": "low",
+          "fMinHz": 8.912509381337456,
+          "fMaxHz": 44.66835921509632,
+          "comparisons": 3,
+          "diffL50Db": {
+            "min": -6.246288693196433,
+            "median": -3.768290979205659,
+            "max": 6.732374275381247
+          },
+          "within3DbFraction": 0.0
+        },
+        {
+          "band": "mid",
+          "fMinHz": 89.12509381337456,
+          "fMaxHz": 562.3413251903493,
+          "comparisons": 3,
+          "diffL50Db": {
+            "min": 13.258455589285276,
+            "median": 15.81821684703472,
+            "max": 25.235955100697723
+          },
+          "within3DbFraction": 0.0
+        },
+        {
+          "band": "high",
+          "fMinHz": 891.2509381337456,
+          "fMaxHz": 11220.184543019634,
+          "comparisons": 3,
+          "diffL50Db": {
+            "min": -3.565830704872596,
+            "median": 0.10165745399146431,
+            "max": 6.4194218384350705
+          },
+          "within3DbFraction": 0.3333333333333333
+        }
+      ],
+      "statement": "Écarts [C] aux jours et au point de cet hydrophone, vent de scénario 5 m/s [E]. Jours évalués : 2019-02-20, 2019-04-16, 2019-06-05. Repère géographique ±0,02° [A], sans validation autour du point. Loi au point exact ; écart supplémentaire du rendu sur grille non quantifié ici. Aucune précision validée pour les autres périodes, le trafic synthétique ou les portées des cétacés."
+    },
+    {
+      "id": "lillebaelt",
+      "label": "ICES 12863 — DKMst035, BIAS Lillebaelt",
+      "regime": "shallow",
+      "bounds": {
+        "west": 9.901881600000001,
+        "south": 55.05466367,
+        "east": 9.9418816,
+        "north": 55.09466367
+      },
+      "stations": [
+        "lillebaelt"
+      ],
+      "days": 4,
+      "bands": [
+        {
+          "band": "d63",
+          "fMinHz": 56.234132519034915,
+          "fMaxHz": 70.7945784384138,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": -2.3615691862404304,
+            "median": -0.9245926093427599,
+            "max": 0.6959029215230714
+          },
+          "within3DbFraction": 1.0
+        },
+        {
+          "band": "d125",
+          "fMinHz": 112.20184543019639,
+          "fMaxHz": 141.25375446227545,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": 26.050760012049153,
+            "median": 28.398726594720976,
+            "max": 37.25406086767475
+          },
+          "within3DbFraction": 0.0
+        },
+        {
+          "band": "low",
+          "fMinHz": 8.912509381337456,
+          "fMaxHz": 44.66835921509632,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": 4.354268065262545,
+            "median": 11.144554200816096,
+            "max": 11.492041214840398
+          },
+          "within3DbFraction": 0.0
+        },
+        {
+          "band": "mid",
+          "fMinHz": 89.12509381337456,
+          "fMaxHz": 562.3413251903493,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": 19.654760359200893,
+            "median": 20.919923157868,
+            "max": 31.857990371635083
+          },
+          "within3DbFraction": 0.0
+        },
+        {
+          "band": "high",
+          "fMinHz": 891.2509381337456,
+          "fMaxHz": 11220.184543019634,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": 3.1877957507330166,
+            "median": 6.444882153769932,
+            "max": 18.739322564770404
+          },
+          "within3DbFraction": 0.0
+        }
+      ],
+      "statement": "Écarts [C] aux jours et au point de cet hydrophone, vent de scénario 5 m/s [E]. Jours évalués : 2019-02-20, 2019-04-16, 2019-06-05, 2019-11-12. Repère géographique ±0,02° [A], sans validation autour du point. Loi au point exact ; écart supplémentaire du rendu sur grille non quantifié ici. Aucune précision validée pour les autres périodes, le trafic synthétique ou les portées des cétacés."
+    },
+    {
+      "id": "fehmarn",
+      "label": "ICES 2174 — Fehmarn Belt, Fehmarn Belt",
+      "regime": "shallow",
+      "bounds": {
+        "west": 11.13,
+        "south": 54.58,
+        "east": 11.17,
+        "north": 54.620000000000005
+      },
+      "stations": [
+        "fehmarn"
+      ],
+      "days": 4,
+      "bands": [
+        {
+          "band": "d63",
+          "fMinHz": 56.234132519034915,
+          "fMaxHz": 70.7945784384138,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": -9.721944585126977,
+            "median": -5.855656082334285,
+            "max": -2.8056356486960397
+          },
+          "within3DbFraction": 0.25
+        },
+        {
+          "band": "d125",
+          "fMinHz": 112.20184543019639,
+          "fMaxHz": 141.25375446227545,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": 4.064893048501943,
+            "median": 5.317426647500639,
+            "max": 6.445096458940668
+          },
+          "within3DbFraction": 0.0
+        },
+        {
+          "band": "low",
+          "fMinHz": 8.912509381337456,
+          "fMaxHz": 44.66835921509632,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": 0.6819275306727803,
+            "median": 2.880883398340252,
+            "max": 5.508426889526902
+          },
+          "within3DbFraction": 0.5
+        },
+        {
+          "band": "mid",
+          "fMinHz": 89.12509381337456,
+          "fMaxHz": 562.3413251903493,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": 2.4423367641795153,
+            "median": 3.575560278892361,
+            "max": 4.720342328810489
+          },
+          "within3DbFraction": 0.5
+        },
+        {
+          "band": "high",
+          "fMinHz": 891.2509381337456,
+          "fMaxHz": 11220.184543019634,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": 7.149002837717248,
+            "median": 8.105551800974204,
+            "max": 9.740990499952758
+          },
+          "within3DbFraction": 0.0
+        }
+      ],
+      "statement": "Écarts [C] aux jours et au point de cet hydrophone, vent de scénario 5 m/s [E]. Jours évalués : 2019-02-20, 2019-04-16, 2019-06-05, 2019-11-12. Repère géographique ±0,02° [A], sans validation autour du point. Loi au point exact ; écart supplémentaire du rendu sur grille non quantifié ici. Aucune précision validée pour les autres périodes, le trafic synthétique ou les portées des cétacés."
+    },
+    {
+      "id": "nrs11",
+      "label": "NOAA NRS11 — Cordell Bank (Californie), réseau Ocean Noise Reference Station",
+      "regime": "deep",
+      "bounds": {
+        "west": -123.4553,
+        "south": 37.861,
+        "east": -123.4153,
+        "north": 37.901
+      },
+      "stations": [
+        "nrs11"
+      ],
+      "days": 4,
+      "bands": [
+        {
+          "band": "d63",
+          "fMinHz": 56.234132519034915,
+          "fMaxHz": 70.7945784384138,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": 6.56347730794478,
+            "median": 9.186949616146315,
+            "max": 10.224587563041496
+          },
+          "within3DbFraction": 0.0
+        },
+        {
+          "band": "d125",
+          "fMinHz": 112.20184543019639,
+          "fMaxHz": 141.25375446227545,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": 10.76525265009137,
+            "median": 14.45622428005278,
+            "max": 18.37425686249196
+          },
+          "within3DbFraction": 0.0
+        },
+        {
+          "band": "mid",
+          "fMinHz": 89.12509381337456,
+          "fMaxHz": 562.3413251903493,
+          "comparisons": 4,
+          "diffL50Db": {
+            "min": 8.581479830726622,
+            "median": 13.780274700222812,
+            "max": 19.31985615716154
+          },
+          "within3DbFraction": 0.0
+        }
+      ],
+      "statement": "Écarts [C] aux jours et au point de cet hydrophone, vent de scénario 5 m/s [E]. Jours évalués : 2019-11-12, 2020-02-20, 2020-04-16, 2020-06-05. Repère géographique ±0,02° [A], sans validation autour du point. Loi au point exact ; écart supplémentaire du rendu sur grille non quantifié ici. Aucune précision validée pour les autres périodes, le trafic synthétique ou les portées des cétacés."
+    }
+  ]
+}

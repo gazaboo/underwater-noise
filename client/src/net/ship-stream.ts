@@ -2,7 +2,7 @@
  * Flux de navires depuis le serveur local (WebSocket /ws), avec reconnexion automatique.
  * Reçoit aussi la configuration (messages texte) quand elle change côté serveur.
  */
-import { MSG_COVERAGE, MSG_SHIPS, decodeCoverage, decodeHeader, messageType, type Config, type ShipSnapshot, type SourceStatus } from '@vacarme/shared';
+import { MSG_COVERAGE, MSG_SHIPS, decodeCoverage, decodeHeader, messageType, type Config, type ShipSnapshot, type SourceStatus, type ScienceStatus } from '@vacarme/shared';
 
 export interface StreamEvents {
   onSnapshot(snap: ShipSnapshot, receivedAt: number): void;
@@ -10,6 +10,7 @@ export interface StreamEvents {
   onCoverage(width: number, height: number, data: Uint8Array): void;
   onSourceStatus(status: SourceStatus): void;
   onStatus(connected: boolean): void;
+  onScienceStatus?(status: ScienceStatus): void;
 }
 
 export class ShipStream {
@@ -32,9 +33,10 @@ export class ShipStream {
     };
     ws.onmessage = (ev) => {
       if (typeof ev.data === 'string') {
-        const msg = JSON.parse(ev.data) as { type: string; config?: Config; status?: SourceStatus };
+        const msg = JSON.parse(ev.data) as { type: string; config?: Config; status?: SourceStatus; science?: ScienceStatus };
         if (msg.type === 'config' && msg.config) this.events.onConfig(msg.config);
         else if (msg.type === 'status' && msg.status) this.events.onSourceStatus(msg.status);
+        else if (msg.type === 'science' && msg.science) this.events.onScienceStatus?.(msg.science);
         return;
       }
       const buf = ev.data as ArrayBuffer;

@@ -71,6 +71,11 @@ const targetOverride = z.object({
 });
 
 export const configSchema = z.object({
+  science: z.object({
+    mode: z.enum(['reference', 'experimental']).default('reference'),
+    /** Résumé de validation publié par tools/science (écarts mesurés par zone), sous data/science/. */
+    validationSummary: z.string().default('data/science/validation-summary.json'),
+  }).default({}),
   display: z.object({
     target: z.enum(['screen', 'projector']),
     /** flat : carte plate ; globe : globe à l'écran ; hemisphere : demi-sphère éclairée par un projecteur ;

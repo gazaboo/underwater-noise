@@ -61,7 +61,7 @@ class Writer:
         self.f = gzip.open(path, "wt", encoding="utf-8")
         self.min_interval = min_interval
         self.last_pos: dict[int, float] = {}
-        self.static_done: set[int] = set()
+        self.static_done: dict[int, tuple[int | None, float | None]] = {}
         self.n_pos = 0
         self.n_static = 0
 
@@ -91,9 +91,15 @@ class Writer:
         self.n_pos += 1
 
     def static(self, t: float, mmsi: int, ais_type: int | None, a: float | None, b: float | None, length: float | None) -> None:
-        if mmsi in self.static_done or (ais_type is None and length is None):
+        # Réémis seulement quand l'information s'enrichit (type ou longueur jusque-là inconnus) :
+        # une première ligne incomplète ne doit pas masquer la longueur, qui fixe le niveau source.
+        known_type, known_length = self.static_done.get(mmsi, (None, None))
+        length = length or (a + b if a and b else None)
+        if (ais_type is None or known_type is not None) and (length is None or known_length is not None):
             return
-        self.static_done.add(mmsi)
+        ais_type, length = known_type or ais_type, known_length or length
+        if length != (a + b if a and b else None): a = b = None  # dimensions cohérentes avec la longueur retenue
+        self.static_done[mmsi] = (ais_type, length)
         if a is None or b is None:
             a, b = (length or 0), 0
         msg = {

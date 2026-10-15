@@ -1,0 +1,24 @@
+{
+  "model": "world-law",
+  "profileId": "north-sea-reference-v1",
+  "station": "stevns",
+  "split": "calibration",
+  "qcStatus": "reviewed",
+  "physicsSource": "profil de référence (non calé)",
+  "status": "no-compatible-observations",
+  "results": [],
+  "skipped": {
+    "qc-excluded-period": 705
+  },
+  "dominanceThresholdDb": 3,
+  "limits": "Écarts sur les seuls sites, périodes et bandes évalués ; aucune précision hors de ces conditions ni conséquence biologique validée.",
+  "variant": "world-law-wind5",
+  "inputHashes": {
+    "stevns-20190220-world-law-wind5.json": "115cd4a470ab6c3a26567f944bc8c874813b7a95a69b392c07489b634ea558f6",
+    "stevns-20190220-observations.csv": "b9a58918672eb02a9bd4925ec67e143872900fb9dbca49bd048ca2bc9cf3b7f7",
+    "stevns-20190220-station.json": "5d3fea2cff1239755d4a05a64d890522d22bdc2180901cc9240f787f177215d9",
+    "stevns-2019-02-20.csv": "b9a58918672eb02a9bd4925ec67e143872900fb9dbca49bd048ca2bc9cf3b7f7",
+    "dma-2019-02-20.replay.ndjson.gz": "ce46e94977333e3fbde48660301ea783d7c78adf48d4be2cbe9fa9ca1bac2007",
+    "wind-stevns-20190220-20190221.json": "b289a3fbecef8c60b5e3f4963345eb6906bfe201e62a591f29a65b90615bc3c3"
+  }
+}

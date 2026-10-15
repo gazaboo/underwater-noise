@@ -130,7 +130,15 @@ Le diagnostic (`D`) affiche la source active, l'état du direct (messages/s, nav
 
 ## Réglages
 
-Tous les paramètres artistiques et physiques sont dans **`config/default.json5`**, commenté ligne à ligne.
+**Fiabilité des décibels** : le panneau « Fiabilité » en haut à gauche distingue niveaux des navires,
+fond naturel et augmentation du bruit. Le profil physique de référence est fixe ; les réglages
+artistiques ne modifient pas ces lectures. Les niveaux sont confrontés à des mesures d’hydrophones
+selon un protocole pré-enregistré ([`docs/VALIDATION_PROTOCOLE.md`](docs/VALIDATION_PROTOCOLE.md)) ;
+les écarts mesurés ne sont affichés que dans les zones mesurées, « non validé » ailleurs.
+Méthode et outils : [`docs/ACOUSTIQUE_SCIENTIFIQUE.md`](docs/ACOUSTIQUE_SCIENTIFIQUE.md).
+
+Les paramètres sont dans **`config/default.json5`**, commenté ligne à ligne. Le profil de référence fixe
+les hypothèses acoustiques ; `science.mode: 'experimental'` permet les variantes physiques.
 
 - Le serveur recharge la configuration **à chaud** : on modifie, on enregistre, l'image suit.
 - Le panneau (`P`) agit en direct ; « Enregistrer » écrit `config/local.json5` (ignoré par git),

@@ -5,6 +5,10 @@
 // config/local.json5 (écrit par le panneau de réglage, ignoré par git).
 // Le serveur recharge ces fichiers à chaud : modifiez, enregistrez, l'image suit.
 {
+  // Profil physique fixe ; les anciennes surcharges acoustiques locales sont ignorées en référence.
+  // Pour expérimenter : science.mode = 'experimental' (résultats signalés comme tels).
+  // Écarts mesurés publiés par la validation (docs/VALIDATION_PROTOCOLE.md) ; absent = « non validé ».
+  science: { mode: 'reference', validationSummary: 'data/science/validation-summary.json' },
   display: {
     // Cible d'affichage : "screen" (écran du portable) ou "projector" (Epson EB-990U).
     // Surchargeable par l'URL : ?display=projector

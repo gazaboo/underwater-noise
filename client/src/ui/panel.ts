@@ -46,6 +46,10 @@ export class Panel {
     this.pane = pane;
     const on = (f: FolderApi | Pane, path: string) => f.on('change', () => this.onChange(path));
 
+    const science = pane.addFolder({ title: 'Acoustique — hypothèses fixes', expanded: false });
+    const info = { profil: cfg.science.mode === 'reference' ? 'référence v1 (non validée)' : 'expérimental', vent: `${cfg.ambient.windSpeedMs} m/s (scénario mondial)`, propagation: 'mondiale simplifiée / régionale RAM', ondes: 'animation artistique' };
+    for (const key of ['profil', 'vent', 'propagation', 'ondes'] as const) science.addBinding(info, key, { readonly: true });
+
     const disp = pane.addFolder({ title: 'Affichage' });
     disp.addBinding(cfg.display, 'target', { label: 'cible', options: { 'écran du portable': 'screen', projecteur: 'projector' } });
     disp.addBinding(cfg.display, 'quality', { label: 'profil', options: { expo: 'expo', léger: 'light' } });
@@ -58,7 +62,7 @@ export class Panel {
       .addBinding(cfg.source, 'ships', { label: 'navires (N)', options: { réels: 'real', estimés: 'estimated', 'réels + estimés': 'mixed' } })
       .on('change', () => this.onChange('ships'));
 
-    const waves = pane.addFolder({ title: 'Ondes' });
+    const waves = pane.addFolder({ title: 'Ondes — apparence artistique' });
     waves.addBinding(cfg.waves, 'courant', { label: 'vitesse', min: 0.05, max: 0.67, step: 0.01 });
     waves.addBinding(cfg.waves, 'damping', { label: 'amortissement', min: 0, max: 0.05, step: 0.0005 });
     waves.addBinding(cfg.waves, 'coastDamping', { label: 'absorption côtes', min: 0, max: 1, step: 0.01 });

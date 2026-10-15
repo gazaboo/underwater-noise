@@ -6,7 +6,7 @@ import { EventEmitter } from 'node:events';
 import { existsSync, readFileSync, watch, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import JSON5 from 'json5';
-import { configSchema, deepMerge, type Config } from '@vacarme/shared';
+import { configSchema, deepMerge, resolveScientificConfig, type Config } from '@vacarme/shared';
 
 export class ConfigStore extends EventEmitter {
   private current: Config;
@@ -42,7 +42,7 @@ export class ConfigStore extends EventEmitter {
       const issues = parsed.error.issues.map((i) => `  - ${i.path.join('.')} : ${i.message}`).join('\n');
       throw new Error(`Configuration invalide :\n${issues}`);
     }
-    return parsed.data;
+    return resolveScientificConfig(parsed.data);
   }
 
   /** Surveille le dossier et recharge à chaud ; une erreur garde l'ancienne configuration. */
@@ -68,6 +68,11 @@ export class ConfigStore extends EventEmitter {
     // Valider le résultat complet avant d'écrire.
     const full = configSchema.safeParse(deepMerge(this.current, patch));
     if (!full.success) throw new Error(full.error.issues.map((i) => `${i.path.join('.')} : ${i.message}`).join('; '));
+    const resolved = resolveScientificConfig(full.data);
+    if (full.data.science.mode === 'reference' && ['physics', 'bands', 'ambient', 'qualityProfiles'].some(key =>
+      JSON.stringify(full.data[key as keyof Config]) !== JSON.stringify(resolved[key as keyof Config]))) {
+      throw new Error('Paramètres physiques fixes : choisir science.mode = experimental pour les modifier.');
+    }
     const header = '// Réglages locaux, écrits par le panneau (touche P). Ignoré par git.\n';
     writeFileSync(this.localFile, header + JSON.stringify(nextLocal, null, 2) + '\n');
   }

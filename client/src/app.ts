@@ -18,6 +18,7 @@ import { WaveSim } from './sim/wave-sim.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
 import { FlatNavigator } from './ui/navigation.ts';
 import { Panel } from './ui/panel.ts';
+import { SciencePanel } from './ui/science.ts';
 
 const CLOCK_WRAP = 1 << 20;
 const NOMINAL_FPS = 60;
@@ -43,6 +44,7 @@ export class App {
   private readonly ships = new ShipLayer();
   private readonly hud = new Hud();
   private readonly panel: Panel;
+  private readonly science: SciencePanel;
   private readonly nav: FlatNavigator;
   private readonly gpu: GpuTimer;
   private wave: WaveSim;
@@ -93,6 +95,7 @@ export class App {
     this.wave = new WaveSim(assets.oceanWidth, assets.ocean);
     this.wave.clear(this.renderer);
     this.flat = new FlatView(assets);
+    this.science = new SciencePanel();
     this.detail = new DetailWaves(assets);
     // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale.
     const t0 = performance.now();
@@ -128,6 +131,7 @@ export class App {
       onCoverage: (w, h, data) => this.onCoverage(w, h, data),
       onSourceStatus: (st) => (this.sourceStatus = st),
       onStatus: (ok) => (this.connected = ok),
+      onScienceStatus: () => { void this.science.reload(); },
     });
     requestAnimationFrame((t) => this.frame(t));
   }
@@ -314,7 +318,19 @@ export class App {
     const whale = g
       ? `\n${g.species.name} (${g.species.visualScale > 1 ? `distances ×${g.species.visualScale} à l'écran, ` : ''}bruit ${g.noiseCall.toFixed(0)} dB dans la bande de l'appel) : portée ${(g.rangeM / 1000).toFixed(g.rangeM < 10_000 ? 1 : 0)} km, océan calme ${(g.quietRangeM / 1000).toFixed(0)} km${g.coverage < 0.2 ? ' — zone non observée : bruit sous-estimé' : ''}`
       : '';
-    return whale ? `curseur ${pos} : accumulé ${lv[0].toFixed(0)} dB · basse ${lv[1].toFixed(0)} · moyenne ${lv[2].toFixed(0)} · haute ${lv[3].toFixed(0)} dB re 1 µPa${whale}` : `curseur ${pos} : accumulé ${lv[0].toFixed(0)} dB · basse ${lv[1].toFixed(0)} · moyenne ${lv[2].toFixed(0)} · haute ${lv[3].toFixed(0)} dB re 1 µPa`;
+    return `curseur ${pos} : estimations non validées · basse ${lv[1].toFixed(0)} · moyenne ${lv[2].toFixed(0)} · haute ${lv[3].toFixed(0)} dB re 1 µPa${whale}`;
+  }
+
+  private cursorGeo(): { lat: number; lon: number } | null {
+    if (!this.mouse || !this.lastView) return null;
+    let point: [number, number] | null;
+    if (this.lastGlobe) {
+      const g = this.lastGlobe;
+      const p = pixelToGeo(g.mode, g.cam, g.M, this.cfg, this.mouse.x, this.mouse.y, g.w, g.h);
+      point = p ? [p[1], p[0]] : null;
+    } else point = screenToGeo(this.lastView, this.mouse.x, this.mouse.y);
+    if (!point || Math.abs(point[1]) > 90) return null;
+    return { lat: point[1], lon: ((((point[0] + 180) % 360) + 360) % 360) - 180 };
   }
 
   // ------------------------------------------------------------ entrées
@@ -442,12 +458,15 @@ export class App {
     this.gpu.end();
 
     this.audio.update(now, cfg, listener, this.ships, this.field, this.whales?.drainEvents() ?? []);
-    if (this.hud.visible && now - this.lastCursorRead > 250) {
+    if (now - this.lastCursorRead > 250) {
       this.lastCursorRead = now;
-      this.cursorInfo = this.readCursor();
+      if (this.hud.visible) this.cursorInfo = this.readCursor();
+      const geo = this.cursorGeo();
+      const world = geo && this.science.wantsLevels && cfg.physics.enabled ? this.physics.readComponents(r, geo.lat, geo.lon, cfg) : null;
+      this.science.update(geo, world, cfg, this.sourceStatus);
     }
     this.hud.frame(dt, performance.now() - t0, this.gpu.lastMs, () => ({
-      calibration: `calibration ${this.calibration.maxDeviationDb.toFixed(1)} dB d'écart à la loi en 1/r${cfg.physics.enabled ? '' : ' (champ physique désactivé)'}   B : champ ${['rendu', 'accumulé', 'basse', 'moyenne', 'haute'][this.flat.debugField]}`,
+      calibration: `vérification numérique ${this.calibration.maxDeviationDb.toFixed(1)} dB d'écart à la loi en 1/r (ne valide pas les niveaux en mer)${cfg.physics.enabled ? '' : ' (champ désactivé)'}   B : ${['rendu', 'indice visuel accumulé', 'basse', 'moyenne', 'haute'][this.flat.debugField]}`,
       cursor: this.cursorInfo,
       whales: this.whaleLine(),
       audio: this.audio.status,

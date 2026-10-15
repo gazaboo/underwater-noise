@@ -1,0 +1,49 @@
+{
+  "id": "se13076",
+  "name": "ICES 13076 — « Hon1, Hönö primary station » selon le dictionnaire ICES (Codex l’avait prise pour Vinga)",
+  "split": "development",
+  "splitNote": "Heures du 01/07/2019 examinées pendant le développement de la chaîne : station exclue de tout jeu de test.",
+  "deployment": {
+    "station": "13076",
+    "lat": 57.67967,
+    "lon": 11.5915,
+    "waterDepthM": 20.0,
+    "heightAboveBottomM": 4.0,
+    "receiverDepthM": 16.0,
+    "timestampConvention": "start",
+    "source": "Position : dictionnaire de stations ICES (Station_Code 13076, Hon1, Hönö primary station, ±8e-5°), lu le 15/10/2026 via gis.ices.dk. Profondeur d'eau : EMODnet Bathymetry à cette position (19,99 m, CDI 10843604798), arrondie à 20 m. Hauteur au-dessus du fond : métadonnée ICES MeasurementHeight = 4 m. IDENTITÉ AMBIGUË : Basan et al. 2024 (Table 2) place 01-SE-VIN à 57,623/11,572 (45 m) et 01b-SE-HON à 57,676/11,671 (30 m) ; aucune de ces positions ne coïncide avec le dictionnaire. Le producteur (institution ICES 5439) doit confirmer. Convention d'horodatage « début de fenêtre » non confirmée."
+  },
+  "ices": {
+    "downloadId": 1522,
+    "file": "3093_ICES_SE_13076_190701_190731.h5",
+    "sha256": "41a5195dd17db4431fa28d552164836095c7429f959b750036ef95f94ac90594",
+    "segment": null,
+    "segmentNote": "Série unique ; cycle d'enregistrement (trous de 2 280 s). Commentaire du producteur : « Not corrected for drift. Jomopans processing. »"
+  },
+  "ais": {
+    "source": "DMA (aisdata.ais.dk), AIS terrestre danois",
+    "coverageNote": "Archipel de Göteborg : réception danoise à quantifier ; les îles peuvent masquer le chenal principal (Basan et al. 2024, §4.1.2, pour Hönö)."
+  },
+  "qc": {
+    "status": "draft",
+    "excludeBands": [],
+    "excludePeriods": [],
+    "flags": [
+      {
+        "bandsUpToHz": 63,
+        "flag": "flow-noise-susceptible",
+        "note": "Basan et al. 2024 signalent l'influence des courants à 01-SE-VIN (station elle-même ambiguë, voir deployment.source).",
+        "source": "Basan et al. 2024, §4.1.2 et §4.2.3 (lu)"
+      },
+      {
+        "bandsUpToHz": 20000,
+        "flag": "station-identity-ambiguous",
+        "note": "Position et profondeur incertaines (Vinga 45 m ou Hönö 20 m) : tout écart modèle–mesure est ininterprétable tant que le producteur n’a pas confirmé.",
+        "source": "Dictionnaire ICES vs Basan et al. 2024"
+      }
+    ],
+    "notes": [
+      "Revue manuelle (spectrogrammes, étalonnage) non réalisée : statut draft, rapports exploratoires uniquement."
+    ]
+  }
+}
