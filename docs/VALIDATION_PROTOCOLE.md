@@ -159,3 +159,20 @@ de mesure » précisé). Sinon, l’œuvre affiche l’écart mesuré tel quel. 
    exclu la bande 100–500 Hz presque tous les jours. Il ne détectait pas, en revanche, le vrai silence
    instrumental de Hjelm (5 juin 2019, 20:00–21:16 UTC : spectre figé à ±0,1 dB, 78 dB large bande contre
    101 dB de médiane). La nouvelle règle vise cette signature ; l’ancienne reste calculée comme indicateur.
+3. *15/10/2026, après examen des seules mesures, avant tout calage et toute comparaison sur les
+   stations de test ; accord de l’utilisateur recueilli* — ajout au critère 4 : un jour entier est
+   signalé comme silence instrumental persistant si son étendue large bande entre percentiles 1 et
+   99 est < 0,5 dB [E, seuil de stabilité repris de 4a] ET si chacune des décidécades de son spectre
+   médian est à moins de 3 dB [E, seuil repris de 4b] d’un silence détecté par 4a dans un autre jour
+   du protocole, avec le même numéro d’hydrophone [S]. Le jour est alors exclu sur toutes ses bandes.
+   Cette règle est appliquée à toutes les stations sans lire de prédiction. Motivation : le critère
+   intrajournalier ne peut détecter un silence occupant tout le jour. Stevns en hiver : étendue
+   0,185 dB [C], écart spectral maximal 0,344 dB [C] au silence de Hjelm ; Anholt en automne :
+   0,160 dB [C] et 0,356 dB [C]. Même hydrophone 681486 [S] dans les trois déploiements.
+   Détails et figures : [revue QC](validation/qc/REVUE.md). Ce diagnostic n’est pas confirmé par le
+   producteur et ne constitue pas une revue d’acousticien.
+4. *15/10/2026, avant tout calage* — corrections d’implémentation, sans changement de critère ni de
+   paramètre : le détecteur 4a interrompt ses suites aux pauses d’acquisition (le silence de Hjelm
+   comprend deux suites de 30 et 17 min [C], séparées par une pause) ; l’export de géométrie conserve
+   tous les pas de 10 s [C, configuration] de la prédiction, au lieu d’un seul par minute, afin que
+   le recalcul du calage porte sur les mêmes énergies. Une géométrie sous-échantillonnée est refusée.
