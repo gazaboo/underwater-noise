@@ -308,7 +308,7 @@ async function main(): Promise<void> {
       minRangeM: minRange, codeDepth: 'profondeur = 10 × 1100^(code/255) m ; r_t = max(10 m, profondeur du code source)' }) + '\n');
   }
   const prediction = {
-    schema: 'vacarme-point-prediction/1', model, profileId: physicsFile ? `${SCIENTIFIC_PROFILE_ID}+${physicsFile.label}` : SCIENTIFIC_PROFILE_ID,
+    schema: 'vacarme-point-prediction/1', model, profileId: physicsFile ? physicsFile.label : SCIENTIFIC_PROFILE_ID,
     station: { id: station.id, ...rx }, bands, ringsKm: RINGS_KM,
     parameters: { physics, transitionFactor, physicsSource: physicsFile ? `calage : ${physicsFile.label}` : 'profil de référence (non calé)', radiusM: radius, minRangeM: minRange, sampleSec, aisLivenessSec: liveness / 1000,
       registry: { staleAfterMin: live.staleAfterMin, maxExtrapolateMin: live.maxExtrapolateMin, evictAfterMin: live.evictAfterMin, includeMoored: live.includeMoored },

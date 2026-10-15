@@ -14,11 +14,29 @@ import gzip
 import heapq
 import importlib.util
 import json
+import fcntl
+from functools import wraps
 from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 REORDER_SEC = 300
+
+
+def exclusive_conversion(function):
+    """Un seul écrivain par replay, même si deux commandes le demandent."""
+    @wraps(function)
+    def convert(source, out):
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with Path(f'{out}.lock').open('a') as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            meta = Path(f'{out}.json')
+            if out.exists() and meta.exists():
+                saved = json.loads(meta.read_text())
+                if saved['source'] != source.name: raise ValueError('Replay existant issu d’un autre fichier')
+                return saved
+            return function(source, out)
+    return convert
 
 
 def converter():
@@ -31,6 +49,7 @@ def open_csv(path: Path):
     return gzip.open(path, 'rt', newline='') if path.suffix == '.gz' else path.open(newline='')
 
 
+@exclusive_conversion
 def dma_to_replay(source: Path, out: Path) -> dict:
     m = converter()
     writer = m.Writer(out, 0)
@@ -60,6 +79,7 @@ def dma_to_replay(source: Path, out: Path) -> dict:
     return summary(source, out, rows, late, first, last, 'DMA')
 
 
+@exclusive_conversion
 def marinecadastre_to_replay(source: Path, out: Path) -> dict:
     m = converter()
     items = []

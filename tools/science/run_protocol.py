@@ -12,6 +12,7 @@ import json
 import subprocess
 import sys
 from datetime import date, datetime, timedelta, timezone
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from replay import dma_to_replay, marinecadastre_to_replay
 
@@ -36,6 +37,7 @@ def main():
     parser.add_argument('--out', type=Path, default=ROOT / 'tools/.cache/science/runs')
     parser.add_argument('--physics', type=Path, help='profil calé (JSON) à évaluer en plus du profil de référence')
     parser.add_argument('--station', action='append')
+    parser.add_argument('--jobs', type=int, choices=range(1, 5), default=1, help='cas indépendants calculés en parallèle, après préparation des replays')
     args = parser.parse_args()
     protocol = json.loads(args.protocol.read_text())
     out = args.out / f'v{protocol["version"]}-{args.phase}'
@@ -71,6 +73,7 @@ def main():
             json.dump({'status': 'started', 'started': datetime.now(timezone.utc).isoformat(),
                        'physicsSha256': hashlib.sha256(args.physics.read_bytes()).hexdigest(),
                        'protocolSha256': hashlib.sha256(args.protocol.read_bytes()).hexdigest()}, file, indent=2)
+    commands = []
     for spec in protocol['stations']:
         if spec['role'] not in ROLES[args.phase] or (args.station and spec['id'] not in args.station): continue
         fiche = HERE / 'stations' / f"{spec['id']}.json"
@@ -84,8 +87,19 @@ def main():
             command = [sys.executable, str(HERE / 'station_case.py'), str(fiche), '--replay', str(replay), '--start', f'{day}T{protocol["windowStartUtc"]}:00Z',
                        '--end', f'{end}T00:00:00Z', '--out', str(out), '--radius-km', str(protocol['radiusKm']), '--cache', str(args.cache)]
             if args.physics: command += ['--physics', str(args.physics)]
-            print(' '.join(command), flush=True)
-            subprocess.run(command, check=True)
+            commands.append((f"{spec['id']}-{day.replace('-', '')}", command))
+    def execute(item):
+        name, command = item
+        print('Démarrage :', name, flush=True)
+        out.mkdir(parents=True, exist_ok=True)
+        log = out / f'{name}-execution.log'
+        with log.open('w') as stream:
+            result = subprocess.run(command, stdout=stream, stderr=subprocess.STDOUT)
+        if result.returncode:
+            raise RuntimeError(f'{name} : calcul interrompu, voir {log}\n{log.read_text()[-3000:]}')
+        print('Terminé :', name, flush=True)
+    with ThreadPoolExecutor(max_workers=args.jobs) as pool:
+        list(pool.map(execute, commands))
     if execution:
         record = json.loads(execution.read_text())
         record.update(status='complete', completed=datetime.now(timezone.utc).isoformat())
