@@ -4,10 +4,11 @@
  */
 import * as THREE from 'three';
 import { deepMerge, resolveForTarget, type Config, type DisplayTarget, type SourceStatus } from '@vacarme/shared';
-import { loadOceanGrid, loadWorldAssets, type WorldAssets } from './assets.ts';
+import { loadOceanGrid, loadWorldAssets, loadVolcanoes, type Volcano, type WorldAssets } from './assets.ts';
 import { ShipStream } from './net/ship-stream.ts';
 import { computeFlatTransform, FlatView, screenToGeo, worldTransform, type FlatTransform } from './render/flat-view.ts';
 import { GlobeController, GlobeView, globeCamera, pixelToGeo, viewToEarth, type GlobeMode } from './render/globe-view.ts';
+import { VolcanoLayer } from './render/volcanoes.ts';
 import { ShipLayer } from './render/ships.ts';
 import { DetailWaves } from './sim/detail.ts';
 import { PhysicsField, calibrate, type CalibrationResult } from './sim/physics-sim.ts';
@@ -41,6 +42,7 @@ export class App {
   cfg: Config;
   private readonly renderer: THREE.WebGLRenderer;
   private readonly ships = new ShipLayer();
+  private readonly volcanoes: VolcanoLayer;
   private readonly hud = new Hud();
   private readonly panel: Panel;
   private readonly nav: FlatNavigator;
@@ -80,6 +82,7 @@ export class App {
     private assets: WorldAssets,
     canvas: HTMLCanvasElement,
     physicsOcean: THREE.Texture,
+    volcanoes: Volcano[],
   ) {
     this.raw = raw;
     this.cfg = this.resolve(raw);
@@ -93,6 +96,7 @@ export class App {
     this.wave = new WaveSim(assets.oceanWidth, assets.ocean);
     this.wave.clear(this.renderer);
     this.flat = new FlatView(assets);
+    this.volcanoes = new VolcanoLayer(volcanoes);
     this.detail = new DetailWaves(assets);
     // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale.
     const t0 = performance.now();
@@ -138,8 +142,8 @@ export class App {
     const raw = (await res.json()) as Config;
     const quality = overrides.quality ?? raw.display.quality;
     const profile = raw.qualityProfiles[quality];
-    const [assets, physicsOcean] = await Promise.all([loadWorldAssets(profile.visualSimWidth), loadOceanGrid(profile.physicsSimWidth)]);
-    return new App(raw, overrides, assets, canvas, physicsOcean);
+    const [assets, physicsOcean, volcanoes] = await Promise.all([loadWorldAssets(profile.visualSimWidth), loadOceanGrid(profile.physicsSimWidth), loadVolcanoes()]);
+    return new App(raw, overrides, assets, canvas, physicsOcean, volcanoes);
   }
 
   private resolve(raw: Config, target?: DisplayTarget): Config {
@@ -199,7 +203,7 @@ export class App {
     if (path === 'display') {
       // Changement de cible : on repart de la configuration serveur pour cette cible,
       // en conservant les réglages artistiques communs en cours d'édition.
-      const keep = { palette: this.cfg.palette, waves: this.cfg.waves, ships: this.cfg.ships, display: this.cfg.display };
+      const keep = { palette: this.cfg.palette, dayPalette: this.cfg.dayPalette, land: this.cfg.land, waves: this.cfg.waves, ships: this.cfg.ships, display: this.cfg.display };
       const scale = this.cfg.render.renderScale;
       const prevTarget = this.raw.display.target;
       this.cfg = this.resolve(deepMerge(this.raw, keep), this.cfg.display.target);
@@ -245,6 +249,7 @@ export class App {
       display: { quality: c.display.quality, mode: c.display.mode, theme: c.display.theme },
       palette: c.palette,
       dayPalette: c.dayPalette,
+      land: c.land,
       waves: c.waves,
       ships: c.ships,
       accumulation: c.accumulation,
@@ -408,6 +413,7 @@ export class App {
     if (flatMode) {
       this.lastGlobe = null;
       this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, view, cfg, now / 1000, detail ? { sim: detail, weight: this.detail.weight } : undefined);
+      this.volcanoes.draw(r, view, cfg, now / 1000);
       // Les points grossissent un peu quand on zoome, pour rester lisibles.
       this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
       if (cfg.physics.enabled) this.whales?.draw(r, view, cfg, levels, this.coverage, now / 1000, r.getPixelRatio());

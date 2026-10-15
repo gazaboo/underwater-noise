@@ -6,6 +6,7 @@
  *   → terres et trait de côte → vignettage, exposition, gamma, plancher de noir, tramage.
  */
 import * as THREE from 'three';
+import { PAPER_GLSL } from './paper.ts';
 import type { Config } from '@vacarme/shared';
 import type { WorldAssets } from '../assets.ts';
 import { FullscreenPass, hexToVec3, rawMaterial } from './fullscreen.ts';
@@ -17,6 +18,7 @@ export interface FlatTransform {
   height: number;
   /** Pixels par degré. */
   scale: number;
+  zoom: number;
   centerLon: number;
   centerLat: number;
   latMin: number;
@@ -41,14 +43,14 @@ export function computeFlatTransform(cfg: Config, width: number, height: number,
   const sx = width / 360;
   const sy = height / latSpan;
   const base = fit === 'cover' ? Math.max(sx, sy) : Math.min(sx, sy);
-  if (!nav) return { width, height, scale: base, centerLon, centerLat: (lo + hi) / 2, latMin: lo, latMax: hi };
+  if (!nav) return { width, height, zoom: 1, scale: base, centerLon, centerLat: (lo + hi) / 2, latMin: lo, latMax: hi };
   const scale = base * nav.zoom;
-  return { width, height, scale, centerLon: nav.centerLon, centerLat: clampCenterLat(nav.centerLat, lo, hi, height / 2 / scale), latMin: lo, latMax: hi };
+  return { width, height, zoom: nav.zoom, scale, centerLon: nav.centerLon, centerLat: clampCenterLat(nav.centerLat, lo, hi, height / 2 / scale), latMin: lo, latMax: hi };
 }
 
 /** Transformation de la texture « monde » : équirectangulaire complète, 360° × 180°. */
 export function worldTransform(width: number): FlatTransform {
-  return { width, height: width / 2, scale: width / 360, centerLon: 0, centerLat: 0, latMin: -90, latMax: 90 };
+  return { width, zoom: 0, height: width / 2, scale: width / 360, centerLon: 0, centerLat: 0, latMin: -90, latMax: 90 };
 }
 
 /** Garde la vue dans la bande de latitudes autorisée (ou centrée si la vue est plus haute). */
@@ -66,6 +68,11 @@ const COMPOSITE_FRAG = /* glsl */ `
 in vec2 vUv;
 out vec4 outColor;
 
+uniform sampler2D uLandcover;
+uniform int uLandStyle;
+uniform vec3 uLandTint;
+uniform float uLandLight, uLandSat, uLandSteps, uLandRelief;
+uniform float uBrushScale, uBrushWarp, uGranulation, uWetEdge, uTrees, uTreeDensity;
 uniform sampler2D uElevN;   // altitude 16 bits (lue texel par texel, interpolée après décodage)
 uniform sampler2D uElevL;   // fraction de terre en B (linéaire)
 uniform sampler2D uWave;    // R = u
@@ -189,6 +196,54 @@ float hash(vec2 p) {
   return fract((p.x + p.y) * p.x);
 }
 
+${PAPER_GLSL}
+// Grilles ancrées dans la géographie, fondues selon leur taille en pixels.
+vec3 trees(vec3 c, vec2 ll, float cell) {
+  float fade = smoothstep(14.0, 28.0, cell * uScale) * uTrees;
+  if (fade <= 0.0) return c;
+  vec2 id = floor((ll + vec2(180,90)) / cell);
+  vec2 jitter = (vec2(hash(id+13.1),hash(id+41.7))-0.5)*0.36;
+  vec2 center = (id + 0.5 + jitter) * cell - vec2(180,90);
+  vec2 uv = vec2((center.x + 180.0) / 360.0, (90.0 - center.y) / 180.0);
+  float forest = texture(uLandcover, uv).a;
+  if (hash(id + cell * 31.0) >= forest * uTreeDensity || texture(uElevL, uv).b < 0.6) return c;
+  float cs = max(cos(radians(center.y)), 0.02);
+  vec2 q = (ll - center) / cell * vec2(cs, 1.0);
+  float radius = min(0.16 + 0.05*hash(id+8.2), 0.32 * cs);
+  float aa = 1.0 / (uScale * cell);
+  float canopy = 1.0 - smoothstep(radius-aa, radius+aa, length(q - vec2(0,0.06)));
+  float trunk = (1.0-smoothstep(0.018, 0.018+aa, abs(q.x))) *
+                (1.0-smoothstep(0.12, 0.12+aa, abs(q.y+0.09)));
+  float shadow = (1.0-smoothstep(radius*0.5, radius+aa, length((q-vec2(0.06,-0.12))*vec2(1,1.8)))) * 0.2;
+  c *= 1.0-shadow*fade;
+  c = mix(c, c * vec3(0.45,0.3,0.18), trunk*fade);
+  vec3 green = c * vec3(0.38,0.66,0.32);
+  green *= 1.0 + 0.4 * clamp(dot(normalize(vec3(q, radius)), normalize(vec3(-0.6,0.6,1))),0.0,1.0);
+  return mix(c, green, canopy*fade);
+}
+vec3 paintedLand(vec2 uv, vec2 ll, float ax, float ay, float fraction) {
+  vec2 p = vec2(ll.x*cos(radians(ll.y)), ll.y) / uBrushScale;
+  vec2 warp = (vec2(fbm(p), fbm(p+5.2))-0.5)*uBrushWarp*uBrushScale;
+  vec3 c = texture(uLandcover, uv + warp / vec2(360,-180)).rgb;
+  float luma = dot(c, vec3(0.299,0.587,0.114));
+  c = max(mix(vec3(luma),c,uLandSat), vec3(0.0));
+  float L = max(dot(c,vec3(0.299,0.587,0.114)),0.001);
+  if (uLandSteps > 0.0) {
+    float x = L*uLandSteps;
+    float q = (floor(x)+smoothstep(0.35,0.65,fract(x)))/uLandSteps;
+    c *= max(q,0.04)/L;
+  }
+  float light = dot(normalize(vec3(-ax,-ay,4000)),normalize(vec3(-0.6,0.5,0.62)))-0.62;
+  c *= vec3(1.0) + uLandRelief * (max(light,0.0)*vec3(0.9,0.65,0.25) + min(light,0.0)*vec3(0.7,0.5,0.2));
+  c *= 1.0-uGranulation*0.15*(fbm(p*6.0)-0.5);
+  c *= 1.0-uWetEdge*0.4*(1.0-smoothstep(0.5,0.7,fraction));
+  if (uTrees > 0.0) {
+    c = trees(c,ll,1.0);
+    c = trees(c,ll,0.25);
+    c = trees(c,ll,0.0625);
+  }
+  return c*uLandTint*uLandLight;
+}
 void main() {
   vec2 frag = gl_FragCoord.xy;
   vec2 d = (frag - 0.5 * uResolution) / uScale;
@@ -265,11 +320,14 @@ void main() {
     float land = smoothstep(0.42, 0.58, frac);
     float coast = exp(-pow((frac - 0.5) / 0.16, 2.0)) * uCoastOpacity;
     // Mélange (et non ajout) : un trait sombre reste possible sur des terres claires (mode jour).
-    col = mix(mix(sea, uLand, land), uCoast, min(coast, 1.0));
+    vec3 landCol = uLand;
+    if (uLandStyle == 1 && land > 0.0) landCol = paintedLand(uv, vec2(uv.x*360.0-180.0,lat), ax, ay, frac);
+    col = mix(mix(sea, landCol, land), uCoast, min(coast, 1.0));
   }
 
   // --- Finition (absente quand on dessine la texture « monde » : la passe globe s'en charge).
   if (!uFinish) { outColor = vec4(col, 1.0); return; }
+  col = paper(col, frag);
   vec2 q = frag / uResolution - 0.5;
   q.x *= uResolution.x / uResolution.y;
   col *= 1.0 - uVignette * smoothstep(0.35, 1.05, length(q) * 1.2);
@@ -287,6 +345,12 @@ export class FlatView {
   constructor(assets: WorldAssets) {
     const v3 = () => new THREE.Vector3();
     this.uniforms = {
+      uLandcover: { value: assets.landcover },
+      uLandStyle: { value: 1 }, uLandTint: { value: v3() }, uLandLight: { value: 1 },
+      uLandSat: { value: 1 }, uLandSteps: { value: 5 }, uLandRelief: { value: 1 },
+      uBrushScale: { value: 1 }, uBrushWarp: { value: 0 }, uGranulation: { value: 0 },
+      uWetEdge: { value: 0 }, uTrees: { value: 0 }, uTreeDensity: { value: 0 },
+      uPaperStrength: { value: 0 }, uPaperScale: { value: 1 },
       uElevN: { value: assets.elevationNearest },
       uElevL: { value: assets.elevationLinear },
       uWave: { value: null },
@@ -362,6 +426,18 @@ export class FlatView {
   ): void {
     const u = this.uniforms;
     if (!u.uLevels.value) u.uLevels.value = wave; // texture valide même sans champ physique
+    const l = cfg.land;
+    u.uLandStyle.value = l.style === 'gouache' ? 1 : 0;
+    hexToVec3(cfg.palette.landTint, u.uLandTint.value);
+    u.uLandLight.value = cfg.palette.landLight;
+    u.uLandSat.value = l.saturation; u.uLandSteps.value = l.steps; u.uLandRelief.value = l.relief;
+    u.uBrushScale.value = l.brushScale; u.uBrushWarp.value = l.brushWarp;
+    u.uGranulation.value = l.granulation; u.uWetEdge.value = l.wetEdge;
+    const fade = THREE.MathUtils.smoothstep(view.zoom, l.ornaments.minZoom, l.ornaments.minZoom * 1.5);
+    u.uTrees.value = l.ornaments.enabled && l.style === 'gouache' ? fade : 0;
+    u.uTreeDensity.value = l.ornaments.treeDensity;
+    u.uPaperStrength.value = l.paper.enabled ? l.paper.strength : 0;
+    u.uPaperScale.value = l.paper.scale;
     const acc = cfg.accumulation;
     u.uQuietDb.value = acc.quietDb;
     u.uSatDb.value = acc.saturationDb;

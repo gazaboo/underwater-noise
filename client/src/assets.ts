@@ -29,6 +29,8 @@ function dataTexture(image: ImageBitmap, filter: THREE.MagnificationTextureFilte
 }
 
 export interface WorldAssets {
+  /** RGB = couleur NE II ; A = indice de forêt artistique. Filtrage linéaire. */
+  landcover: THREE.Texture;
   /** Grille de simulation : R = mer, G = profondeur (log), B = fraction de terre. Filtrage au plus proche. */
   ocean: THREE.Texture;
   oceanWidth: number;
@@ -49,11 +51,19 @@ export async function loadOceanGrid(width: number): Promise<THREE.Texture> {
 }
 
 export async function loadWorldAssets(oceanWidth: number): Promise<WorldAssets> {
-  const [ocean, elev] = await Promise.all([loadOceanGrid(oceanWidth), cachedBitmap('/data/grid/elevation_4096.png')]);
+  const [ocean, elev, landcover] = await Promise.all([loadOceanGrid(oceanWidth), cachedBitmap('/data/grid/elevation_4096.png'), cachedBitmap('/data/grid/landcover_4096.png')]);
   return {
+    landcover: dataTexture(landcover, THREE.LinearFilter),
     ocean,
     oceanWidth,
     elevationNearest: dataTexture(elev, THREE.NearestFilter),
     elevationLinear: dataTexture(elev, THREE.LinearFilter),
   };
+}
+
+export type Volcano = [number, number, number, number | null];
+export async function loadVolcanoes(): Promise<Volcano[]> {
+  const res = await fetch('/data/grid/volcanoes.json');
+  if (!res.ok) throw new Error(`volcanoes.json : HTTP ${res.status}`);
+  return res.json() as Promise<Volcano[]>;
 }

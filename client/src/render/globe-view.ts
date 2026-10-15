@@ -16,6 +16,7 @@
  * direction « face au public » (0, 0, 1) sur le point (φ₀, λ₀).
  */
 import * as THREE from 'three';
+import { PAPER_GLSL } from './paper.ts';
 import type { Config } from '@vacarme/shared';
 import { FullscreenPass, rawMaterial } from './fullscreen.ts';
 
@@ -43,6 +44,7 @@ uniform bool uCalib;
 uniform float uExposure, uGamma, uBlackLift, uVignette;
 uniform bool uDither;
 uniform float uTime;
+uniform float uStars, uStarDensity, uTwinkle, uHalo;
 
 const float PI = 3.141592653589793;
 
@@ -51,6 +53,8 @@ float hash(vec2 p) {
   p += dot(p, p.yx + 19.19);
   return fract((p.x + p.y) * p.x);
 }
+
+${PAPER_GLSL}
 
 // Lecture de la texture monde sans couture à l'antiméridien (méthode de Tarini) :
 // on choisit, pour les dérivées, la paramétrisation de u la plus continue.
@@ -87,6 +91,7 @@ void main() {
   bool hit = false;
   float cosInc = 1.0;
   float edge = 1.0;
+  float rayDistance = 10.0;
 
   if (uMode == 3) {
     // Équirect : rectangle 2:1 centré.
@@ -119,6 +124,7 @@ void main() {
     vec3 ro = vec3(0.0, 0.0, uDist);
     vec3 rd = normalize(vec3(s * uTanHalf, -1.0));
     float b = dot(ro, rd);
+    rayDistance = sqrt(max(dot(ro,ro)-b*b, 0.0));
     float h = b * b - (dot(ro, ro) - 1.0);
     if (h > 0.0) {
       float t = -b - sqrt(h);
@@ -151,6 +157,18 @@ void main() {
     col *= edge;
   }
 
+  if (uMode == 1 && !hit && uStars > 0.0) {
+    // Constantes de répartition, taille et couleur artistiques ; étoiles fixes dans l'écran.
+    vec2 cell = floor(frag / 32.0);
+    float seed = hash(cell);
+    vec2 offset = vec2(hash(cell+7.3), hash(cell+19.1));
+    vec2 delta = frag - (cell+0.15+offset*0.7)*32.0;
+    float star = (1.0-smoothstep(0.2,1.6,length(delta))) * step(seed, uStarDensity*0.3);
+    float pulse = 1.0-uTwinkle*0.35*(0.5+0.5*sin(uTime*0.7+seed*61.0));
+    col += mix(vec3(0.65,0.78,1),vec3(1,0.82,0.6),seed)*star*pulse*0.7;
+    col += vec3(0.16,0.31,0.46)*exp(-max(rayDistance-1.0,0.0)*38.0)*uHalo;
+  }
+
   // Mire : cercles concentriques et croix d'axe, dans le repère de l'image.
   if (uCalib) {
     float r = length(p);
@@ -160,6 +178,7 @@ void main() {
   }
 
   // Finition.
+  if (hit) col += (paper(col, frag) - col) * edge;
   if (uMode == 1) {
     vec2 qv = frag / uResolution - 0.5;
     qv.x *= uResolution.x / uResolution.y;
@@ -245,6 +264,8 @@ export class GlobeView {
 
   constructor() {
     this.uniforms = {
+      uPaperStrength: { value: 0 }, uPaperScale: { value: 1 },
+      uStars: { value: 0 }, uStarDensity: { value: 0 }, uTwinkle: { value: 0 }, uHalo: { value: 0 },
       uWorld: { value: null },
       uResolution: { value: new THREE.Vector2() },
       uMode: { value: 1 },
@@ -273,6 +294,11 @@ export class GlobeView {
 
   render(renderer: THREE.WebGLRenderer, world: THREE.Texture, mode: GlobeMode, cam: GlobeCamera, M: THREE.Matrix3, cfg: Config, width: number, height: number, time: number): void {
     const u = this.uniforms;
+    const { paper, stars } = cfg.land;
+    u.uPaperStrength.value = paper.enabled ? paper.strength : 0;
+    u.uPaperScale.value = paper.scale;
+    u.uStars.value = stars.enabled ? 1 : 0;
+    u.uStarDensity.value = stars.density; u.uTwinkle.value = stars.twinkle; u.uHalo.value = stars.halo;
     u.uWorld.value = world;
     (u.uResolution.value as THREE.Vector2).set(width, height);
     u.uMode.value = MODE_INDEX[mode];
