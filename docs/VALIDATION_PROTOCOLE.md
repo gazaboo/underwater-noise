@@ -92,8 +92,10 @@ jamais les prédictions. Consigné dans la section `qc` de chaque fiche station,
 1. Intégrité : export sans séries chevauchantes ambiguës ; fichier vérifié par empreinte.
 2. Étalonnage déclaré (métadonnée `CalibrationProcedure`), sinon station exclue.
 3. Contaminations connues de la littérature (p. ex. pic de plateforme), bande exclue.
-4. Plancher de bruit de l’instrument : bande exclue si le percentile 1 % et la médiane mesurés diffèrent
-   de moins de 3 dB sur la semaine (spectre « plat » au plancher, d’après Basan et al. 2024, §4.1.2).
+4. Plancher de l’instrument (reformulé, écart n° 2) : (a) période exclue si, pendant ≥ 10 min, le
+   niveau large bande est ≥ 15 dB sous la médiane du jour et varie de moins de 0,5 dB d’une minute à
+   l’autre (spectre figé : silence de l’instrument) ; (b) bande exclue si sa médiane du jour est à moins
+   de 3 dB du spectre de ces silences. L’écart L50 − L99 < 3 dB n’est plus qu’un indicateur.
 5. Bruit d’écoulement : décidécades ≤ 63 Hz signalées (Basan et al. 2024, §4.2.3) ; évaluées mais
    **jamais utilisées pour le calage** faute de courants mesurés au point.
 6. Périodes d’intervention (mouillage, maintenance) : exclues si documentées par le producteur.
@@ -151,3 +153,9 @@ de mesure » précisé). Sinon, l’œuvre affiche l’écart mesuré tel quel. 
    métadonnées du déploiement 500 m (profondeur de l’instrument). La station reste au-delà de 400 m, où
    la loi mondiale n’applique plus de perte au fond : son rôle de test du régime profond est inchangé,
    mais il s’agit d’un talus, pas d’une plaine abyssale.
+2. *15/10/2026, après examen des seules mesures de NRS11 et de Hjelm, avant toute comparaison au modèle* —
+   critère 4 reformulé. Tel qu’écrit (L50 − L99 < 3 dB ⇒ bande exclue), il retirait des sons réels et
+   stables : chœur de rorquals vers 20 Hz et trafic lointain régulier à 160–315 Hz à NRS11, ce qui aurait
+   exclu la bande 100–500 Hz presque tous les jours. Il ne détectait pas, en revanche, le vrai silence
+   instrumental de Hjelm (5 juin 2019, 20:00–21:16 UTC : spectre figé à ±0,1 dB, 78 dB large bande contre
+   101 dB de médiane). La nouvelle règle vise cette signature ; l’ancienne reste calculée comme indicateur.

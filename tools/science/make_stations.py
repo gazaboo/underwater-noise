@@ -34,6 +34,7 @@ def main():
         code = spec['ices']
         entry = sources['stations'][code]
         depth = -sources['emodnetDepth'][code]['avg']
+        if any(f'ices-{u}' not in log for u in spec['days'].values()): print(f"{spec['id']} : fichiers incomplets, fiche différée"); continue
         files = {}
         for day, upload in spec['days'].items():
             fetched = log[f'ices-{upload}']

@@ -109,6 +109,20 @@ class ExportTests(unittest.TestCase):
             self.assertEqual(json.loads(output.with_suffix('.metadata.json').read_text())['exactDuplicatesRemoved'], 3)
 
 
+class QualityTests(unittest.TestCase):
+    def test_instrument_silence_detected_but_steady_real_sound_kept(self):
+        from qc import dropouts
+        rng = np.random.default_rng(1)
+        starts = [f'2019-06-05T{h:02d}:{m:02d}:00Z' for h in range(2) for m in range(60)]
+        matrix = 90 + rng.normal(0, 3, (120, 5))
+        matrix[:, 0] = 100 + rng.normal(0, 0.1, 120)   # chœur stable et réel : distribution étroite, pas un silence
+        matrix[70:90] = 55.0                            # spectre figé très bas : silence de l'instrument
+        periods, floor = dropouts(starts, [20, 63, 125, 1000, 8000], matrix)
+        self.assertEqual([(p['start'], p['end'], p['minutes']) for p in periods], [('2019-06-05T01:10:00Z', '2019-06-05T01:30:00Z', 20)])
+        self.assertTrue(np.allclose(floor, 55))
+        self.assertEqual(dropouts(starts[:60], [20], matrix[:60, :1])[0], [])
+
+
 class NoaaTests(unittest.TestCase):
     def test_hmd_to_decidecade_is_exact_for_white_noise(self):
         from noaa import decidecade_matrix, hmd_edges

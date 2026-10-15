@@ -1,0 +1,62 @@
+{
+  "id": "hjelm",
+  "name": "ICES 12867 — DKMst103, BIAS Hjelm",
+  "split": "calibration",
+  "stratum": "kattegat",
+  "splitNote": "Rôle fixé par docs/VALIDATION_PROTOCOLE.md (v1), tirage stratifié avant tout calcul.",
+  "deployment": {
+    "station": "12867",
+    "lat": 56.11314722,
+    "lon": 10.73365,
+    "waterDepthM": 10.4,
+    "heightAboveBottomM": 2.0,
+    "receiverDepthM": 8.4,
+    "timestampConvention": "start",
+    "source": "Position : dictionnaire de stations ICES (Station_Code 12867, ±0.003°), instantané du 15/10/2026. Profondeur d'eau : EMODnet Bathymetry à cette position (10.40 m, DDM2024_50m), marée ignorée. Hauteur au-dessus du fond : métadonnée ICES MeasurementHeight de chaque fichier. Convention d'horodatage « début de fenêtre » NON confirmée par le producteur."
+  },
+  "ices": {
+    "files": {
+      "2019-02-20": {
+        "uploadId": 174,
+        "file": "583_ICES_HELCOM_DKMst103_20190213_Month2.h5",
+        "sha256": "40e1c176805931e1212d24c38aee4a8916086f3ee3fd98e9bd2982dcf0858b02",
+        "segment": null,
+        "heightAboveBottomM": 2.0
+      },
+      "2019-04-16": {
+        "uploadId": 176,
+        "file": "585_ICES_HELCOM_DKMst103_20190213_Month4.h5",
+        "sha256": "c998a2b2d9e464766c92fe528dccedb4f00a9d8fc1ce870ace936a9270bd73f0",
+        "segment": null,
+        "heightAboveBottomM": 2.0
+      },
+      "2019-06-05": {
+        "uploadId": 178,
+        "file": "587_ICES_HELCOM_DKMst103_20190510_Month6.h5",
+        "sha256": "528c47cb21bba78b8806b3026b6c80475f59f0847144a394a516f47f1c544e10",
+        "segment": null,
+        "heightAboveBottomM": 2.0
+      }
+    }
+  },
+  "ais": {
+    "source": "DMA (aisdata.ais.dk), AIS terrestre danois",
+    "coverageNote": "À quantifier par le diagnostic de rayon."
+  },
+  "qc": {
+    "status": "draft",
+    "excludeBands": [],
+    "excludePeriods": [],
+    "flags": [
+      {
+        "bandsUpToHz": 63,
+        "flag": "flow-noise-susceptible",
+        "note": "Critère 5 du protocole : décidécades ≤ 63 Hz évaluées mais exclues du calage.",
+        "source": "Basan et al. 2024, §4.2.3 (lu)"
+      }
+    ],
+    "notes": [
+      "Revue non réalisée."
+    ]
+  }
+}

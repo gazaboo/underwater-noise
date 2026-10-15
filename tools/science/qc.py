@@ -4,7 +4,12 @@ Pour chaque station du protocole et chacun de ses jours :
   - export des fenêtres de 60 s (ices.py) ou des minutes NOAA (noaa.py) ;
   - critère 1 (intégrité) : métadonnées d'export (segments, chevauchements, trous) ;
   - critère 2 (étalonnage déclaré) : métadonnée CalibrationProcedure / état d'étalonnage NOAA ;
-  - critère 4 (plancher de l'instrument) : décidécade signalée si L50 − L1 < 3 dB sur le jour ;
+  - critère 4 (plancher de l'instrument, version de l'écart n° 2 au protocole) :
+      a) silences instrumentaux : ≥ 10 min consécutives où le niveau large bande est ≥ 15 dB sous la
+         médiane du jour ET varie de moins de 0,5 dB d'une minute à l'autre (spectre figé) → période exclue ;
+      b) bandes au plancher : médiane du jour à moins de 3 dB du spectre de ces silences → bande exclue ;
+      c) indicateur seulement (non éliminatoire) : L50 − L99 < 3 dB (distribution étroite : chœurs
+         biologiques, trafic lointain régulier ou plancher ; décidé sur figure) ;
   - figure par station : spectres de percentiles (L1, L10, L50, L90, L99) et spectrogramme par jour.
 Les critères 3, 5 et 6 (littérature, écoulement, interventions) sont reportés à la main dans la fiche.
 Sortie : <out>/<station>-qc.json et <out>/<station>-qc.png ; la fiche station n'est pas modifiée.
@@ -41,11 +46,42 @@ def load(csv_path: Path):
     return starts, bands, matrix
 
 
+DROPOUT_MIN, DROPOUT_BELOW_DB, DROPOUT_STEADY_DB = 10, 15, 0.5
+
+
+def dropouts(starts, bands, matrix):
+    """Silences instrumentaux (critère 4a) et bandes au plancher (4b)."""
+    broadband = 10 * np.log10(np.nansum(10 ** (matrix / 10), axis=1))
+    median = np.median(broadband)
+    low = broadband < median - DROPOUT_BELOW_DB
+    steady = np.r_[False, np.abs(np.diff(broadband)) < DROPOUT_STEADY_DB]
+    candidate = low & (steady | np.r_[steady[1:], False])
+    periods, run = [], []
+    for i, flag in enumerate(candidate):
+        if flag and (not run or i == run[-1] + 1): run.append(i); continue
+        if len(run) >= DROPOUT_MIN: periods.append(run)
+        run = [i] if flag else []
+    if len(run) >= DROPOUT_MIN: periods.append(run)
+    result = [{'start': starts[r[0]], 'end': end_of(starts[r[-1]]), 'minutes': len(r), 'broadbandDb': float(np.median(broadband[r]))} for r in periods]
+    floor = np.nanmedian(matrix[[i for r in periods for i in r]], axis=0) if periods else None
+    return result, floor
+
+
+def end_of(start: str) -> str:
+    return (datetime.fromisoformat(start.replace('Z', '+00:00')) + timedelta(minutes=1)).isoformat().replace('+00:00', 'Z')
+
+
 def day_stats(starts, bands, matrix):
     pct = {name: np.nanpercentile(matrix, p, axis=0).tolist() for name, p in [('L99', 1), ('L90', 10), ('L50', 50), ('L10', 90), ('L1', 99)]}
     spread = np.array(pct['L50']) - np.array(pct['L99'])  # L99 : niveau dépassé 99 % du temps (percentile 1)
-    floor = [b for b, s in zip(bands, spread) if s < FLOOR_SPREAD_DB]
-    return {'windows': len(starts), 'bandsHz': bands, 'percentiles': pct, 'floorSuspectBandsHz': floor}
+    narrow = [b for b, s in zip(bands, spread) if s < FLOOR_SPREAD_DB]
+    silences, floor_spectrum = dropouts(starts, bands, matrix)
+    keep = np.ones(len(starts), bool)
+    for p in silences: keep &= ~np.array([p['start'] <= s < p['end'] for s in starts])
+    at_floor = [] if floor_spectrum is None else [b for b, l50, f in zip(bands, np.nanpercentile(matrix[keep], 50, axis=0), floor_spectrum) if l50 - f < FLOOR_SPREAD_DB]
+    return {'windows': len(starts), 'bandsHz': bands, 'percentiles': pct, 'narrowDistributionBandsHz': narrow,
+            'instrumentSilences': silences, 'bandsAtInstrumentFloorHz': at_floor,
+            'floorSuspectBandsHz': at_floor}
 
 
 def main():
@@ -88,7 +124,8 @@ def main():
             ax = axes[0][column]
             for name, style in [('L99', ':'), ('L90', '--'), ('L50', '-'), ('L10', '--'), ('L1', ':')]:
                 ax.semilogx(bands, stats['percentiles'][name], style, label=name, color='k' if name == 'L50' else 'gray')
-            for b in stats['floorSuspectBandsHz']: ax.axvline(b, color='tab:red', alpha=.3)
+            for b in stats['narrowDistributionBandsHz']: ax.axvline(b, color='tab:orange', alpha=.25)
+            for b in stats['bandsAtInstrumentFloorHz']: ax.axvline(b, color='tab:red', alpha=.5)
             ax.set_title(f"{spec['id']} {day} ({stats['windows']} min)"); ax.set_xlabel('Hz'); ax.set_ylabel('dB re 1 µPa'); ax.grid(alpha=.3)
             if column == 0: ax.legend(fontsize=7)
             ax = axes[1][column]
@@ -99,7 +136,7 @@ def main():
         fig.suptitle(f"Contrôle qualité des mesures — {station['name']} (aucune prédiction affichée)", fontsize=10)
         fig.savefig(args.out / f"{spec['id']}-qc.png", dpi=80); plt.close(fig)
         (args.out / f"{spec['id']}-qc.json").write_text(json.dumps(report, indent=1, ensure_ascii=False) + '\n')
-        print(spec['id'], {d: (v['windows'], v['floorSuspectBandsHz']) for d, v in report['days'].items()}, flush=True)
+        print(spec['id'], {d: (v['windows'], v['bandsAtInstrumentFloorHz'], [(p['start'][11:16], p['minutes']) for p in v['instrumentSilences']]) for d, v in report['days'].items()}, flush=True)
         if args.prune_raw and 'ices' in spec:
             for entry in station['ices']['files'].values():
                 raw = args.cache / 'ices' / entry['file']
