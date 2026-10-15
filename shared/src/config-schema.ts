@@ -84,7 +84,7 @@ export const configSchema = z.object({
   }),
   /** Direction artistique ; relief exagéré sans effet sur les calculs acoustiques. */
   scene: z.object({
-    style: z.enum(['current', 'painted', 'sculpted', 'faceted']),
+    style: z.enum(['current', 'painted', 'sculpted', 'faceted', 'diorama']),
     relief: unit,
   }),
   qualityProfiles: z.object({ expo: qualityProfile, light: qualityProfile }),

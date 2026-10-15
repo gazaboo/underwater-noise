@@ -511,3 +511,9 @@ Les positions et les années de dernière éruption des volcans holocènes émer
 `scene.style` compare une interprétation peinte (2,5D) et deux globes à géométrie déformée (argile et facettes), avec le rendu actuel comme témoin. Les continents restent géographiques : altitude ETOPO, couleurs idéalisées Natural Earth II et positions des volcans GVP. Le plateau continental surélevé, la conversion non linéaire de l'altitude en rayon et toutes les dimensions de végétation sont **artistiques**, sans échelle métrique revendiquée. Le relief visible n'entre jamais dans le calcul des profondeurs ni des pertes acoustiques.
 
 La végétation du globe est un échantillonnage artistique de l'indice de vert NE II, pas une mesure de forêt actuelle. Les fumées indiquent uniquement le franchissement du seuil d'année de dernière éruption configuré, sans activité en direct. Les teintes et ombres des terres s'appliquent au rendu ; les couches océaniques restent émissives pour conserver la lecture des phénomènes acoustiques. En carte plate, le relief des variantes reste une illusion 2,5D.
+
+### Pilote diorama régional
+
+Le style `diorama` interprète les Andes, l'Amazonie et le bord pacifique comme une miniature naturelle. Le trait de côte et l'altitude proviennent des données déjà utilisées ; la hauteur continentale et les crêtes sont fortement exagérées, jusqu'à environ 30 % du rayon au réglage par défaut. Cette hauteur, les détails de roche, les modèles végétaux et la composition en bosquets sont **artistiques**, sans échelle métrique. Les arbres ne décrivent pas une forêt observée.
+
+Les volcans affichés sont une sélection visuelle des positions GVP, espacée selon le zoom pour limiter les recouvrements. Les cratères sculptés et les panaches sont artistiques ; leur présence ne constitue pas un état d'activité en direct. Les données de profondeur, les grilles acoustiques et leurs calculs ne sont pas modifiés par ce terrain de présentation.

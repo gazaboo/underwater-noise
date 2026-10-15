@@ -22,7 +22,7 @@
       [hidden] { display: none !important; }
       .scene-switcher, .scene-reopen { position: fixed; z-index: 5; left: 28px; top: 28px; color: #eee6d6;
         font-family: ui-sans-serif, system-ui, sans-serif; }
-      .scene-switcher { width: min(580px, calc(100vw - 56px)); padding: 22px; box-sizing: border-box;
+      .scene-switcher { width: min(680px, calc(100vw - 56px)); padding: 22px; box-sizing: border-box;
         border: 1px solid #d7c59e36; border-radius: 20px; background: linear-gradient(130deg, #182329eb, #10191fe0);
         box-shadow: 0 20px 70px #0006, inset 0 1px #fff1; backdrop-filter: blur(18px); }
       .scene-switcher-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 18px; }
@@ -30,7 +30,7 @@
       .scene-switcher h1 { font: 26px/1.1 Georgia, serif; font-weight: normal; margin: 8px 0 0; }
       .scene-hide, .scene-reopen { font-family: inherit; border: 1px solid #c9bd9e50; border-radius: 20px; background: #152129e8;
         color: #d4c9b2; padding: 8px 12px; font-size: 10px; cursor: pointer; }
-      .scene-choices { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+      .scene-choices { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
       .scene-choice { font-family: inherit; border: 1px solid #b8b49e25; border-radius: 12px; padding: 12px 8px 10px; text-align: left;
         color: #d4d4c6; background: #ffffff05; cursor: pointer; transition: background .2s, border-color .2s, transform .2s; }
       .scene-choice:hover { background: #ffffff12; transform: translateY(-2px); }
@@ -43,6 +43,11 @@
       .scene-choice-painted .scene-sample { background: radial-gradient(ellipse at 28% 30%, #e3cd86 0 24%, transparent 27%), radial-gradient(ellipse at 65% 65%, #9db87d 0 27%, #356575 30%); filter: contrast(1.1); }
       .scene-choice-sculpted .scene-sample { background: radial-gradient(ellipse at 30% 30%, #c7d497 0 20%, #9a8a59 22% 29%, transparent 32%), radial-gradient(ellipse at 70% 70%, #aca875 0 25%, #387a89 30%); box-shadow: inset -8px -9px 9px #0009, inset 3px 4px 4px #f9e1b970, 0 6px 12px #0005; }
       .scene-choice-faceted .scene-sample { border-radius: 35% 45% 36% 42%; background: conic-gradient(from 30deg, #849063, #d5bb8d, #576848, #35576b, #aab178, #849063); }
+      .scene-choice-diorama .scene-sample { border-radius: 44% 48% 39% 42%; background: conic-gradient(from 20deg, #405f31, #d5b183, #969678, #164c60, #536d30, #405f31); box-shadow: inset -8px -9px 9px #0009, inset 4px 4px 3px #e4d8b4a0, 0 5px 15px #0008; }
+      .diorama-views { display: flex; gap: 7px; margin-top: 14px; }
+      .diorama-views button, .scene-switcher > button { border: 1px solid #b9c19940; border-radius: 8px; background: #ffffff0b; color: #dad8c7; padding: 8px 12px; cursor: pointer; font: 11px system-ui; }
+      .diorama-views button:hover { background: #ffffff20; }
+      @media (max-width: 500px) { .scene-choices { grid-template-columns: repeat(3, 1fr); } }
       .scene-note { font-size: 10px; line-height: 1.7; color: #a5afa9; margin: 15px 0 0; }
       .scene-reopen { font-size: 11px; }
       .scene-switcher button:focus-visible, .scene-reopen:focus-visible { outline: 2px solid #f6dd9e; outline-offset: 3px; }

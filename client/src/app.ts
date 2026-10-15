@@ -18,6 +18,8 @@ import { AudioEngine, flatListener, globeListener } from './audio/engine.ts';
 import { WaveSim } from './sim/wave-sim.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
 import { FlatNavigator } from './ui/navigation.ts';
+import { DioramaGlobe } from './render/diorama-globe.ts';
+import { DIORAMA_VIEWS, type DioramaView } from './render/diorama-terrain.ts';
 import { SculptedGlobe } from './render/sculpted-globe.ts';
 import { styledSceneConfig } from './render/scene-style.ts';
 import { SceneSwitcher } from './ui/scene-switcher.ts';
@@ -68,10 +70,14 @@ export class App {
   private readonly audio = new AudioEngine();
   private readonly globe = new GlobeView();
   private readonly sculptedGlobe: SculptedGlobe;
+  private readonly diorama: DioramaGlobe;
+  private lastWorkingStyle: Config['scene']['style'] = 'current';
+  private sceneSelectedLocally = false;
+  private viewSelectedLocally = false;
   private readonly globeCtl: GlobeController;
   private worldTarget: THREE.WebGLRenderTarget | null = null;
   /** Dernière projection globe (pour le curseur). */
-  private lastGlobe: { mode: GlobeMode; cam: ReturnType<typeof globeCamera>; M: THREE.Matrix3; w: number; h: number } | null = null;
+  private lastGlobe: { mode: GlobeMode; cam: ReturnType<typeof globeCamera>; M: THREE.Matrix3; w: number; h: number; surface?: 'sculpted' | 'diorama' } | null = null;
   private speciesKey = '';
   private clock = 0;
   private connected = false;
@@ -90,6 +96,7 @@ export class App {
     volcanoes: Volcano[],
   ) {
     this.raw = raw;
+    this.sceneSelectedLocally = Boolean(overrides.style);
     this.cfg = this.resolve(raw);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
     this.renderer.autoClear = false;
@@ -103,6 +110,7 @@ export class App {
     this.flat = new FlatView(assets);
     this.volcanoes = new VolcanoLayer(volcanoes);
     this.sculptedGlobe = new SculptedGlobe(assets, volcanoes);
+    this.diorama = new DioramaGlobe(assets, volcanoes);
     this.detail = new DetailWaves(assets);
     // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale.
     const t0 = performance.now();
@@ -117,7 +125,7 @@ export class App {
       (path) => this.onPanelChange(path),
       () => this.save(),
     );
-    this.sceneSwitcher = new SceneSwitcher(() => this.cfg, () => this.panel.refresh());
+    this.sceneSwitcher = new SceneSwitcher(() => this.cfg, () => { this.sceneSelectedLocally = true; this.panel.refresh(); }, view => this.setDioramaView(view), () => this.diorama.retry());
     this.applyConfig();
     this.resize();
     addEventListener('resize', () => this.resize());
@@ -125,6 +133,7 @@ export class App {
     this.nav = new FlatNavigator(canvas, () => this.cfg);
     this.globeCtl = new GlobeController(this.cfg);
     this.globeCtl.install(canvas, () => this.cfg.display.mode === 'globe');
+    if (this.cfg.scene.style === 'diorama' && this.cfg.display.mode === 'globe') this.setDioramaView('overview');
     if (overrides.hud) this.hud.toggle(true);
 
     this.speciesKey = JSON.stringify(this.cfg.whales.species);
@@ -190,13 +199,17 @@ export class App {
   }
 
   private onServerConfig(c: Config): void {
+    const scene = this.cfg.scene, lat = this.cfg.globe.viewLatDeg;
     this.raw = c;
     this.cfg = this.resolve(c, this.cfg.display.target);
+    if (this.sceneSelectedLocally) this.cfg.scene = scene;
+    if (this.viewSelectedLocally) this.cfg.globe.viewLatDeg = lat;
     this.afterConfigChange();
     this.panel.refresh();
   }
 
   private onPanelChange(path: string): void {
+    if (path === 'scene') this.sceneSelectedLocally = true;
     if (path === 'view' || path === 'display') this.nav.forget();
     if (path === 'display') {
       // Changement de cible : on repart de la configuration serveur pour cette cible,
@@ -266,8 +279,14 @@ export class App {
   }
 
   /** Configuration de rendu : en mode jour, la palette de jour remplace la palette champ par champ. */
-  private themed(): Config {
-    const c = this.cfg;
+  private setDioramaView(view: DioramaView): void {
+    this.viewSelectedLocally = true;
+    const v = DIORAMA_VIEWS[view];
+    this.globeCtl.facingLon = v.lon; this.cfg.globe.viewLatDeg = v.lat; this.globeCtl.resetLatitude(); this.globeCtl.zoom = v.zoom;
+  }
+
+  private themed(style = this.cfg.scene.style): Config {
+    const c = style === this.cfg.scene.style ? this.cfg : { ...this.cfg, scene: { ...this.cfg.scene, style } };
     return styledSceneConfig(c.display.theme === 'day' ? { ...c, palette: { ...c.palette, ...c.dayPalette } } : c);
   }
 
@@ -305,8 +324,8 @@ export class App {
     let geo: [number, number] | null;
     if (this.lastGlobe) {
       const g = this.lastGlobe;
-      const volume = g.mode === 'globe' && ['sculpted','faceted'].includes(this.cfg.scene.style) && !this.globe.calibration;
-      const ll = volume ? this.sculptedGlobe.pixelToGeo(this.mouse.x,this.mouse.y,g.w,g.h)
+      const ll = g.surface === 'diorama' ? this.diorama.pixelToGeo(this.mouse.x,this.mouse.y,g.w,g.h)
+        : g.surface === 'sculpted' ? this.sculptedGlobe.pixelToGeo(this.mouse.x,this.mouse.y,g.w,g.h)
         : pixelToGeo(g.mode, g.cam, g.M, this.cfg, this.mouse.x, this.mouse.y, g.w, g.h);
       geo = ll ? [ll[1], ll[0]] : null;
     } else geo = screenToGeo(this.lastView, this.mouse.x, this.mouse.y);
@@ -372,7 +391,11 @@ export class App {
     this.lastFrame = now;
     const t0 = performance.now();
     this.sceneSwitcher.update();
-    const cfg = this.themed();
+    const wantsDiorama = this.cfg.scene.style === 'diorama' && this.cfg.display.mode === 'globe';
+    if (wantsDiorama) this.diorama.ensureLoaded(this.cfg.display.quality);
+    else if (this.cfg.scene.style !== 'diorama') this.lastWorkingStyle = this.cfg.scene.style;
+    this.sceneSwitcher.setDioramaStatus(this.diorama.status);
+    const cfg = this.themed(wantsDiorama && this.diorama.status !== 'ready' ? this.lastWorkingStyle : this.cfg.scene.style);
     const r = this.renderer;
     const steps = this.profile.visualSimSteps;
 
@@ -433,7 +456,7 @@ export class App {
         });
       }
       const world = worldTransform(W);
-      const volume = mode === 'globe' && ['sculpted','faceted'].includes(cfg.scene.style) && !this.globe.calibration;
+      const volume = mode === 'globe' && ['sculpted','faceted','diorama'].includes(cfg.scene.style) && !this.globe.calibration;
       // La géométrie 3D gère son éclairage : pas de double ombrage dans la couleur des terres.
       const worldCfg = volume ? { ...cfg, scene: { ...cfg.scene, relief: 0 }, land: { ...cfg.land, relief: 0 } } : cfg;
       this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, world, worldCfg, now / 1000, undefined, this.worldTarget);
@@ -445,9 +468,9 @@ export class App {
       const M = viewToEarth(facingLat, this.globeCtl.facingLon);
       const gm = mode as GlobeMode;
       const cam = globeCamera(gm, cfg, size.x / size.y, this.globeCtl.zoom);
-      const surface = volume ? this.sculptedGlobe.render(r, this.worldTarget.texture, cam, M, cfg, size.x,size.y,now/1000) : null;
+      const surface = volume ? (cfg.scene.style === 'diorama' ? this.diorama : this.sculptedGlobe).render(r, this.worldTarget.texture, cam, M, cfg, size.x,size.y,now/1000) : null;
       this.globe.render(r, this.worldTarget.texture, gm, cam, M, cfg, size.x, size.y, now / 1000, surface);
-      this.lastGlobe = { mode: gm, cam, M, w: size.x, h: size.y };
+      this.lastGlobe = { mode: gm, cam, M, w: size.x, h: size.y, surface: volume ? (cfg.scene.style === 'diorama' ? 'diorama' : 'sculpted') : undefined };
       if (gm !== 'equirect') listener = globeListener(facingLat, this.globeCtl.facingLon);
     }
     this.gpu.end();

@@ -229,3 +229,9 @@ Les trois propositions existent en carte plate et en globe, chacune de jour et d
 Le panneau `P`, dossier **Direction artistique**, règle le style et l'intensité du relief. Son bouton d'enregistrement conserve `scene.style` et `scene.relief`. Le rendu initial est `current`. Pour ouvrir directement une proposition : `?mode=globe&theme=day&style=sculpted` (valeurs : `current`, `painted`, `sculpted`, `faceted`). Le paramètre `style` choisit la direction initiale ; les commandes restent utilisables ensuite.
 
 Les volumes, hauteurs, palettes, arbres et fumées sont artistiques. La simulation acoustique conserve ses paramètres et ses données. Le profil `light` réduit la résolution du relief, la densité des ornements et les ombres. [Galerie et vérification](docs/DIRECTIONS_ARTISTIQUES.md).
+
+### Pilote « planète-diorama »
+
+Le comparateur contient **Diorama pilote**, une miniature naturelle régionale Andes–Amazonie–Pacifique : massifs et falaises nettement surélevés, matériaux de roche et de sol, modèles Blender originaux pour arbres, buissons, rochers et volcans, fumée douce et ombres. Trois cadrages : **Ensemble**, **Vue rasante**, **Détail**. Ouvrir `?mode=globe&theme=day&style=diorama`, puis explorer à la souris.
+
+Le pilote reste limité au globe et à cette région. Les modèles se chargent à la demande ; **Réessayer** permet de reprendre un chargement échoué. Le panneau `P` conserve le style et le relief. [Comparaisons avant/après, rotation et vérification](docs/DIORAMA_PILOTE.md).

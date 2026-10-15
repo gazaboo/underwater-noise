@@ -51,7 +51,7 @@ try {
  await page.keyboard.press('j');await draw();check(await page.evaluate(()=>window.vacarme.cfg.display.theme==='night'),'raccourci J après sélection');
  for(const mode of ['hemisphere','fisheye','equirect']){
   await page.evaluate(mode=>{window.vacarme.cfg.display.mode=mode;window.drawScene()},mode);
-  check(await page.locator('.scene-choice:disabled').count()===4,'comparateur désactivé : '+mode);
+  check(await page.locator('.scene-choice:disabled').count()===5,'comparateur désactivé : '+mode);
   const equal=await page.evaluate(()=>{const a=window.vacarme;window.drawScene();const selected=window.readPixels();a.cfg.scene.style='current';window.drawScene();const current=window.readPixels();a.cfg.scene.style='sculpted';return selected.every((v,i)=>v===current[i])});
   check(equal,'projection conservée : '+mode);
  }

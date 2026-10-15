@@ -6,12 +6,16 @@ export const SCENE_STYLES: ReadonlyArray<{ id: SceneStyle; title: string; subtit
   { id: 'painted', title: 'Planète peinte', subtitle: '01 · Pigments & lumière' },
   { id: 'sculpted', title: 'Monde sculpté', subtitle: '02 · Argile & volumes' },
   { id: 'faceted', title: 'Atlas facetté', subtitle: '03 · Roches & facettes' },
+  { id: 'diorama', title: 'Diorama pilote', subtitle: '04 · Andes & Amazonie' },
 ];
 export function supportsSceneStyle(mode: Config['display']['mode']): boolean {
   return mode === 'flat' || mode === 'globe';
 }
+export function supportsStyle(style: SceneStyle, mode: Config['display']['mode']): boolean {
+  return style === 'diorama' ? mode === 'globe' : supportsSceneStyle(mode);
+}
 export function sceneStyleIndex(cfg: Config): number {
-  return supportsSceneStyle(cfg.display.mode) ? SCENE_STYLES.findIndex(s => s.id === cfg.scene.style) : 0;
+  return supportsStyle(cfg.scene.style, cfg.display.mode) ? SCENE_STYLES.findIndex(s => s.id === cfg.scene.style) : 0;
 }
 
 /** Palettes artistiques de rendu uniquement ; la configuration éditable est conservée. */
@@ -30,6 +34,9 @@ export function styledSceneConfig(cfg: Config): Config {
     { landTint: '#f4e7cc', landLight: day ? 0.9 : 0.32,
       oceanShallow: day ? '#3c8994' : '#0c2837', oceanDeep: day ? '#173b50' : '#030912',
       coast: day ? '#887451' : '#434735', background: '#040912' },
+    { landTint: '#f3e6ca', landLight: day ? 0.86 : 0.32,
+      oceanShallow: day ? '#357b88' : '#0e2a39', oceanDeep: day ? '#123c53' : '#020913',
+      coast: day ? '#a7956b' : '#3d4234', background: '#030911' },
   ];
   return { ...cfg, palette: { ...cfg.palette, ...palettes[style] } };
 }

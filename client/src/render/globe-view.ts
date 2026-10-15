@@ -351,6 +351,8 @@ export class GlobeController {
     this.facingLon = cfg.globe.startLonDeg;
   }
 
+  resetLatitude(): void { this.userLat = 0; }
+
   get facingLatFor(): (cfg: Config) => number {
     return (cfg) => Math.max(-85, Math.min(85, cfg.globe.viewLatDeg + this.userLat));
   }

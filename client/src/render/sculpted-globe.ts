@@ -11,8 +11,8 @@ function pixels(image: ImageBitmap, width: number, height: number): Uint8Clamped
   ctx.imageSmoothingEnabled = false; ctx.drawImage(image,0,0,width,height);
   return ctx.getImageData(0,0,width,height).data;
 }
-function readSurface(assets: WorldAssets): SurfaceGrid {
-  const width = 1024, height = 512;
+export function readSurface(assets: WorldAssets, width = 1024): SurfaceGrid {
+  const height = width / 2;
   const e = pixels(assets.elevationNearest.image as ImageBitmap,width,height);
   const c = pixels(assets.landcover.image as ImageBitmap,width,height);
   const altitude = new Float32Array(width*height), land = new Float32Array(width*height), forest = new Float32Array(width*height);

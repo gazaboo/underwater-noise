@@ -18,7 +18,7 @@
     theme: 'night',
   },
 
-  // Comparateur artistique : 'current', 'painted' (2,5D), 'sculpted' ou 'faceted' (globes 3D).
+  // Comparateur artistique : 'current', 'painted' (2,5D), 'sculpted' ou 'faceted' (globes 3D), 'diorama' (pilote régional 3D).
   // Globe et carte seulement ; les projections d'exposition conservent leur rendu actuel.
   scene: { style: 'current', relief: 0.7 }, // relief purement artistique, sans effet physique
 
