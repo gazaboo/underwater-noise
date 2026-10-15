@@ -49,13 +49,13 @@ lent avec `VACARME_SLOW=1`, ~10 s, OK). Tout est vert au dernier commit.
 ## 4. Données : état exact (cache `tools/.cache/science/`, hors dépôt)
 
 - `ais/` : `mc-*.csv.gz` (4 jours, complets) ; `dma-2019-02-20.csv.gz` + **replay déjà construit**
-  (`dma-2019-02-20.replay.ndjson.gz` + `.json`) ; `dma-2019-04-16.csv.gz` complet ; `dma-2019-06-05`
-  en cours (`.part`) ; `dma-2019-11-12` pas commencé.
-- `ices/` : 9 fichiers protocole sur 25 (`fetch-log.json` : ices-174,176,178,205,208,210,212,223,224) + les
-  deux fichiers de développement. Les fichiers danois BIAS font 400–800 Mo (mesures à la seconde).
+  (`dma-2019-02-20.replay.ndjson.gz` + `.json`) ; `dma-2019-04-16` et `dma-2019-06-05` complets ;
+  `dma-2019-11-12` en cours (`.part`) au moment de la passation.
+- `ices/` : **tous les fichiers du protocole sont téléchargés** (24 fichiers uniques, journal complet) +
+  les deux fichiers de développement (~10 Go au total : à supprimer après extraction, `qc.py --prune-raw`).
 - `nrs/` : NRS11 complet (4 jours). `days/` : jours extraits (Hjelm, NRS11).
 - Processus en arrière-plan au moment de la passation (peuvent mourir avec la session) :
-  `fetch_protocol.py --only dma` et `fetch_protocol.py --only ices`. **Ils sont relançables sans risque**
+  `fetch_protocol.py --only dma` (seul restant). **Relançable sans risque**
   (fichiers présents sautés ; un `.part` DMA est réécrit).
 
 ## 5. Reprise : commandes, dans l’ordre
