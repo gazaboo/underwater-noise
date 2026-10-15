@@ -1,0 +1,35 @@
+{
+  "id": "fino3",
+  "name": "04-DE-FN3 (FINO3, baie allemande)",
+  "split": "development",
+  "splitNote": "Heures du 18/12/2019 déjà examinées pendant le développement de la chaîne (Codex puis reprise) : station exclue de tout jeu de test.",
+  "deployment": {
+    "station": "13557",
+    "lat": 55.195,
+    "lon": 7.158,
+    "waterDepthM": 21.8,
+    "heightAboveBottomM": 1.35,
+    "receiverDepthM": 20.45,
+    "timestampConvention": "start",
+    "source": "Position et profondeur d'eau : Basan et al. 2024, Marine Pollution Bulletin 198, 115891, Table 2 (lu). Hauteur au-dessus du fond : métadonnée ICES MeasurementHeight = 1,35 m. Profondeur du récepteur = 21,8 − 1,35 m, marée ignorée. Convention d'horodatage « début de fenêtre » NON confirmée (effet ≤ 20 s sur des fenêtres de 60 s)."
+  },
+  "ices": {
+    "downloadId": 1558,
+    "file": "3248_FN3_2019_12.h5",
+    "sha256": "b84380504bc2546dbe029925417b5152bc9576e10d28efdcbb908ab0721b9d26",
+    "segment": 0,
+    "segmentNote": "Le fichier contient deux séries complètes de 9 264 mesures décalées de 5 s (écart moyen 0,3 dB, jusqu'à 23 dB ponctuellement) et une répétition de 90 mesures : probablement deux versions de traitement. Aucune information du producteur pour choisir ; le segment 0 (début conforme à FileInformation/StartDate) est retenu, le segment 2 sert de test de sensibilité. Question à poser au producteur (BSH)."
+  },
+  "ais": { "source": "DMA (aisdata.ais.dk), AIS terrestre danois", "coverageNote": "Station à ~65 km de la côte danoise : couverture partielle au sud, à quantifier." },
+  "qc": {
+    "status": "draft",
+    "excludeBands": [
+      { "bandHz": 125, "reason": "Pic à 125 Hz « most likely caused by generator or platform noise »", "source": "Basan et al. 2024, §4.1.2 (lu)" }
+    ],
+    "excludePeriods": [],
+    "flags": [
+      { "bandsUpToHz": 63, "flag": "flow-noise-susceptible", "note": "Bruit d'écoulement non détectable à FN3 selon la corrélation aux courants modélisés ; corrélation positive des basses fréquences avec le vent (facteur jusqu'à 40).", "source": "Basan et al. 2024, §4.2.2–4.2.3 (lu)" }
+    ],
+    "notes": ["Revue manuelle (spectrogrammes, étalonnage) non réalisée : statut draft, rapports exploratoires uniquement."]
+  }
+}

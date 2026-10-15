@@ -104,6 +104,55 @@ def transmission(path: dict, frequency: float, depth_mode: str, refinement: int 
     return loss
 
 
+def band_gain(samples: list[dict], losses) -> float:
+    """Band energy gain (Hz-weighted quadrature) for one set of per-frequency losses (dB)."""
+    return sum(s['widthHz'] * 10 ** (-loss / 10) for s, loss in zip(samples, losses))
+
+
+# Pertes au-delà desquelles un navire ne peut plus contribuer : niveau source décidécade J-E maximal
+# (~190 dB re 1 µPa·m) moins le plus faible fond mesuré (~70 dB re 1 µPa) [C]. La convergence n'est
+# exigée qu'en deçà ; plus loin, l'énergie reçue est négligeable devant toute mesure.
+RELEVANT_LOSS_DB = 120
+
+
+def receiver_curves(path: dict, max_range_m: float, step_m: float = 100, count: int = 10, tolerance_db: float = 1, max_refinement: int = 16) -> dict:
+    """Range-dependent losses at a point receiver for both decidecades, with adaptive grid refinement.
+
+    Convergence compares the band-integrated energy (not single frequencies, whose interference
+    fringes move with the grid) between successive grids whose steps are halved, at every range where
+    the loss stays below RELEVANT_LOSS_DB. Refinement doubles until the difference is <= tolerance_db.
+    """
+    query = np.arange(500, max_range_m + 1, step_m, dtype=float)
+    bands, report = [], []
+    for center in CENTERS:
+        samples = quadrature(center, count)
+        widths = np.array([s['widthHz'] for s in samples])[:, None]
+        def energies(refinement):
+            out = []
+            for sample in samples:
+                r, loss = transmission(path, sample['frequencyHz'], 'receiver', refinement, return_curve=True)
+                out.append(np.interp(query, r, 10 ** (-loss / 10)))
+            return np.array(out)
+        refinement, previous = 1, energies(1)
+        history = []
+        while True:
+            current = energies(refinement * 2)
+            band_fine = (widths * current).sum(0) / widths.sum()
+            relevant = (-10 * np.log10(band_fine) <= RELEVANT_LOSS_DB) & (query >= 1000)
+            diff = np.abs(10 * np.log10((widths * current).sum(0) / (widths * previous).sum(0)))
+            worst = float(diff[relevant].max()) if relevant.any() else 0.0
+            history.append({'refinement': refinement * 2, 'maxRelevantBandDifferenceDb': worst})
+            refinement *= 2
+            if worst <= tolerance_db or refinement >= max_refinement: break
+            previous = current
+        for sample, energy in zip(samples, current):
+            sample.update({'rangesM': query.tolist(), 'lossDb': (-10 * np.log10(energy)).tolist()})
+        report.append({'centerHz': center, 'refinement': refinement, 'converged': history[-1]['maxRelevantBandDifferenceDb'] <= tolerance_db,
+                       'relevantMaxRangeM': float(query[relevant].max()) if relevant.any() else None, 'history': history})
+        bands.append(samples)
+    return {'bands': bands, 'convergence': report}
+
+
 def build(environment: dict) -> dict:
     if importlib.metadata.version('pyram') != '1.0.1':
         raise ValueError('Version PyRAM 1.0.1 requise pour la reproductibilité.')
@@ -128,12 +177,11 @@ def build(environment: dict) -> dict:
         bands = []
         for center in CENTERS:
             samples = quadrature(center)
+            coarse = [transmission(path, s['frequencyHz'], mode, 1) for s in samples]
             for sample in samples:
-                f = sample['frequencyHz']
-                coarse = transmission(path, f, mode, 1)
-                fine = transmission(path, f, mode, 2)
-                errors.append(abs(fine - coarse))
-                sample['lossDb'] = fine
+                sample['lossDb'] = transmission(path, sample['frequencyHz'], mode, 2)
+            # Band-integrated grid convergence (single-frequency fringes are not the predicted quantity).
+            errors.append(abs(10 * math.log10(band_gain(samples, [s['lossDb'] for s in samples]) / band_gain(samples, coarse))))
             # Frequency convergence matters in a waveguide with interference.
             refined = quadrature(center, 10)
             for sample in refined:
@@ -151,7 +199,7 @@ def build(environment: dict) -> dict:
             'provenance': {'environment': environment['provenance']['environment'], 'assumptions': environment['provenance']['assumptions'] + [
                 'PyRAM 1.0.1 avec corrections amont du démarrage et du pas entier ; couche absorbante 80 longueurs d’onde.',
                 'Propagation 2D par trajet ; fond fluide homogène sur chaque trajet ; absorption de Thorp ajoutée.',
-                'Convergence : pas distance/profondeur divisés par deux, quadrature fréquentielle 5 puis 10 points (spectre plat pour ce dernier contrôle).']},
+                'Convergence sur l’énergie de bande intégrée : pas distance/profondeur divisés par deux, quadrature fréquentielle 5 puis 10 points (spectre plat pour ce dernier contrôle).']},
             'environmentHash': hashlib.sha256(json.dumps(environment, sort_keys=True).encode()).hexdigest(),
             'numerical': {'maxDifferenceDb': max(errors) if errors else None, 'benchmark': None}}
 

@@ -56,10 +56,22 @@ propagation 2D et absorption de Thorp ajoutée. Le wrapper applique la réinitia
 Padé après le démarreur et le pas entier de la version amont, ainsi que les alias NumPy supprimés.
 Une couche absorbante de 80 longueurs d’onde limite les réflexions numériques de bord.
 
-Le contrôle de convergence compare des pas distance/profondeur divisés par deux et une quadrature
-fréquentielle à 5 puis 10 points. Ce dernier contrôle emploie un spectre plat. `maxDifferenceDb ≤ 1`
-indique une convergence contrôlée, **pas une validation physique**. Les benchmarks JOMOPANS complets
-restent à intégrer avant de revendiquer leur vérification.
+Le contrôle de convergence compare l’**énergie de bande intégrée** (quadrature de la décidécade) entre
+deux grilles successives dont les pas distance/profondeur sont divisés par deux. Les écarts à une seule
+fréquence ne sont pas la grandeur prédite : leurs franges d’interférence bougent avec la grille. Pour
+les courbes au récepteur, le raffinement double jusqu’à un écart ≤ 1 dB aux distances où la perte
+reste sous 120 dB (au-delà, un navire de niveau source décidécade ~190 dB re 1 µPa·m arrive sous le
+plus faible fond mesuré, ~70 dB [C]). Une convergence contrôlée n’est **pas une validation physique**.
+
+Constat du 15/10/2026 : à FINO3 (guide de 21,8 m, 63 Hz proche de la coupure), la grille d’origine
+(pas divisés par deux une seule fois) différait encore de **8,3 dB** en énergie de bande : les
+prédictions RAM antérieures à 63 Hz en eau peu profonde n’étaient pas convergées.
+
+**Benchmark JOMOPANS** (de Jong et al. 2021, *Guidelines for modelling ocean ambient noise*, annexe E ;
+`tools/science/benchmark.py`, test `VACARME_SLOW=1`) : guide uniforme (cas 1) et remontée du fond
+(cas 2), 63 et 125 Hz, 1 à 50 km, source à 5 m. Écart maximal aux valeurs de référence **0,59 dB**
+(15/10/2026) [C], tolérance du test 1 dB. Ce benchmark vérifie l’implémentation RAM sur des milieux
+idéalisés ; il ne dit rien du milieu réel.
 
 Vent d’entrée : `{ "provenance": "source et hypothèses", "intervals": [
 { "start": "…Z", "end": "…Z", "windMs": 5 }] }`. Le vent est uniforme sur le domaine à chaque instant ;
@@ -86,33 +98,46 @@ dispersion ne constitue pas automatiquement un intervalle de confiance.
 
 ## Mesures et validation
 
+Chaîne par station, pilotée par une fiche versionnée `tools/science/stations/<id>.json` (position,
+profondeurs, sources lues, fichier ICES et son empreinte, segment retenu, contrôle qualité, rôle dans
+le protocole) :
+
 ```bash
-tools/.venv-science/bin/python tools/science/data.py catalog --year 2019 --out /tmp/ices-2019.json
-tools/.venv-science/bin/python tools/science/data.py download 1673 /tmp/ices-1673.h5
-tools/.venv-science/bin/python tools/science/data.py inspect /tmp/ices-1673.h5
-tools/.venv-science/bin/python tools/science/ices.py /tmp/ices-1673.h5 station.json observations.csv
-tools/.venv-science/bin/python tools/science/validate.py \
-  data/science/north-sea.json observations.csv /tmp/validation.json
+tools/.venv-science/bin/python tools/science/station_case.py tools/science/stations/fino3.json \
+  --ais-csv tools/.cache/science/fino3-ais.csv --start 2019-12-18T00:15:00Z --end 2019-12-18T01:29:00Z \
+  --out /tmp/cases --ram-depth 21.8 --exploratory
 ```
 
-Accès testé le 15/10/2026 : catalogue consultable ; relevé `WST_2019_10.h5`, station ICES 13559, du
-01/10/2019 au 02/10/2019, téléchargé et lu (54 000 fenêtres de 1 s, 34 bandes, métadonnée de calibration
-`CPC`). La hauteur indiquée de 1 m est **au-dessus du fond**, pas une profondeur de réception de 1 m.
-Il reste à assembler coordonnées/profondeur de déploiement, historique AIS et météo correspondants.
-Les archives danoises ne couvrent pas seules toute la mer du Nord. Les données téléchargées restent
-hors du dépôt ; leurs conditions sont conservées dans un fichier `.policy.txt` adjacent.
+1. **Mesures** (`ices.py`) : les enregistrements sont triés ; les doublons exacts sont retirés ; des
+   séries qui se chevauchent avec des valeurs différentes sont **refusées** tant qu’un segment n’est
+   pas choisi explicitement dans la fiche. Les fenêtres de 60 s sont formées de mesures **contiguës**
+   (début + durée de moyenne) : les horloges d’enregistreur dérivent, aucune grille UTC n’est imposée
+   et rien n’est interpolé à travers un trou. Toutes les décidécades sont exportées.
+2. **AIS** : CSV DMA trié puis converti en replay ; le registre du serveur (mêmes options que le
+   direct) donne les navires à des instants réguliers de chaque fenêtre.
+3. **Vent** : ERA5 au point (archive Open-Meteo, m/s), interpolé linéairement.
+4. **Prédictions** (`point-predict.ts`) pour les fenêtres exactes des mesures :
+   - `world-law` : la loi du moteur mondial (source J-E, `lossRateDbPerKm`, `pathTransmissionLoss`,
+     grille océan 1024, trajets bloqués par la terre) au point exact, sans la discrétisation de
+     39 km du champ GPU ;
+   - `ram-curves` : pertes RAM au récepteur (63/125 Hz), référence de propagation ;
+   - `ambient-only` : fond naturel seul.
+   Les bandes larges de l’œuvre sont comparées en sommant les décidécades mesurées que la source
+   J-E somme elle-même (10–40 Hz = décidécades 10 à 40 Hz, etc.).
+5. **Comparaison** (`validate.py`) : biais, RMSE, quantiles d’écart, corrélation, niveaux dépassés
+   L90/L50/L10 mesurés et prédits, séparément selon que les navires, le fond ou aucun des deux ne
+   domine (écart de 3 dB, choix de présentation [A]).
 
-`station.json` fournit `station`, `lat`, `lon`, `receiverDepthM`, `timestampConvention` (`start`/`end`)
-et `source` (référence de déploiement). L’export accepte les SPL de 1 s, retient les minutes complètes,
-moyenne les énergies et laisse les lignes `quality=unreviewed`. Calibration, bruit de courant, intégrité
-et indépendance doivent être contrôlés avant de marquer les lignes utilisables `accepted`.
+**L’acceptation des mesures ne vient jamais des lignes exportées** : elle vient de la section `qc`
+de la fiche station (bandes exclues avec leur source, périodes exclues, signalements). Tant que son
+statut n’est pas `reviewed`, seul un rapport `--exploratory`, étiqueté comme tel, peut être produit.
 
-Le CSV de validation comporte `station,start,end,bandHz,lat,lon,receiverDepthM,observedDb,split,quality`.
-Seules les lignes `split=holdout,quality=accepted` sont comparées ; les données d’ajustement restent
-`calibration`. Période exacte, bande, position et profondeur doivent correspondre. Une moyenne en
-profondeur n’est pas comparée à un hydrophone ponctuel. Le rapport publie effectif, biais, RMSE, médiane
-et quantiles des écarts par station/bande, avec les empreintes des entrées. Il n’attribue aucun certificat
-de précision ; l’application reste signalée comme non validée.
+Stations de développement : Vinga (01-SE-VIN, 01/07/2019) et FINO3 (04-DE-FN3, 18/12/2019) ont servi
+à mettre au point la chaîne ; elles sont exclues de tout jeu de test. Le fichier ICES de FINO3
+(décembre 2019) contient deux séries complètes décalées de 5 s (écart moyen 0,3 dB) : segment 0
+retenu, segment 2 en sensibilité, question à poser au producteur. Le pic à 125 Hz de FINO3 (« most
+likely caused by generator or platform noise », Basan et al. 2024, §4.1.2, lu) exclut cette
+décidécade et la bande 100–500 Hz qui la contient.
 
 ## Vérifications et références
 
@@ -123,12 +148,13 @@ npm run build
 tools/.venv-science/bin/python -m unittest discover -s tools/science -p 'test_*.py' -v
 ```
 
-Les tests couvrent sommation énergétique, moyenne temporelle, données manquantes, profils fixes,
-compatibilité des récepteurs et quadrature. RAM est comparé à la solution analytique d’une source et
+Les tests couvrent sommation énergétique, fenêtres contiguës et trous, séries chevauchantes, doublons,
+libellés de décidécades, contrôle qualité par fiche, bandes larges reconstituées, loi mondiale au point
+(cas analytique en eau profonde, trajet bloqué par la terre), profils fixes et quadrature. RAM est comparé à la solution analytique d’une source et
 de son image sous une surface à pression nulle (tolérance 0,3 dB aux deux fréquences).
 
 - [JOMOPANS-ECHO (2021)](https://www.mdpi.com/2077-1312/9/4/369).
 - [RAM, guide de Michael Collins](https://oalib-acoustics.org/website_resources/PE/RAM.pdf) ; [PyRAM](https://github.com/marcuskd/pyram).
-- [JOMOPANS : mesures en mer du Nord](https://eprintspublications.npl.co.uk/10094/).
+- [Basan et al. 2024, The underwater soundscape of the North Sea](https://eprintspublications.npl.co.uk/10094/) (stations, profondeurs, bruit d’écoulement).
 - [ICES : accès aux données](https://underwaternoise.ices.dk/continuous/webservices) ; [archives AIS danoises](https://www.dma.dk/safety-at-sea/navigational-information/ais-data).
 - Milieu régional à assembler : bathymétrie ETOPO existante, [sédiments EMODnet](https://emodnet.ec.europa.eu/en/geology), profils température/salinité [Copernicus Marine](https://data.marine.copernicus.eu/product/NWSHELF_MULTIYEAR_PHY_004_009/description).

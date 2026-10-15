@@ -1,74 +1,120 @@
-"""Compare independent, quality-controlled Leq measurements with matching model cells.
+"""Compare point predictions (point-predict.ts) with hydrophone window levels (ices.py / noaa.py).
 
-CSV: station,start,end,bandHz,lat,lon,receiverDepthM,observedDb,split,quality
-split=calibration|holdout. Only accepted holdout samples establish reported errors.
-No depth-averaged prediction is compared to a point hydrophone.
+Acceptance is never read from the measurement rows: it comes from the station file
+(`stations/<id>.json`, section `qc`), whose status must be `reviewed`. Without review,
+only an explicitly `--exploratory` report can be produced, labelled as such.
+
+Broad bands are rebuilt by summing the energies of the measured decidecades listed in
+the prediction; a window missing any of them is skipped, never completed.
 """
 from __future__ import annotations
 import argparse
 import csv
-from collections import defaultdict, Counter
-from datetime import datetime
 import hashlib
 import json
 import math
+from collections import Counter, defaultdict
+from datetime import datetime
 from pathlib import Path
-import statistics
+import numpy as np
+
+DOMINANCE_DB = 3  # navires/fond : écart au-delà duquel une composante « domine » (choix [A] de présentation)
 
 
-def timestamp(value):
+def timestamp(value: str) -> float:
     d = datetime.fromisoformat(value.replace('Z', '+00:00'))
-    if d.tzinfo is None: raise ValueError('Dates UTC/offset requis')
+    if d.tzinfo is None: raise ValueError('Dates UTC/offset requises')
     return d.timestamp()
 
 
-def evaluate(data, measurements):
-    if data['depthMode'] != 'receiver': raise ValueError('La validation hydrophone exige depthMode=receiver ; moyenne en profondeur incompatible.')
-    groups, skipped, keys = defaultdict(list), Counter(), set()
-    grid = data['grid']
-    frames = {(timestamp(f['start']), timestamp(f['end'])): f for f in data['frames']}
-    for row in measurements:
-        if row['quality'] != 'accepted' or row['split'] != 'holdout': skipped['not-independent-or-rejected'] += 1; continue
-        start, end = timestamp(row['start']), timestamp(row['end'])
-        key = (row['station'], start, end, row['bandHz'])
-        if key in keys: raise ValueError('Mesure dupliquée')
-        keys.add(key)
-        frame = frames.get((start, end))
-        if frame is None: skipped['period-mismatch'] += 1; continue
+def in_period(t0: float, t1: float, periods) -> bool:
+    return any(t0 < timestamp(p['end']) and t1 > timestamp(p['start']) for p in periods)
+
+
+def stats(errors: np.ndarray, predicted: np.ndarray, observed: np.ndarray) -> dict:
+    q = lambda x, p: float(np.percentile(x, p))
+    result = {'count': int(errors.size), 'biasDb': float(errors.mean()), 'rmseDb': float(math.sqrt(float((errors ** 2).mean()))),
+              'medianErrorDb': q(errors, 50), 'p05ErrorDb': q(errors, 5), 'p95ErrorDb': q(errors, 95),
+              'stdErrorDb': float(errors.std(ddof=1)) if errors.size > 1 else None,
+              'pearsonR': float(np.corrcoef(predicted, observed)[0, 1]) if errors.size > 2 and predicted.std() > 0 and observed.std() > 0 else None}
+    # Niveaux dépassés x % du temps (L10 = percentile 90), indicateurs DCSMM/JOMOPANS.
+    for name, p in [('L90', 10), ('L50', 50), ('L10', 90)]:
+        result[f'observed{name}'] = q(observed, p); result[f'predicted{name}'] = q(predicted, p)
+        result[f'diff{name}Db'] = result[f'predicted{name}'] - result[f'observed{name}']
+    return result
+
+
+def evaluate(prediction: dict, rows: list[dict], station: dict, exploratory: bool = False) -> dict:
+    qc, split = station.get('qc', {}), station.get('split', 'unassigned')
+    reviewed = qc.get('status') == 'reviewed'
+    base = {'model': prediction['model'], 'profileId': prediction['profileId'], 'station': station['id'], 'split': split,
+            'qcStatus': qc.get('status', 'absent'), 'physicsSource': prediction['parameters']['physicsSource']}
+    if not reviewed and not exploratory:
+        return {**base, 'status': 'qc-not-reviewed', 'results': [], 'skipped': {}}
+    deployment = station['deployment']
+    rx = prediction['station']
+    if str(rx['station']) != str(deployment['station']): raise ValueError('Prédiction et station différentes')
+    excluded_bands = {float(b['bandHz']) for b in qc.get('excludeBands', [])}
+    excluded_periods = qc.get('excludePeriods', [])
+    skipped = Counter()
+    observed = defaultdict(dict)  # (start, end) -> {nominal: dB}
+    for row in rows:
+        if str(row['station']) != str(deployment['station']): skipped['other-station'] += 1; continue
+        if abs(float(row['lat']) - rx['lat']) > 1e-5 or abs(float(row['lon']) - rx['lon']) > 1e-5: skipped['receiver-position-mismatch'] += 1; continue
+        if abs(float(row['receiverDepthM']) - rx['receiverDepthM']) > .1: skipped['depth-mismatch'] += 1; continue
+        level = float(row['observedDb'])
+        if not math.isfinite(level): skipped['invalid-measurement'] += 1; continue
+        key = (timestamp(row['start']), timestamp(row['end']))
         nominal = float(row['bandHz'])
-        if nominal not in (63, 125): skipped['band-mismatch'] += 1; continue
-        band = 0 if nominal == 63 else 1
-        lat, lon = float(row['lat']), float(row['lon'])
-        x = math.floor((lon - grid['west']) / grid['deltaLon']); y = math.floor((grid['north'] - lat) / grid['deltaLat'])
-        if not (0 <= x < grid['width'] and 0 <= y < grid['height']): skipped['outside-grid'] += 1; continue
-        # Require a receiver actually placed at the station, rather than anywhere
-        # inside a potentially large cell. 1e-5 deg ~ 1 m.
-        if abs(lon - (grid['west'] + (x + .5) * grid['deltaLon'])) > 1e-5 or abs(lat - (grid['north'] - (y + .5) * grid['deltaLat'])) > 1e-5:
-            skipped['receiver-position-mismatch'] += 1; continue
-        cell = frame['cells'][y * grid['width'] + x]
-        if cell is None: skipped['missing-prediction'] += 1; continue
-        if cell['receiverDepthM'] is None or abs(float(row['receiverDepthM']) - cell['receiverDepthM']) > .1: skipped['depth-mismatch'] += 1; continue
-        ships, ambient = cell['shipsDb'][band], cell['ambientDb'][band]
-        predicted = ambient + (10 * math.log10(1 + 10 ** ((ships - ambient) / 10)) if ships is not None else 0)
-        measured = float(row['observedDb'])
-        if not math.isfinite(measured): skipped['invalid-measurement'] += 1; continue
-        groups[(row['station'], nominal)].append(predicted - measured)
+        if nominal in observed[key]: raise ValueError('Mesure dupliquée')
+        observed[key][nominal] = level
+    pairs = defaultdict(list)
+    for window in prediction['windows']:
+        key = (timestamp(window['start']), timestamp(window['end']))
+        if window['status'] != 'ok': skipped[f"prediction-{window['status']}"] += 1; continue
+        if key not in observed: skipped['no-measurement-window'] += 1; continue
+        if in_period(*key, excluded_periods): skipped['qc-excluded-period'] += 1; continue
+        levels = observed[key]
+        for b, band in enumerate(prediction['bands']):
+            wanted = [float(f) for f in band['decidecadesHz']]
+            if excluded_bands & set(wanted): skipped[f"qc-excluded-band-{band['id']}"] += 1; continue
+            if not all(f in levels for f in wanted): skipped[f"incomplete-band-{band['id']}"] += 1; continue
+            ambient = window['ambientDb'][b]
+            ships = window['shipsDb'][b]
+            if ambient is None: skipped[f"no-ambient-{band['id']}"] += 1; continue
+            if prediction['model'] != 'ambient-only' and ships is None: continue  # bande non couverte par ce modèle
+            ships_db = None if ships in (None, 'zero') else float(ships)
+            total = ambient if ships_db is None else ambient + 10 * math.log10(1 + 10 ** ((ships_db - ambient) / 10))
+            measured = 10 * math.log10(sum(10 ** (levels[f] / 10) for f in wanted))
+            margin = -math.inf if ships_db is None else ships_db - ambient
+            regime = 'ships' if margin > DOMINANCE_DB else 'ambient' if margin < -DOMINANCE_DB else 'mixed'
+            pairs[band['id']].append((total, measured, regime))
     results = []
-    for (station, band), errors in sorted(groups.items()):
-        ordered = sorted(errors)
-        percentile = lambda q: ordered[round(q * (len(ordered) - 1))]
-        results.append({'station': station, 'bandHz': band, 'count': len(errors), 'biasDb': statistics.mean(errors),
-                        'rmseDb': math.sqrt(statistics.mean(e * e for e in errors)), 'medianErrorDb': statistics.median(errors),
-                        'p05ErrorDb': percentile(.05), 'p95ErrorDb': percentile(.95)})
-    return {'status': 'evaluated-on-holdout' if results else 'no-compatible-observations', 'results': results, 'skipped': dict(skipped),
-            'limits': 'Écarts sur les seuls sites/périodes évalués ; aucune précision mondiale ni conséquence biologique validée.'}
+    for band in prediction['bands']:
+        data = pairs.get(band['id'])
+        if not data: continue
+        predicted = np.array([d[0] for d in data]); measured = np.array([d[1] for d in data])
+        flags = [f['flag'] for f in qc.get('flags', []) if min(float(x) for x in band['decidecadesHz']) <= f['bandsUpToHz']]
+        entry = {'band': band['id'], 'kind': band['kind'], 'fMinHz': band['fMin'], 'fMaxHz': band['fMax'], 'qcFlags': flags,
+                 **stats(predicted - measured, predicted, measured), 'byRegime': {}}
+        for regime in ['ships', 'mixed', 'ambient']:
+            mask = np.array([d[2] == regime for d in data])
+            if mask.any(): entry['byRegime'][regime] = stats(predicted[mask] - measured[mask], predicted[mask], measured[mask])
+        results.append(entry)
+    status = ('exploratory' if not reviewed else 'evaluated') if results else 'no-compatible-observations'
+    return {**base, 'status': status, 'results': results, 'skipped': dict(skipped),
+            'dominanceThresholdDb': DOMINANCE_DB,
+            'limits': 'Écarts sur les seuls sites, périodes et bandes évalués ; aucune précision hors de ces conditions ni conséquence biologique validée.'
+                      + ('' if reviewed else ' RAPPORT EXPLORATOIRE : contrôle qualité des mesures non revu.')}
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('dataset', type=Path); parser.add_argument('measurements', type=Path); parser.add_argument('output', type=Path)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument('prediction', type=Path); parser.add_argument('measurements', type=Path); parser.add_argument('station', type=Path); parser.add_argument('output', type=Path)
+    parser.add_argument('--exploratory', action='store_true', help='autorise un rapport sans contrôle qualité revu (étiqueté exploratoire)')
     args = parser.parse_args()
-    with args.measurements.open(newline='') as file: report = evaluate(json.loads(args.dataset.read_text()), list(csv.DictReader(file)))
-    report.update({'profileId': 'north-sea-reference-v1', 'datasetHash': hashlib.sha256(args.dataset.read_bytes()).hexdigest(), 'measurementsHash': hashlib.sha256(args.measurements.read_bytes()).hexdigest()})
-    args.output.parent.mkdir(parents=True, exist_ok=True); args.output.write_text(json.dumps(report, indent=2, allow_nan=False) + '\n')
-    print(report['status'])
+    with args.measurements.open(newline='') as file: rows = list(csv.DictReader(file))
+    report = evaluate(json.loads(args.prediction.read_text()), rows, json.loads(args.station.read_text()), args.exploratory)
+    report['inputHashes'] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in [args.prediction, args.measurements, args.station]}
+    args.output.parent.mkdir(parents=True, exist_ok=True); args.output.write_text(json.dumps(report, indent=2, allow_nan=False, ensure_ascii=False) + '\n')
+    print(report['status'], {r['band']: (r['count'], round(r['biasDb'], 1), round(r['rmseDb'], 1)) for r in report['results']})

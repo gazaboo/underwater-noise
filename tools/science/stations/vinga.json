@@ -1,0 +1,33 @@
+{
+  "id": "vinga",
+  "name": "01-SE-VIN (Vinga, Kattegat/Skagerrak)",
+  "split": "development",
+  "splitNote": "Heures du 01/07/2019 examinées pendant le développement de la chaîne : station exclue de tout jeu de test.",
+  "deployment": {
+    "station": "13076",
+    "lat": 57.623,
+    "lon": 11.572,
+    "waterDepthM": 45.0,
+    "heightAboveBottomM": 4.0,
+    "receiverDepthM": 41.0,
+    "timestampConvention": "start",
+    "source": "Position et profondeur d'eau : Basan et al. 2024, Marine Pollution Bulletin 198, 115891, Table 2 (lu). Hauteur au-dessus du fond : métadonnée ICES MeasurementHeight = 4 m. Profondeur du récepteur = 45 − 4 m, marée ignorée. Convention d'horodatage « début de fenêtre » NON confirmée (effet ≤ 20 s sur des fenêtres de 60 s)."
+  },
+  "ices": {
+    "downloadId": 1522,
+    "file": "3093_ICES_SE_13076_190701_190731.h5",
+    "sha256": "41a5195dd17db4431fa28d552164836095c7429f959b750036ef95f94ac90594",
+    "segment": null,
+    "segmentNote": "Série unique ; cycle d'enregistrement (trous de 2 280 s). Commentaire du producteur : « Not corrected for drift. Jomopans processing. »"
+  },
+  "ais": { "source": "DMA (aisdata.ais.dk), AIS terrestre danois", "coverageNote": "Côte suédoise : réception danoise et suédoise à vérifier, à quantifier." },
+  "qc": {
+    "status": "draft",
+    "excludeBands": [],
+    "excludePeriods": [],
+    "flags": [
+      { "bandsUpToHz": 63, "flag": "flow-noise-susceptible", "note": "Influence des courants plus faible qu'aux stations à forte marée, mais présente.", "source": "Basan et al. 2024, §4.1.2 et §4.2.3 (lu)" }
+    ],
+    "notes": ["Revue manuelle (spectrogrammes, étalonnage) non réalisée : statut draft, rapports exploratoires uniquement."]
+  }
+}
