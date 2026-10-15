@@ -44,13 +44,17 @@ def stats(errors: np.ndarray, predicted: np.ndarray, observed: np.ndarray) -> di
     return result
 
 
-def evaluate(prediction: dict, rows: list[dict], station: dict, exploratory: bool = False) -> dict:
-    qc, split = station.get('qc', {}), station.get('split', 'unassigned')
-    reviewed = qc.get('status') == 'reviewed'
-    base = {'model': prediction['model'], 'profileId': prediction['profileId'], 'station': station['id'], 'split': split,
-            'qcStatus': qc.get('status', 'absent'), 'physicsSource': prediction['parameters']['physicsSource']}
-    if not reviewed and not exploratory:
-        return {**base, 'status': 'qc-not-reviewed', 'results': [], 'skipped': {}}
+def total_db(ambient: float, ships) -> float:
+    """Fond + navires (somme d'énergies). ships = None ou 'zero' : aucune énergie de navire."""
+    if ships in (None, 'zero'): return ambient
+    return ambient + 10 * math.log10(1 + 10 ** ((float(ships) - ambient) / 10))
+
+
+def pair(prediction: dict, rows: list[dict], station: dict):
+    """Apparie fenêtres prédites et mesures compatibles ; applique le contrôle qualité de la fiche.
+
+    Renvoie ({bande: [(indice de fenêtre, niveau mesuré)]}, compteurs d'exclusion)."""
+    qc = station.get('qc', {})
     deployment = station['deployment']
     rx = prediction['station']
     if str(rx['station']) != str(deployment['station']): raise ValueError('Prédiction et station différentes')
@@ -69,7 +73,7 @@ def evaluate(prediction: dict, rows: list[dict], station: dict, exploratory: boo
         if nominal in observed[key]: raise ValueError('Mesure dupliquée')
         observed[key][nominal] = level
     pairs = defaultdict(list)
-    for window in prediction['windows']:
+    for index, window in enumerate(prediction['windows']):
         key = (timestamp(window['start']), timestamp(window['end']))
         if window['status'] != 'ok': skipped[f"prediction-{window['status']}"] += 1; continue
         if key not in observed: skipped['no-measurement-window'] += 1; continue
@@ -79,26 +83,35 @@ def evaluate(prediction: dict, rows: list[dict], station: dict, exploratory: boo
             wanted = [float(f) for f in band['decidecadesHz']]
             if excluded_bands & set(wanted): skipped[f"qc-excluded-band-{band['id']}"] += 1; continue
             if not all(f in levels for f in wanted): skipped[f"incomplete-band-{band['id']}"] += 1; continue
-            ambient = window['ambientDb'][b]
-            ships = window['shipsDb'][b]
-            if ambient is None: skipped[f"no-ambient-{band['id']}"] += 1; continue
-            if prediction['model'] != 'ambient-only' and ships is None: continue  # bande non couverte par ce modèle
-            ships_db = None if ships in (None, 'zero') else float(ships)
-            total = ambient if ships_db is None else ambient + 10 * math.log10(1 + 10 ** ((ships_db - ambient) / 10))
-            measured = 10 * math.log10(sum(10 ** (levels[f] / 10) for f in wanted))
-            margin = -math.inf if ships_db is None else ships_db - ambient
-            regime = 'ships' if margin > DOMINANCE_DB else 'ambient' if margin < -DOMINANCE_DB else 'mixed'
-            pairs[band['id']].append((total, measured, regime))
+            if window['ambientDb'][b] is None: skipped[f"no-ambient-{band['id']}"] += 1; continue
+            if prediction['model'] != 'ambient-only' and window['shipsDb'][b] is None: continue  # bande non couverte par ce modèle
+            pairs[band['id']].append((index, 10 * math.log10(sum(10 ** (levels[f] / 10) for f in wanted))))
+    return pairs, skipped
+
+
+def evaluate(prediction: dict, rows: list[dict], station: dict, exploratory: bool = False) -> dict:
+    qc, split = station.get('qc', {}), station.get('split', 'unassigned')
+    reviewed = qc.get('status') == 'reviewed'
+    base = {'model': prediction['model'], 'profileId': prediction['profileId'], 'station': station['id'], 'split': split,
+            'qcStatus': qc.get('status', 'absent'), 'physicsSource': prediction['parameters']['physicsSource']}
+    if not reviewed and not exploratory:
+        return {**base, 'status': 'qc-not-reviewed', 'results': [], 'skipped': {}}
+    pairs, skipped = pair(prediction, rows, station)
     results = []
-    for band in prediction['bands']:
+    for b, band in enumerate(prediction['bands']):
         data = pairs.get(band['id'])
         if not data: continue
-        predicted = np.array([d[0] for d in data]); measured = np.array([d[1] for d in data])
+        windows = prediction['windows']
+        predicted = np.array([total_db(windows[i]['ambientDb'][b], windows[i]['shipsDb'][b]) for i, _ in data])
+        measured = np.array([m for _, m in data])
+        ships = [windows[i]['shipsDb'][b] for i, _ in data]
+        margins = np.array([-math.inf if s in (None, 'zero') else float(s) - windows[i]['ambientDb'][b] for (i, _), s in zip(data, ships)])
+        regimes = np.where(margins > DOMINANCE_DB, 'ships', np.where(margins < -DOMINANCE_DB, 'ambient', 'mixed'))
         flags = [f['flag'] for f in qc.get('flags', []) if min(float(x) for x in band['decidecadesHz']) <= f['bandsUpToHz']]
         entry = {'band': band['id'], 'kind': band['kind'], 'fMinHz': band['fMin'], 'fMaxHz': band['fMax'], 'qcFlags': flags,
                  **stats(predicted - measured, predicted, measured), 'byRegime': {}}
         for regime in ['ships', 'mixed', 'ambient']:
-            mask = np.array([d[2] == regime for d in data])
+            mask = regimes == regime
             if mask.any(): entry['byRegime'][regime] = stats(predicted[mask] - measured[mask], predicted[mask], measured[mask])
         results.append(entry)
     status = ('exploratory' if not reviewed else 'evaluated') if results else 'no-compatible-observations'

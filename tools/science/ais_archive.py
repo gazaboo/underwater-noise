@@ -2,6 +2,7 @@
 from __future__ import annotations
 import argparse
 import csv
+import gzip
 import io
 import json
 import zipfile
@@ -36,34 +37,43 @@ class HTTPFile(io.RawIOBase):
         value = self.cache[self.position-self.cache_start:end-self.cache_start]; self.position += len(value); return value
 
 
+def extract_dma(date: str, hours: float, bounds, out: Path | None, list_only=False) -> dict:
+    """Extract one day of the DMA monthly archive by HTTP range requests; `.gz` output is compressed."""
+    datetime.strptime(date, '%Y-%m-%d')
+    url = f'https://s3.eu-central-1.amazonaws.com/aisdata.ais.dk/{date[:4]}/aisdk-{date[:7]}.zip'
+    remote = HTTPFile(url)
+    with zipfile.ZipFile(remote) as archive:
+        if list_only:
+            return {'url': url, 'archiveBytes': remote.size, 'members': archive.namelist(), 'downloadBytes': remote.transferred}
+        names = [n for n in archive.namelist() if date in n and n.lower().endswith('.csv')]
+        if len(names) != 1: raise ValueError(f'CSV journalier ambigu/absent : {archive.namelist()}')
+        if out is None: raise ValueError('--out requis')
+        out.parent.mkdir(parents=True, exist_ok=True)
+        start = datetime.strptime(date, '%Y-%m-%d'); rows = selected = 0
+        partial = out.with_name(out.name + '.part')
+        opener = (lambda: gzip.open(partial, 'wt', newline='')) if out.suffix == '.gz' else (lambda: partial.open('w', newline=''))
+        with archive.open(names[0]) as raw, opener() as output:
+            reader = csv.DictReader(io.TextIOWrapper(raw, encoding='utf-8-sig')); writer = csv.DictWriter(output, fieldnames=reader.fieldnames); writer.writeheader()
+            for row in reader:
+                rows += 1
+                date_row = datetime.strptime(row.get('# Timestamp', row.get('Timestamp')), '%d/%m/%Y %H:%M:%S')
+                if (date_row - start).total_seconds() >= hours * 3600: break
+                if row.get('Type of mobile') not in ('Class A', 'Class B'): continue
+                try: lat, lon = float(row['Latitude']), float(row['Longitude'])
+                except (ValueError, KeyError): continue
+                if bounds and not (bounds[0] <= lon <= bounds[2] and bounds[1] <= lat <= bounds[3]): continue
+                writer.writerow(row); selected += 1
+        partial.rename(out)  # never leave a truncated file under the final name
+        return {'source': url, 'member': names[0], 'rowsRead': rows, 'rowsSelected': selected, 'downloadBytes': remote.transferred}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('date'); parser.add_argument('--hours', type=float, default=1)
     parser.add_argument('--bounds', nargs=4, type=float, metavar=('WEST','SOUTH','EAST','NORTH'))
     parser.add_argument('--out', type=Path); parser.add_argument('--list', action='store_true')
     args = parser.parse_args()
-    datetime.strptime(args.date, '%Y-%m-%d')
-    url = f'https://s3.eu-central-1.amazonaws.com/aisdata.ais.dk/{args.date[:4]}/aisdk-{args.date[:7]}.zip'
-    remote = HTTPFile(url)
-    with zipfile.ZipFile(remote) as archive:
-        if args.list:
-            print(json.dumps({'url': url, 'archiveBytes': remote.size, 'members': archive.namelist(), 'downloadBytes': remote.transferred})); return
-        names = [n for n in archive.namelist() if args.date in n and n.lower().endswith('.csv')]
-        if len(names) != 1: raise ValueError(f'CSV journalier ambigu/absent : {archive.namelist()}')
-        if args.out is None: raise ValueError('--out requis')
-        args.out.parent.mkdir(parents=True, exist_ok=True)
-        start = datetime.strptime(args.date, '%Y-%m-%d'); rows = selected = 0
-        with archive.open(names[0]) as raw, args.out.open('w', newline='') as output:
-            reader = csv.DictReader(io.TextIOWrapper(raw, encoding='utf-8-sig')); writer = csv.DictWriter(output, fieldnames=reader.fieldnames); writer.writeheader()
-            for row in reader:
-                rows += 1
-                date = datetime.strptime(row.get('# Timestamp', row.get('Timestamp')), '%d/%m/%Y %H:%M:%S')
-                if (date-start).total_seconds() >= args.hours * 3600: break
-                try: lat, lon = float(row['Latitude']), float(row['Longitude'])
-                except (ValueError, KeyError): continue
-                if args.bounds and not (args.bounds[0] <= lon <= args.bounds[2] and args.bounds[1] <= lat <= args.bounds[3]): continue
-                writer.writerow(row); selected += 1
-        print(json.dumps({'source': url, 'member': names[0], 'rowsRead': rows, 'rowsSelected': selected, 'downloadBytes': remote.transferred}))
+    print(json.dumps(extract_dma(args.date, args.hours, args.bounds, args.out, args.list)))
 
 
 if __name__ == '__main__': main()

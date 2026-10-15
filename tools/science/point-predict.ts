@@ -12,7 +12,7 @@
  * Aucune grandeur n'est ajustée sur les mesures : les paramètres viennent du profil de référence,
  * ou d'un fichier `--physics` explicitement fourni (calage, étiqueté comme tel dans la sortie).
  */
-import { createReadStream, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { closeSync, createReadStream, mkdirSync, openSync, readFileSync, writeFileSync, writeSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createGunzip } from 'node:zlib';
 import { createInterface } from 'node:readline';
@@ -71,30 +71,80 @@ export class OceanGrid {
     this.width = png.width; this.height = png.height; this.data = png.data;
     this.cellMeters = (180 / this.height) * Math.PI * 6_371_000 / 180;
   }
-  at(lat: number, lon: number): { sea: boolean; depthM: number } {
+  at(lat: number, lon: number): { sea: boolean; depthM: number; g: number } {
     const x = Math.min(this.width - 1, Math.floor((((lon + 180) % 360 + 360) % 360) / 360 * this.width));
     const y = Math.min(this.height - 1, Math.max(0, Math.floor((90 - lat) / 180 * this.height)));
     const i = 4 * (y * this.width + x);
-    return { sea: this.data[i] >= 128, depthM: 10 * 1100 ** (this.data[i + 1] / 255) };
+    return { sea: this.data[i] >= 128, depthM: depthFromCode(this.data[i + 1]), g: this.data[i + 1] };
   }
 }
 
-/** Perte de la loi mondiale entre un navire et le récepteur ; null si le trajet traverse la terre. */
-export function worldLawLoss(grid: OceanGrid, ship: { lat: number; lon: number }, rx: { lat: number; lon: number }, fHz: number, physics: LossParams, minRangeM = 0): { lossDb: number; rangeM: number } | null {
+/** Profondeur (m) d'un code G de la grille océan (8 bits, échelle logarithmique 10 m – 11 km). */
+export function depthFromCode(g: number): number {
+  return 10 * 1100 ** (g / 255);
+}
+
+/** Géométrie d'un trajet navire → récepteur dans la grille : codes de profondeur traversés ; null si terre. */
+export function pathCodes(grid: OceanGrid, ship: { lat: number; lon: number }, rx: { lat: number; lon: number }): { rangeM: number; sourceCode: number; codes: number[] } | null {
   const range = haversine(ship.lat, ship.lon, rx.lat, rx.lon);
   const bearing = initialBearing(ship.lat, ship.lon, rx.lat, rx.lon);
   const steps = Math.max(2, Math.ceil(range / (grid.cellMeters / 2)));
-  const rates: number[] = [];
+  const codes: number[] = [];
   for (let i = 0; i <= steps; i++) {
     const [lat, lon] = destination(ship.lat, ship.lon, bearing, (range * i) / steps);
     const cell = grid.at(lat, lon);
     if (!cell.sea) return null;
-    rates.push(lossRateDbPerKm(cell.depthM, fHz, physics));
+    codes.push(cell.g);
   }
-  // GPU : r_t = profondeur de la cellule source, au moins 10 m (physAmplitude).
-  const rt = Math.max(10, grid.at(ship.lat, ship.lon).depthM);
-  const r = Math.max(range, minRangeM);
-  return { lossDb: pathTransmissionLoss(r, rt, rates), rangeM: range };
+  return { rangeM: range, sourceCode: grid.at(ship.lat, ship.lon).g, codes };
+}
+
+/** Perte de la loi mondiale pour une géométrie de trajet donnée. */
+export function lossFromPath(path: { rangeM: number; sourceCode: number; codes: number[] }, fHz: number, physics: LossParams, minRangeM = 0, transitionFactor = 1): number {
+  const rates = path.codes.map(g => lossRateDbPerKm(depthFromCode(g), fHz, physics));
+  // GPU : r_t = profondeur de la cellule source, au moins 10 m (physAmplitude) ; k ≠ 1 seulement si calé.
+  const rt = Math.max(10, transitionFactor * depthFromCode(path.sourceCode));
+  return pathTransmissionLoss(Math.max(path.rangeM, minRangeM), rt, rates);
+}
+
+/** Perte de la loi mondiale entre un navire et le récepteur ; null si le trajet traverse la terre. */
+export function worldLawLoss(grid: OceanGrid, ship: { lat: number; lon: number }, rx: { lat: number; lon: number }, fHz: number, physics: LossParams, minRangeM = 0): { lossDb: number; rangeM: number } | null {
+  const path = pathCodes(grid, ship, rx);
+  return path && { lossDb: lossFromPath(path, fHz, physics, minRangeM), rangeM: path.rangeM };
+}
+
+/**
+ * Géométrie des contributions pour le calage (calibrate.py) : un enregistrement binaire de taille fixe
+ * par navire et par instant, little-endian : fenêtre (u32), distance m (f32), code source (u8),
+ * longueur du trajet (u8), niveaux source par bande (f32 × bandes), codes de profondeur (u8 × MAX_PATH).
+ * Avec ces seules données, la perte de la loi mondiale se recalcule exactement pour d'autres paramètres.
+ */
+export const MAX_PATH = 48;
+class GeometryDump {
+  private readonly record: number;
+  private buffer: Buffer;
+  private used = 0;
+  count = 0;
+  private readonly fd: number;
+  constructor(path: string, private readonly bandCount: number) {
+    this.record = 10 + 4 * bandCount + MAX_PATH;
+    this.buffer = Buffer.alloc(this.record * 65536);
+    mkdirSync(dirname(path), { recursive: true });
+    this.fd = openSync(path, 'w');
+  }
+  push(window: number, path: { rangeM: number; sourceCode: number; codes: number[] }, levels: number[]): void {
+    if (path.codes.length > MAX_PATH) throw new Error(`Trajet de ${path.codes.length} points > ${MAX_PATH}`);
+    let o = this.used;
+    this.buffer.writeUInt32LE(window, o); this.buffer.writeFloatLE(path.rangeM, o + 4);
+    this.buffer.writeUInt8(path.sourceCode, o + 8); this.buffer.writeUInt8(path.codes.length, o + 9); o += 10;
+    for (const l of levels) { this.buffer.writeFloatLE(l, o); o += 4; }
+    this.buffer.fill(0, o, o + MAX_PATH);
+    for (const [i, g] of path.codes.entries()) this.buffer.writeUInt8(g, o + i);
+    this.used += this.record; this.count++;
+    if (this.used === this.buffer.length) this.flush();
+  }
+  flush(): void { writeSync(this.fd, this.buffer, 0, this.used); this.used = 0; }
+  close(): void { this.flush(); closeSync(this.fd); }
 }
 
 interface RamCurves { bands: { frequencyHz: number; widthHz: number; rangesM: number[]; lossDb: number[] }[][]; provenance: unknown; numerical: unknown }
@@ -140,7 +190,7 @@ async function main(): Promise<void> {
     model: { type: 'string', default: 'world-law' }, 'ram-curves': { type: 'string' }, physics: { type: 'string' },
     from: { type: 'string' }, to: { type: 'string' }, out: { type: 'string' },
     'radius-km': { type: 'string', default: '300' }, 'min-range-m': { type: 'string', default: '0' }, 'scenario-wind': { type: 'string' },
-    'sample-sec': { type: 'string', default: '10' }, 'liveness-sec': { type: 'string', default: '120' },
+    'sample-sec': { type: 'string', default: '10' }, 'liveness-sec': { type: 'string', default: '120' }, dump: { type: 'string' }, 'dump-every': { type: 'string', default: '6' },
   } });
   if (!a.station || !a.observations || !a.out || !a.from || !a.to) throw new Error('Usage : point-predict.ts --station stations/x.json --observations obs.csv --replay ais.ndjson.gz --wind wind.json --from ISO --to ISO --out pred.json [--model world-law|ram-curves|ambient-only]');
   const model = a.model as 'world-law' | 'ram-curves' | 'ambient-only';
@@ -154,7 +204,8 @@ async function main(): Promise<void> {
 
   // Profil de référence, ou paramètres calés explicitement fournis (jamais implicites).
   const cfg = resolveScientificConfig(configSchema.parse(JSON5.parse(readFileSync(join(ROOT, 'config/default.json5'), 'utf8'))));
-  const physicsFile = a.physics ? JSON.parse(readFileSync(a.physics, 'utf8')) as { label: string; physics: LossParams } : null;
+  const physicsFile = a.physics ? JSON.parse(readFileSync(a.physics, 'utf8')) as { label: string; physics: LossParams; transitionFactor?: number } : null;
+  const transitionFactor = physicsFile?.transitionFactor ?? 1;
   const physics: LossParams = physicsFile ? { ...REFERENCE_PHYSICS, ...physicsFile.physics } : { ...REFERENCE_PHYSICS };
   const bands = analysisBands();
   const grid = new OceanGrid(join(ROOT, `data/grid/ocean_${cfg.qualityProfiles.expo.physicsSimWidth}.png`));
@@ -168,13 +219,17 @@ async function main(): Promise<void> {
   const radius = Number(a['radius-km']) * 1000, minRange = Number(a['min-range-m']), sampleSec = Number(a['sample-sec']), liveness = Number(a['liveness-sec']) * 1000;
 
   // Instants d'échantillonnage : milieux de pas réguliers dans chaque fenêtre.
-  const samples = windows.flatMap(([s, e], w) => Array.from({ length: Math.round((e - s) / 1000 / sampleSec) }, (_, k) => ({ w, t: s + (k + 0.5) * sampleSec * 1000 })));
+  const samples = windows.flatMap(([s, e], w) => Array.from({ length: Math.round((e - s) / 1000 / sampleSec) }, (_, k) => ({ w, k, t: s + (k + 0.5) * sampleSec * 1000 })));
+  const dumpEvery = Number(a['dump-every']);
   const live = cfg.live;
   const registry = new ShipRegistry({ staleAfterMin: live.staleAfterMin, maxExtrapolateMin: live.maxExtrapolateMin, evictAfterMin: live.evictAfterMin, includeMoored: live.includeMoored, bands: cfg.bands });
+  const dump = a.dump && model === 'world-law' ? new GeometryDump(a.dump, bands.length) : null;
   const energy = windows.map(() => bands.map(() => 0));
+  const RINGS_KM = [10, 30, 100, 300];
+  const rings = windows.map(() => bands.map(() => RINGS_KM.map(() => 0)));
   const diag = windows.map(() => ({ ships: 0, inRadius: 0, blocked: 0, outOfCurves: 0, nearestM: Infinity, aisSilent: false }));
 
-  const contribute = (w: number, ships: ReturnType<ShipRegistry['snapshot']>, weight: number) => {
+  const contribute = (w: number, ships: ReturnType<ShipRegistry['snapshot']>, weight: number, dumped: boolean) => {
     for (const ship of ships) {
       const d = diag[w]; d.ships++;
       const range = haversine(ship.lat, ship.lon, rx.lat, rx.lon);
@@ -182,12 +237,17 @@ async function main(): Promise<void> {
       d.inRadius++; d.nearestM = Math.min(d.nearestM, range);
       if (model === 'ambient-only') continue;
       const cls = SHIP_CLASSES[ship.classIndex] as ShipClass, length = ship.lengthM || undefined;
+      const path = model === 'world-law' ? pathCodes(grid, ship, rx) : null;
+      if (model === 'world-law' && !path) { d.blocked++; continue; }
+      const levels = bands.map(band => band.kind === 'decidecade' ? sourceLevelDecidecade(band.lossHz, ship.sog, length, cls) : shipBandLevel(band, ship.sog, length, cls));
+      if (path && dump && dumped) dump.push(w, path, levels);
       for (const [b, band] of bands.entries()) {
         if (model === 'world-law') {
-          const loss = worldLawLoss(grid, ship, rx, band.lossHz, physics, minRange);
-          if (!loss) { if (b === 0) d.blocked++; continue; }
-          const sl = band.kind === 'decidecade' ? sourceLevelDecidecade(band.lossHz, ship.sog, length, cls) : shipBandLevel(band, ship.sog, length, cls);
-          energy[w][b] += weight * 10 ** ((sl - loss.lossDb) / 10);
+          const sl = levels[b];
+          const e = weight * 10 ** ((sl - lossFromPath(path!, band.lossHz, physics, minRange, transitionFactor)) / 10);
+          energy[w][b] += e;
+          const ring = RINGS_KM.findIndex(km => range <= km * 1000);
+          if (ring >= 0) rings[w][b][ring] += e;
         } else if (band.kind === 'decidecade') {
           // RAM : quadrature de la bande, densité spectrale J-E × largeur, pertes interpolées en énergie.
           const quad = ram!.bands[band.id === 'd63' ? 0 : 1];
@@ -206,9 +266,9 @@ async function main(): Promise<void> {
   let lastPosition = -Infinity, previous = -Infinity, next = 0;
   const flushUntil = (t: number) => {
     while (next < samples.length && samples[next].t <= t) {
-      const { w, t: ts } = samples[next++];
+      const { w, k, t: ts } = samples[next++];
       if (ts - lastPosition > liveness) diag[w].aisSilent = true;
-      contribute(w, registry.snapshot(ts), 1 / Math.round((windows[w][1] - windows[w][0]) / 1000 / sampleSec));
+      contribute(w, registry.snapshot(ts), 1 / Math.round((windows[w][1] - windows[w][0]) / 1000 / sampleSec), k % dumpEvery === 0);
     }
   };
   if (a.replay) {
@@ -228,7 +288,7 @@ async function main(): Promise<void> {
 
   const out = windows.map(([s, e], w) => {
     const mid = (s + e) / 2;
-    const windMs = wind ? windAt(wind.hourly, mid) : scenarioWind;
+    const windMs = scenarioWind ?? (wind ? windAt(wind.hourly, mid) : null);
     const status = windMs === null ? 'missing-wind' : model !== 'ambient-only' && diag[w].aisSilent ? 'missing-ais' : 'ok';
     const ambientDb = bands.map(b => windMs === null ? null
       // Bande large : exactement ce que l'œuvre calcule (naturalLevel sur fMin–fMax de la configuration) ;
@@ -237,14 +297,22 @@ async function main(): Promise<void> {
     const shipsDb = bands.map((b, i) => model === 'ambient-only' || (model === 'ram-curves' && b.kind === 'broad') ? null : energy[w][i] > 0 ? 10 * Math.log10(energy[w][i]) : -Infinity);
     const d = diag[w];
     return { start: new Date(s).toISOString(), end: new Date(e).toISOString(), status, windMs, shipsDb: shipsDb.map(v => v === -Infinity ? 'zero' : v), ambientDb,
-      diagnostics: { shipSamples: d.ships, inRadius: d.inRadius, blockedByLand: d.blocked, outOfCurves: d.outOfCurves, nearestM: Number.isFinite(d.nearestM) ? Math.round(d.nearestM) : null } };
+      diagnostics: { shipSamples: d.ships, inRadius: d.inRadius, blockedByLand: d.blocked, outOfCurves: d.outOfCurves, nearestM: Number.isFinite(d.nearestM) ? Math.round(d.nearestM) : null,
+        // Part de l'énergie des navires reçue de chaque anneau de distance (≤ 10, 30, 100, 300 km), par bande.
+        energyFractionByRingKm: model === 'world-law' ? rings[w].map((r, i) => energy[w][i] > 0 ? r.map(x => +(x / energy[w][i]).toFixed(4)) : null) : undefined } };
   });
+  if (dump) {
+    dump.close();
+    writeFileSync(`${a.dump}.json`, JSON.stringify({ records: dump.count, recordBytes: 10 + 4 * bands.length + MAX_PATH, maxPath: MAX_PATH, bands: bands.map(b => b.id),
+      lossHz: bands.map(b => b.lossHz), samplesPerWindow: windows.map(([s, e]) => Math.ceil(Math.round((e - s) / 1000 / sampleSec) / dumpEvery)), dumpEvery, sampleSec, windows: windows.map(([s, e]) => [new Date(s).toISOString(), new Date(e).toISOString()]),
+      minRangeM: minRange, codeDepth: 'profondeur = 10 × 1100^(code/255) m ; r_t = max(10 m, profondeur du code source)' }) + '\n');
+  }
   const prediction = {
     schema: 'vacarme-point-prediction/1', model, profileId: physicsFile ? `${SCIENTIFIC_PROFILE_ID}+${physicsFile.label}` : SCIENTIFIC_PROFILE_ID,
-    station: { id: station.id, ...rx }, bands,
-    parameters: { physics, physicsSource: physicsFile ? `calage : ${physicsFile.label}` : 'profil de référence (non calé)', radiusM: radius, minRangeM: minRange, sampleSec, aisLivenessSec: liveness / 1000,
+    station: { id: station.id, ...rx }, bands, ringsKm: RINGS_KM,
+    parameters: { physics, transitionFactor, physicsSource: physicsFile ? `calage : ${physicsFile.label}` : 'profil de référence (non calé)', radiusM: radius, minRangeM: minRange, sampleSec, aisLivenessSec: liveness / 1000,
       registry: { staleAfterMin: live.staleAfterMin, maxExtrapolateMin: live.maxExtrapolateMin, evictAfterMin: live.evictAfterMin, includeMoored: live.includeMoored },
-      wind: wind ? `Open-Meteo archive (ERA5), point ${wind.latitude}, ${wind.longitude}, interpolation linéaire horaire` : `scénario uniforme ${scenarioWind} m/s`,
+      wind: scenarioWind !== null ? `scénario uniforme ${scenarioWind} m/s (comme l’exposition)` : `Open-Meteo archive (ERA5), point ${wind!.latitude}, ${wind!.longitude}, interpolation linéaire horaire`,
       grid: model === 'world-law' ? `data/grid/ocean_${grid.width}.png (cellule ${(grid.cellMeters / 1000).toFixed(1)} km)` : null },
     inputHashes: {
       station: createHash('sha256').update(stationText).digest('hex'), observations: createHash('sha256').update(readFileSync(a.observations)).digest('hex'),

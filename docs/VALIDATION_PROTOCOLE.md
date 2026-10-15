@@ -43,7 +43,7 @@ américaines.
 | 2174 | Fehmarn Belt | 54,6 N 11,15 E (±0,018°) | 28,3 m | Belts/Baltique | **test** |
 | 2654 | Arkona Deep | 54,8833 N 13,8667 E (±0,016°) | 45,1 m | Belts/Baltique | calage |
 | 12870 | DKMst201, Horns Rev 3 | 55,6894 N 7,5857 E | 14,1 m | mer du Nord | calage |
-| NRS11 | NOAA NRS11, Cordell Bank (Californie) | 37,88 N 123,45 W (métadonnées NCEI) | ~1 370 m (ETOPO 2022, à confirmer par le déploiement) | eau profonde | **test** (régime profond) |
+| NRS11 | NOAA NRS11, Cordell Bank (Californie) | 37,881 N 123,435 W (métadonnées NCEI) | 528 m (MNT NOAA NCEI ; récepteur à 500 m) | eau profonde (talus) | **test** (régime profond) |
 | 13557 | FINO3 | 55,1937 N 7,1585 E | 21,8 m | mer du Nord | développement |
 | 13076 | Hon1, Hönö (identité ambiguë) | 57,6797 N 11,5915 E | 20,0 m | Skagerrak | développement |
 
@@ -146,4 +146,8 @@ de mesure » précisé). Sinon, l’œuvre affiche l’écart mesuré tel quel. 
 
 ## 8. Écarts au protocole
 
-(aucun à ce jour)
+1. *15/10/2026, avant tout calcul de comparaison* — NRS11 : la profondeur de ~1 370 m venait d’une
+   cellule ETOPO à 0,05° sur la pente continentale. Le MNT NOAA NCEI au point exact donne 528 m et les
+   métadonnées du déploiement 500 m (profondeur de l’instrument). La station reste au-delà de 400 m, où
+   la loi mondiale n’applique plus de perte au fond : son rôle de test du régime profond est inchangé,
+   mais il s’agit d’un talus, pas d’une plaine abyssale.

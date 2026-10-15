@@ -109,6 +109,33 @@ class ExportTests(unittest.TestCase):
             self.assertEqual(json.loads(output.with_suffix('.metadata.json').read_text())['exactDuplicatesRemoved'], 3)
 
 
+class NoaaTests(unittest.TestCase):
+    def test_hmd_to_decidecade_is_exact_for_white_noise(self):
+        from noaa import decidecade_matrix, hmd_edges
+        # HMD layout: 0.1 Hz (DC band), 1 Hz bands to 440 Hz, then millidecades to 2.5 kHz.
+        linear = np.r_[0.1, np.arange(1, 441, dtype=float)]
+        milli = 10 ** (np.arange(2644.5, 3398, 1.0) / 1000)
+        centres = np.r_[linear, milli]
+        lo, hi = hmd_edges(centres)
+        self.assertTrue(np.allclose(lo[1:], hi[:-1]))
+        fc = [10 ** 1.8, 10 ** 2.6, 10 ** 3.0]  # 63 Hz (linear part), ~400 Hz (junction), 1 kHz (millidecades)
+        W = decidecade_matrix(lo, hi, fc)
+        for row, f in zip(W, fc):
+            self.assertAlmostEqual(10 * math.log10(row.sum()), 10 * math.log10(f * (10 ** .05 - 10 ** -.05)), places=6)
+
+
+class CalibrationTests(unittest.TestCase):
+    # Valeurs de lossRateDbPerKm (shared/src/acoustics/propagation.ts), générées le 15/10/2026 :
+    # (perte par rebond, célérité du sédiment, perte sous coupure, profondeur m, fréquence Hz, dB/km).
+    TS_CASES = [[0.09, 1700, 5, 5, 20, 6.5899912115], [0.09, 1700, 5, 5, 63.1, 6.5904228909], [0.09, 1700, 5, 5, 223.6, 1.5957309137], [0.09, 1700, 5, 5, 3162, 1.7997279546], [0.09, 1700, 5, 20, 20, 5.3997840917], [0.09, 1700, 5, 20, 63.1, 0.4002157711], [0.09, 1700, 5, 20, 223.6, 0.4055237939], [0.09, 1700, 5, 20, 3162, 0.6095208349], [0.09, 1700, 5, 60, 20, 0.1352936206], [0.09, 1700, 5, 60, 63.1, 0.1357253001], [0.09, 1700, 5, 60, 223.6, 0.1410333228], [0.09, 1700, 5, 60, 3162, 0.3450303638], [0.09, 1700, 5, 250, 20, 0.0268525275], [0.09, 1700, 5, 250, 63.1, 0.0272842069], [0.09, 1700, 5, 250, 223.6, 0.0325922297], [0.09, 1700, 5, 250, 3162, 0.2365892707], [0.09, 1700, 5, 3000, 20, 0.0030483851], [0.09, 1700, 5, 3000, 63.1, 0.0034800645], [0.09, 1700, 5, 3000, 223.6, 0.0087880873], [0.09, 1700, 5, 3000, 3162, 0.2127851283], [0.5, 1600, 12, 5, 20, 20.8193974205], [0.5, 1600, 12, 5, 63.1, 20.8198291], [0.5, 1600, 12, 5, 223.6, 13.7419120465], [0.5, 1600, 12, 5, 3162, 9.0291341637], [0.5, 1600, 12, 20, 20, 14.2071356439], [0.5, 1600, 12, 20, 63.1, 3.8248053304], [0.5, 1600, 12, 20, 223.6, 2.2128753461], [0.5, 1600, 12, 20, 3162, 2.4168723871], [0.5, 1600, 12, 60, 20, 3.6785394421], [0.5, 1600, 12, 60, 63.1, 0.7381758175], [0.5, 1600, 12, 60, 223.6, 0.7434838402], [0.5, 1600, 12, 60, 3162, 0.9474808812], [0.5, 1600, 12, 250, 20, 0.1352936206], [0.5, 1600, 12, 250, 63.1, 0.1357253001], [0.5, 1600, 12, 250, 223.6, 0.1410333228], [0.5, 1600, 12, 250, 3162, 0.3450303638], [0.5, 1600, 12, 3000, 20, 0.0030483851], [0.5, 1600, 12, 3000, 63.1, 0.0034800645], [0.5, 1600, 12, 3000, 223.6, 0.0087880873], [0.5, 1600, 12, 3000, 3162, 0.2127851283]]
+
+    def test_loss_rate_matches_typescript(self):
+        from calibrate import loss_rate
+        for bounce, sediment, cutoff, depth, f, expected in self.TS_CASES:
+            p = {'bottomBounceLossDb': bounce, 'sedimentSoundSpeed': sediment, 'cutoffLossDbPerKm': cutoff, 'grazingAngleDeg': 10, 'extraLossDbPerKm': 0}
+            self.assertAlmostEqual(float(loss_rate(np.array(depth, dtype=float), f, p)), expected, places=8)
+
+
 class ValidationTests(unittest.TestCase):
     def setUp(self):
         self.prediction = {

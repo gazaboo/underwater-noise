@@ -1,0 +1,30 @@
+{
+  "id": "nrs11",
+  "name": "NOAA NRS11 — Cordell Bank (Californie), réseau Ocean Noise Reference Station",
+  "split": "holdout-deep",
+  "stratum": "deep",
+  "splitNote": "Rôle fixé par docs/VALIDATION_PROTOCOLE.md (v1) : test du régime profond, jamais utilisée pour le calage.",
+  "deployment": {
+    "station": "NRS11",
+    "lat": 37.881,
+    "lon": -123.4353,
+    "waterDepthM": 528,
+    "heightAboveBottomM": 28,
+    "receiverDepthM": 500,
+    "timestampConvention": "start",
+    "source": "Position : métadonnées NCEI du produit HMD (Latitude_ddeg 37,881, Longitude_ddeg −123,4353 ; déploiement du 25/10/2019). Profondeur du récepteur : métadonnée Depth_m = 500 m, interprétée comme profondeur de l'instrument (NON confirmée). Profondeur d'eau : MNT NOAA NCEI (tuile ncei19_n38x00_w123x50_2025v1) au point exact, 527,7 m. Horodatage : « Time beginning each 1-minute temporal bin » (métadonnée NCEI)."
+  },
+  "nrs": {
+    "site": "11",
+    "product": "NRS Hybrid Millidecade Spectra v3, doi:10.25921/tr4q-xa94, CC0-1.0",
+    "note": "Bandes 0–10 Hz et 2–2,5 kHz déclarées inutilisables par le producteur ; « Data include Navy redactions »."
+  },
+  "ais": { "source": "MarineCadastre (NOAA/BOEM), AIS terrestre américain", "coverageNote": "À quantifier par le diagnostic de rayon (station à ~60 km de la côte)." },
+  "qc": {
+    "status": "draft",
+    "excludeBands": [],
+    "excludePeriods": [],
+    "flags": [],
+    "notes": ["Revue non réalisée."]
+  }
+}
