@@ -2,11 +2,20 @@
 
 ## État
 
-Les niveaux de la carte mondiale sont des **estimations de modèle**. Leur écart aux mesures
-d’hydrophones est en cours d’établissement selon un protocole pré-enregistré
-([VALIDATION_PROTOCOLE.md](VALIDATION_PROTOCOLE.md)) ; tant qu’aucun résumé de validation n’est
-publié (`data/science/validation-summary.json`), l’œuvre affiche « non validé ». Une fois publié, les
-écarts mesurés ne sont montrés **que dans les zones mesurées** ; ailleurs, « non validé ».
+Les niveaux de la carte mondiale sont des **estimations de modèle**. La confrontation de sa loi
+aux mesures d’hydrophones suit le protocole pré-enregistré
+([VALIDATION_PROTOCOLE.md](VALIDATION_PROTOCOLE.md)). Les résultats et leurs limites sont publiés
+dans [VALIDATION.md](VALIDATION.md), favorables ou non. Le résumé de l’app
+(`data/science/validation-summary.json`) décrit le profil effectivement actif avec son vent de
+scénario. Les écarts historiques apparaissent **aux repères des stations mesurées** ; leurs petites
+emprises d’interaction sont [A], sans validité spatiale démontrée autour du point. Ailleurs, avec
+un trafic synthétique ou mixte, ou un profil expérimental : « non validé ».
+
+Cette confrontation évalue la loi au point exact. L’écart supplémentaire du champ GPU n’a pas été
+quantifié aux stations ; aucune validation de l’ensemble de la carte rendue ni des conséquences
+biologiques n’en découle. Le contrôle qualité applique des critères écrits sur les seules mesures :
+**pas une revue d’acousticien**. Chaque résultat calculé est [C], chaque paramètre optimisé [C-calé] ;
+les données des producteurs sont [S], les hypothèses empiriques fixes [E] et les choix visuels [A].
 
 Le panneau « Fiabilité », en haut à gauche, donne au curseur les niveaux des navires, le fond naturel
 modélisé, leur somme et l’augmentation par rapport au fond, en dB re 1 µPa (moyenne quadratique par
@@ -32,6 +41,11 @@ de l’AIS sous-estiment le bruit. Une augmentation acoustique n’est pas une m
 
 ## Chaîne de validation (outils hors ligne, `tools/science/`)
 
+**Les commandes ci-dessous décrivent la chaîne ; ne pas rouvrir le test du protocole v1.**
+`runs/v1-test/execution.json` conserve son ouverture, sa fin et les empreintes du profil et du
+protocole. Un répertoire de test déjà ouvert interdit toute seconde exécution. Une nouvelle étude
+requiert un nouveau protocole déclaré avant ses calculs. La restitution seule peut être régénérée.
+
 ```bash
 uv venv tools/.venv-science
 uv pip install --python tools/.venv-science/bin/python -r tools/science/requirements.txt
@@ -39,9 +53,14 @@ P=tools/.venv-science/bin/python
 $P tools/science/fetch_protocol.py              # mesures, AIS, spectres NOAA → tools/.cache/science
 $P tools/science/make_stations.py               # fiches des stations ICES depuis des sources figées
 $P tools/science/qc.py                          # contrôle qualité des MESURES seules → docs/validation/qc
+# Revue des figures, décisions dans chaque fiche et statut reviewed AVANT toute comparaison.
+$P tools/science/qc.py --prune-raw              # jours et empreintes conservés, HDF5 du protocole supprimés
+$P tools/science/fetch_protocol.py --only wind  # petites séries ERA5 préparées sans prédiction
 $P tools/science/run_protocol.py --phase calibration
+$P tools/science/calibrate.py --benchmark       # identité et durée sur le premier cas, sans optimisation
 $P tools/science/calibrate.py                   # stations de calage seulement
 $P tools/science/run_protocol.py --phase test --physics tools/science/calibration-v2.json   # une fois
+$P tools/science/summarize.py                   # rapports figés → docs/VALIDATION.md et résumé de l’app
 ```
 
 1. **Mesures.** `ices.py` (ICES, HDF5) : enregistrements triés, doublons exacts retirés, séries qui se
@@ -68,8 +87,15 @@ $P tools/science/run_protocol.py --phase test --physics tools/science/calibratio
    de la fiche station ; sans statut `reviewed`, seul un rapport `--exploratory`, étiqueté, est possible.
 6. **Calage** (`calibrate.py`) : la géométrie de chaque contribution (distance, codes de profondeur
    8 bits traversés dans la grille) est exportée ; la perte se recalcule donc exactement pour d’autres
-   paramètres (identité avec le TypeScript vérifiée à 7·10⁻⁶ dB). Seuls les paramètres et bornes du
-   protocole bougent, sur les seules stations de calage.
+   paramètres. Tous les pas de la prédiction sont conservés ; une géométrie sous-échantillonnée est
+   refusée. L’identité est vérifiée sur tous les cas avant optimisation. Seuls les paramètres et bornes
+   du protocole bougent, sur les seules stations de calage ; la validation croisée refait la même
+   recherche sans la station laissée de côté. Le profil et ses résidus sont publiés en [C-calé]/[C].
+7. **Restitution** (`summarize.py`) : refuse un test incomplet ou un profil modifié depuis le test,
+   conserve tous les rapports, y compris vides, et publie les tableaux, les séries temporelles,
+   les diagnostics et les statistiques regroupées. Les percentiles sur plusieurs jours portent
+   sur les minutes concaténées. Le résumé de l’app est contrôlé par le schéma TypeScript réel ;
+   la variante ERA5 ne remplace jamais la variante au vent de scénario pour l’œuvre.
 
 Stations de développement, exclues de tout test : FINO3 (04-DE-FN3, 18/12/2019) et ICES 13076
 (01/07/2019). Le fichier ICES de FINO3 contient deux séries complètes décalées de 5 s (écart moyen
