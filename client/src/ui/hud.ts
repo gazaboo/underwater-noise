@@ -75,9 +75,12 @@ const SOURCE_NAMES = { live: 'AIS direct', replay: 'replay', simulation: 'simula
 function sourceLine(st: SourceStatus | null, connected: boolean): string {
   if (!connected) return 'serveur déconnecté';
   if (!st) return 'source ?';
-  let line = `source ${SOURCE_NAMES[st.active]} (mode ${st.mode}${st.hybrid ? ', hybride' : ''})`;
-  if (st.active === 'replay') line += `   ${st.replay.file ?? ''} ×${st.replay.speed}`;
-  return line;
+  const e = st.estimated;
+  const est = `estimés GFW${e.period ? ` (${e.period[0]} → ${e.period[1]})` : ''}${e.capped ? ', plafonnés : bruit sous-estimé' : ''}`;
+  const real = `${SOURCE_NAMES[st.active]} (mode ${st.mode})${st.active === 'replay' ? `   ${st.replay.file ?? ''} ×${st.replay.speed}` : ''}`;
+  if (st.shipsMode === 'estimated') return `: ${est}`;
+  if (st.shipsMode === 'mixed') return `: ${st.ships - e.ships} réels, source ${real} + ${e.ships} ${est}`;
+  return `source ${real}${e.available ? '' : '   (navires estimés indisponibles : uv run tools/build_presence.py)'}`;
 }
 
 function liveLine(st: SourceStatus | null): string {
@@ -124,7 +127,7 @@ export class Hud {
     const gpu = Number.isFinite(gpuMs) ? `${gpuMs.toFixed(2)} ms` : 'n/d';
     this.el.textContent = [
       `${this.fps.toFixed(1)} img/s   cpu ${this.cpuMs.toFixed(2)} ms   gpu ${gpu}`,
-      `navires ${i.ships}   ${sourceLine(i.status, i.connected)}`,
+      `navires affichés ${i.ships}   ${sourceLine(i.status, i.connected)}`,
       liveLine(i.status),
       `temps simulé ${i.simTime.toISOString().slice(0, 16).replace('T', ' ')} UTC   ×${i.timeScale}`,
       `ondes ${i.simSize}   ${i.steps} pas/image`,
@@ -133,7 +136,7 @@ export class Hud {
       i.audio,
       i.cursor,
       `rendu ${i.canvas}   cible ${i.target}   profil ${i.quality}`,
-      `G plat/globe · O mode de sortie · C mire · J jour/nuit · molette zoom · glisser · R recadrer · B champ · M son · P réglages · D diagnostic · F plein écran`,
+      `G plat/globe · O mode de sortie · C mire · J jour/nuit · N navires réels/estimés · molette zoom · glisser · R recadrer · B champ · M son · P réglages · D diagnostic · F plein écran`,
     ]
       .filter(Boolean)
       .join('\n');

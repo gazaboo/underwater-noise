@@ -32,6 +32,7 @@ export interface UrlOverrides {
 }
 
 const MODES: Config['display']['mode'][] = ['flat', 'globe', 'hemisphere', 'equirect', 'fisheye'];
+const SHIPS_MODES: Config['source']['ships'][] = ['real', 'estimated', 'mixed'];
 
 export class App {
   /** Configuration telle que reçue du serveur. */
@@ -183,7 +184,17 @@ export class App {
     this.panel.refresh();
   }
 
+  /** Navires réels / estimés / mixtes : réglage du serveur, appliqué aussitôt (et enregistré dans config/local.json5). */
+  private setShipsMode(mode: Config['source']['ships']): void {
+    this.cfg.source.ships = mode;
+    void fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source: { ships: mode } }) }).then(
+      async (res) => res.ok || console.error(`[navires] ${await res.text()}`),
+      (e: Error) => console.error(`[navires] ${e.message}`),
+    );
+  }
+
   private onPanelChange(path: string): void {
+    if (path === 'ships') return this.setShipsMode(this.cfg.source.ships);
     if (path === 'view' || path === 'display') this.nav.forget();
     if (path === 'display') {
       // Changement de cible : on repart de la configuration serveur pour cette cible,
@@ -318,7 +329,10 @@ export class App {
       else if (k === 'g') this.cfg.display.mode = this.cfg.display.mode === 'flat' ? 'globe' : 'flat';
       else if (k === 'o') this.cfg.display.mode = MODES[(MODES.indexOf(this.cfg.display.mode) + 1) % MODES.length];
       else if (k === 'c') this.globe.calibration = !this.globe.calibration;
-      else if (k === 'j') {
+      else if (k === 'n') {
+        this.setShipsMode(SHIPS_MODES[(SHIPS_MODES.indexOf(this.cfg.source.ships) + 1) % SHIPS_MODES.length]);
+        this.panel.refresh();
+      } else if (k === 'j') {
         this.cfg.display.theme = this.cfg.display.theme === 'day' ? 'night' : 'day';
         this.panel.refresh();
       }

@@ -8,15 +8,20 @@
  * `liveRecoverSec` de bonne santé continue. Le direct reste connecté en arrière-plan pendant
  * le replay, pour pouvoir reprendre la main.
  *
- * Mode hybride (optionnel) : des navires simulés complètent les zones mal couvertes.
+ * Navires affichés (`source.ships`) :
+ *   real      : la source ci-dessus ;
+ *   estimated : uniquement les navires estimés (densité Global Fishing Watch, voir estimated.ts) ;
+ *   mixed     : la source réelle, complétée par des navires estimés dans les cellules de 1° mal couvertes.
+ * En modes estimés et mixte, la couverture envoyée au client est pleine : plus de terra incognita.
  */
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { FLAG_SYNTHETIC, type Config, type ShipRecord, type SourceStatus } from '@vacarme/shared';
+import type { Config, ShipRecord, SourceStatus } from '@vacarme/shared';
 import type { RegistryOptions } from '../ais/registry.ts';
-import { CoverageMap } from '../coverage.ts';
+import { COVERAGE_H, COVERAGE_W, CoverageMap } from '../coverage.ts';
 import { Recorder } from '../recorder.ts';
 import { AisStreamSource } from './aisstream.ts';
+import type { EstimatedSource } from './estimated.ts';
 import { ReplaySource } from './replay.ts';
 import type { SimulationSource } from './simulation.ts';
 import type { ShipSource } from './source.ts';
@@ -33,6 +38,10 @@ export class SourceManager {
   private readonly recorder: Recorder;
   private readonly liveCoverage: CoverageMap;
   private readonly simCoverage: CoverageMap;
+  private readonly fullCoverage = new CoverageMap(1);
+  /** Mode mixte : dernière mise à jour de la zone des navires estimés. */
+  private lastRegion = -Infinity;
+  private region: 'world' | 'uncovered' | null = null;
   private active: Active = 'simulation';
   private liveHealthySince: number | null = null;
   private lastCoverageSave = Date.now();
@@ -41,6 +50,7 @@ export class SourceManager {
     private cfg: Config,
     private readonly root: string,
     private readonly simulation: SimulationSource,
+    private readonly estimated: EstimatedSource | null,
     apiKey: string | undefined,
   ) {
     const covOpts = cfg.coverage;
@@ -84,6 +94,7 @@ export class SourceManager {
     this.recorder.setMinInterval(cfg.recorder.minIntervalSec);
     this.recorder.enabled = cfg.recorder.enabled;
     this.applySimCoverage();
+    this.region = null; // zone des navires estimés recalculée au prochain pas
   }
 
   private liveHealthy(now: number): boolean {
@@ -114,8 +125,9 @@ export class SourceManager {
     return this.simulation;
   }
 
+  /** Source qui donne le temps des instantanés : les navires estimés en mode « estimés », sinon la source réelle. */
   get current(): ShipSource {
-    return this.source(this.active);
+    return this.shipsMode === 'estimated' ? this.estimated! : this.source(this.active);
   }
 
   tick(realDtSec: number): void {
@@ -128,28 +140,65 @@ export class SourceManager {
       this.active = next;
     }
     if (this.active === 'replay') this.replay.tick(realDtSec);
-    if (this.active === 'simulation' || this.cfg.source.hybrid) this.simulation.tick(realDtSec);
+    if (this.active === 'simulation') this.simulation.tick(realDtSec);
+    this.tickEstimated(now, realDtSec);
     if (this.live && now - this.lastCoverageSave > 5 * 60_000) {
       this.liveCoverage.save(this.coveragePath);
       this.lastCoverageSave = now;
     }
   }
 
-  /** Navires de la source active, complétés en mode hybride. */
+  /** Navires affichés, selon `source.ships` ; 'real' si les navires estimés sont indisponibles. */
+  get shipsMode(): Config['source']['ships'] {
+    return this.estimated ? this.cfg.source.ships : 'real';
+  }
+
+  /** Le mode mixte n'ajoute rien quand la source réelle est déjà la simulation (tout est « observé »). */
+  private get mixing(): boolean {
+    return this.shipsMode === 'mixed' && this.active !== 'simulation';
+  }
+
+  private tickEstimated(now: number, realDtSec: number): void {
+    const est = this.estimated;
+    if (!est) return;
+    if (this.shipsMode === 'estimated') {
+      if (this.region !== 'world') {
+        est.setRegion(null);
+        this.region = 'world';
+      }
+      est.tick(realDtSec);
+    } else if (this.mixing) {
+      // La couverture évolue lentement : zone recalculée toutes les 10 s (ou à l'entrée dans le mode).
+      if (this.region !== 'uncovered' || now - this.lastRegion > 10_000) {
+        const cov = this.coverageOf(this.active);
+        const th = this.cfg.source.coverageThreshold;
+        const allowed = new Uint8Array(COVERAGE_W * COVERAGE_H);
+        for (let i = 0; i < allowed.length; i++) allowed[i] = cov.data[i] < th ? 1 : 0;
+        est.setRegion(allowed);
+        this.region = 'uncovered';
+        this.lastRegion = now;
+      }
+      // Même rythme que la source réelle (temps réel en direct, vitesse du replay).
+      est.advance(Math.min(realDtSec, 5) * this.current.timeScale());
+    }
+  }
+
+  /** Navires de la source active, ou estimés, ou les deux (voir `source.ships`). */
   ships(): readonly ShipRecord[] {
-    const src = this.current;
-    const ships = src.ships();
-    if (!this.cfg.source.hybrid || this.active === 'simulation') return ships;
-    const cov = this.coverage;
-    const th = this.cfg.source.hybridCoverageThreshold;
-    const fill = this.simulation.ships().filter((s) => cov.value(s.lat, s.lon) < th);
-    return [...ships, ...fill.map((s) => ({ ...s, flags: s.flags | FLAG_SYNTHETIC }))];
+    if (this.shipsMode === 'estimated') return this.estimated!.ships();
+    const ships = this.source(this.active).ships();
+    return this.mixing ? [...ships, ...this.estimated!.ships()] : ships;
+  }
+
+  private coverageOf(a: Active): CoverageMap {
+    if (a === 'live' && this.live) return this.live.coverage;
+    if (a === 'replay') return this.replay.coverage;
+    return this.simCoverage;
   }
 
   get coverage(): CoverageMap {
-    if (this.active === 'live' && this.live) return this.live.coverage;
-    if (this.active === 'replay') return this.replay.coverage;
-    return this.simCoverage;
+    if (this.shipsMode === 'estimated' || this.mixing) return this.fullCoverage;
+    return this.coverageOf(this.active);
   }
 
   status(shipCount: number): SourceStatus {
@@ -158,8 +207,14 @@ export class SourceManager {
     return {
       mode: this.cfg.source.mode,
       active: this.active,
-      hybrid: this.cfg.source.hybrid,
+      shipsMode: this.shipsMode,
       ships: shipCount,
+      estimated: {
+        available: this.estimated !== null,
+        ships: this.shipsMode === 'estimated' || this.mixing ? this.estimated!.count : 0,
+        capped: this.estimated?.capped ?? false,
+        period: this.estimated?.density.meta.period ?? null,
+      },
       live: {
         configured: this.live !== null,
         connected: h?.connected ?? false,

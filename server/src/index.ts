@@ -18,6 +18,8 @@ import { OceanGrid } from './ocean-grid.ts';
 import { COVERAGE_H, COVERAGE_W } from './coverage.ts';
 import { SourceManager } from './sources/manager.ts';
 import { SimulationSource, type SimulationOptions } from './sources/simulation.ts';
+import { DensityGrid } from './sources/density.ts';
+import { EstimatedSource, type EstimatedOptions } from './sources/estimated.ts';
 
 const ROOT = resolve(fileURLToPath(new URL('.', import.meta.url)), '../..');
 const DATA_DIR = join(ROOT, 'data');
@@ -49,7 +51,19 @@ function simOptions(cfg: Config): SimulationOptions {
 
 const grid = new OceanGrid(join(DATA_DIR, 'grid', 'ocean_1024.png'));
 const simulation = new SimulationSource(join(DATA_DIR, 'routes.json'), grid, simOptions(store.config));
-const sources = new SourceManager(store.config, ROOT, simulation, process.env.AISSTREAM_API_KEY?.trim() || undefined);
+function estOptions(cfg: Config): EstimatedOptions {
+  return { ...cfg.estimated, bands: cfg.bands };
+}
+
+// Navires estimés : densité Global Fishing Watch (uv run tools/build_presence.py), facultative.
+const density = DensityGrid.load(join(ROOT, store.config.estimated.dir));
+const estimated = density ? new EstimatedSource(density, new OceanGrid(join(DATA_DIR, 'grid', 'ocean_2048.png')), estOptions(store.config)) : null;
+console.log(
+  density
+    ? `[estimés] densité GFW ${density.meta.period?.join(' → ') ?? ''} : ${density.groups.map((g) => g.name).join(', ')}`
+    : `[estimés] pas de densité dans ${store.config.estimated.dir} (uv run tools/build_presence.py) : mode « estimés » indisponible`,
+);
+const sources = new SourceManager(store.config, ROOT, simulation, estimated, process.env.AISSTREAM_API_KEY?.trim() || undefined);
 
 // ---------------------------------------------------------------- HTTP
 
@@ -137,6 +151,7 @@ wss.on('connection', (ws) => {
 
 store.on('change', (cfg: Config) => {
   simulation.configure(simOptions(cfg));
+  estimated?.configure(estOptions(cfg));
   sources.configure(cfg);
   for (const ws of wss.clients) sendConfig(ws);
   restartTicker();

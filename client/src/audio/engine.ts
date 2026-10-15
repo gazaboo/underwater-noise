@@ -14,7 +14,7 @@
 import type { Config } from '@vacarme/shared';
 import type { FlatTransform } from '../render/flat-view.ts';
 import { DEG, naturalLevel } from '@vacarme/shared';
-import type { ShipLayer } from '../render/ships.ts';
+import type { ShipLayer, ShipSample } from '../render/ships.ts';
 import type { FieldReader } from '../whales/field-reader.ts';
 import type { CallEvent } from '../whales/whales.ts';
 import { allocate } from './allocator.ts';
@@ -87,6 +87,7 @@ export class AudioEngine {
   private active = new Set<number>();
   private callsUntil: number[] = [];
   private lastUpdate = 0;
+  private readonly sample: ShipSample = { id: 0, lat: 0, lon: 0, sog: 0, classIndex: 0, lengthM: 0, slBroad: 0 };
   muted = false;
   /** État lisible pour le diagnostic. */
   status = 'son : en attente d\'un clic ou d\'une touche';
@@ -155,15 +156,36 @@ export class AudioEngine {
     if (now - this.lastUpdate < 100) return;
     this.lastUpdate = now;
 
-    const candidates: { id: number; score: number; i: number; sog: number; classIndex: number; lengthM: number }[] = [];
+    // Candidats : les voix actives, plus les 2 × voix plus forts. L'allocateur ne retient jamais un nouveau
+    // venu au-delà des (voix + actives) premiers : c'est équivalent à tout lui passer, sans allouer un objet
+    // par navire (des dizaines de milliers avec les navires estimés).
+    type Cand = { id: number; score: number; i: number; sog: number; classIndex: number; lengthM: number };
+    const n = a.enabled ? a.ships.voices : 0;
+    const k = 2 * Math.max(1, n);
+    const top: Cand[] = []; // décroissant, au plus k
+    const kept: Cand[] = [];
+    const s = this.sample;
     for (let i = 0; i < ships.shipCount; i++) {
-      const s = ships.shipAt(i, now);
+      // Le score ne dépasse jamais le niveau source : la plupart des navires s'écartent sans calcul de position.
+      const active = this.active.has(ships.idOf(i));
+      if (!active && top.length >= k && ships.slBroadOf(i) <= top[top.length - 1].score) continue;
+      ships.shipInto(i, now, s);
       if (s.sog < 0.5) continue;
       const d = listener.distance(s.lat, s.lon);
       if (!Number.isFinite(d)) continue;
-      candidates.push({ id: s.id, score: s.slBroad - a.ships.edgeAttenuationDb * d, i, sog: s.sog, classIndex: s.classIndex, lengthM: s.lengthM });
+      const score = s.slBroad - a.ships.edgeAttenuationDb * d;
+      if (!active && top.length >= k && score <= top[top.length - 1].score) continue;
+      const c = { id: s.id, score, i, sog: s.sog, classIndex: s.classIndex, lengthM: s.lengthM };
+      if (active) {
+        kept.push(c);
+        continue;
+      }
+      let j = top.length;
+      while (j > 0 && top[j - 1].score < score) j--;
+      top.splice(j, 0, c);
+      if (top.length > k) top.pop();
     }
-    const n = a.enabled ? a.ships.voices : 0;
+    const candidates = [...kept, ...top];
     this.active = allocate(this.active, candidates, n, a.ships.hysteresisDb);
     const byId = new Map(candidates.map((c) => [c.id, c]));
     // Somme de voix : niveau d'ensemble stable quel que soit le nombre de voix.

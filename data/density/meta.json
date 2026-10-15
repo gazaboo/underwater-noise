@@ -1,0 +1,128 @@
+{
+  "source": "Global Fishing Watch, 4Wings API, AIS vessel presence (public-global-presence:latest)",
+  "period": [
+    "2026-09-11",
+    "2026-10-11"
+  ],
+  "days": 30,
+  "accessed": "2026-10-15",
+  "resolutionDeg": 0.1,
+  "width": 3600,
+  "height": 1800,
+  "encoding": "v = 0 → 0 ; sinon λ = 10^(logMin + (v − 1)/254 · (logMax − logMin)) navires présents en moyenne par cellule",
+  "logMin": -4.0,
+  "logMax": 2.0,
+  "minSpeedKn": 2,
+  "licence": "Global Fishing Watch — usage non commercial ; API : CC BY-NC 4.0 ; archive des données : CC BY-SA 4.0. Attribution obligatoire.",
+  "attribution": "Global Fishing Watch, AIS vessel presence (public-global-presence:latest), 2026-09-11–2026-10-11. Données consultées le 2026-10-15 sur https://globalfishingwatch.org/our-apis/.",
+  "groups": {
+    "cargo_fast": {
+      "file": "cargo_fast.png",
+      "gfwTypes": [
+        "cargo",
+        "carrier"
+      ],
+      "speedBands": [
+        "15-25",
+        ">25"
+      ],
+      "speedHours": {
+        "15-25": 1274833.0,
+        ">25": 10061.0
+      },
+      "meanShips": 1784.5750000000003
+    },
+    "cargo_slow": {
+      "file": "cargo_slow.png",
+      "gfwTypes": [
+        "cargo",
+        "carrier"
+      ],
+      "speedBands": [
+        "2-4",
+        "4-6",
+        "6-10",
+        "10-15"
+      ],
+      "speedHours": {
+        "2-4": 268182.0,
+        "4-6": 390315.0,
+        "6-10": 2598356.0,
+        "10-15": 5029659.0
+      },
+      "meanShips": 11509.044444444446
+    },
+    "passenger": {
+      "file": "passenger.png",
+      "gfwTypes": [
+        "passenger"
+      ],
+      "speedBands": [
+        "2-4",
+        "4-6",
+        "6-10",
+        "10-15",
+        "15-25",
+        ">25"
+      ],
+      "speedHours": {
+        "2-4": 917563.0,
+        "4-6": 1267247.0,
+        "6-10": 1312496.0,
+        "10-15": 583710.0,
+        "15-25": 366740.0,
+        ">25": 52224.0
+      },
+      "meanShips": 6249.972222222222
+    },
+    "fishing": {
+      "file": "fishing.png",
+      "gfwTypes": [
+        "fishing"
+      ],
+      "speedBands": [
+        "2-4",
+        "4-6",
+        "6-10",
+        "10-15",
+        "15-25",
+        ">25"
+      ],
+      "speedHours": {
+        "2-4": 4179642.0,
+        "4-6": 1814905.0,
+        "6-10": 2632892.0,
+        "10-15": 450857.0,
+        "15-25": 26786.0,
+        ">25": 7774.0
+      },
+      "meanShips": 12656.744444444446
+    },
+    "other": {
+      "file": "other.png",
+      "gfwTypes": [
+        "support",
+        "bunker",
+        "other",
+        "seismic_vessel"
+      ],
+      "speedBands": [
+        "2-4",
+        "4-6",
+        "6-10",
+        "10-15",
+        "15-25",
+        ">25"
+      ],
+      "speedHours": {
+        "2-4": 2937332.0,
+        "4-6": 2550320.0,
+        "6-10": 3647244.0,
+        "10-15": 3687927.0,
+        "15-25": 568724.0,
+        ">25": 38481.0
+      },
+      "meanShips": 18652.816666666666
+    }
+  }
+}

@@ -11,13 +11,13 @@
  */
 import * as THREE from 'three';
 import type { Config, ShipSnapshot } from '@vacarme/shared';
-import { HEADER_BYTES, SHIP_STRIDE } from '@vacarme/shared';
+import { FLAG_ESTIMATED, HEADER_BYTES, SHIP_STRIDE } from '@vacarme/shared';
 import { hexToVec3 } from './fullscreen.ts';
 import type { FlatTransform } from './flat-view.ts';
 import type { Domain } from '../sim/wave-sim.ts';
 import { physicsInjectMaterial } from '../sim/physics-sim.ts';
 
-const MAX_SHIPS = 50000;
+const MAX_SHIPS = 70000;
 
 /** Extrapolation « à l'estime » (dead reckoning), en GLSL. */
 const DEAD_RECKON = /* glsl */ `
@@ -80,6 +80,7 @@ in vec3 position;
 in vec2 aLatLon;
 in vec2 aMotion;
 in float aAmp;
+in float aEstimated;      // 1 : navire estimé (densité Global Fishing Watch), 0 : navire réel
 uniform float uDt;
 uniform vec2 uCenter;     // lon, lat au centre de l'écran
 uniform float uScale;     // pixels (tampon) par degré
@@ -87,6 +88,7 @@ uniform vec2 uResolution; // taille du tampon (pixels)
 uniform vec2 uLatRange;
 uniform float uPointSize;
 out float vAlpha;
+flat out float vEstimated;
 ${DEAD_RECKON}
 void main() {
   vec2 ll = deadReckon(aLatLon, aMotion, uDt);
@@ -94,21 +96,37 @@ void main() {
   vec2 px = vec2(dLon, ll.x - uCenter.y) * uScale;
   gl_Position = vec4(px / (0.5 * uResolution), 0.0, 1.0);
   bool visible = ll.x >= uLatRange.x && ll.x <= uLatRange.y;
-  gl_PointSize = visible ? uPointSize * (0.7 + 0.6 * aAmp) : 0.0;
+  // Navires estimés : anneau un peu plus grand (sinon illisible à 2–3 pixels).
+  gl_PointSize = visible ? uPointSize * (0.7 + 0.6 * aAmp) * (1.0 + 0.8 * aEstimated) : 0.0;
   vAlpha = 0.35 + 0.65 * aAmp;
+  vEstimated = aEstimated;
 }`;
 
 const DISPLAY_FRAG = /* glsl */ `
 precision highp float;
 in float vAlpha;
+flat in float vEstimated;
 uniform vec3 uColor;
 uniform float uOpacity;
 out vec4 outColor;
 void main() {
   vec2 d = gl_PointCoord - 0.5;
-  float w = smoothstep(0.5, 0.0, length(d));
-  outColor = vec4(uColor * w * vAlpha * uOpacity, 1.0);
+  float r = length(d);
+  float w = smoothstep(0.5, 0.0, r);
+  // Navire estimé : anneau creux, atténué — distinct d'un navire observé par l'AIS.
+  float ring = smoothstep(0.5, 0.38, r) * smoothstep(0.18, 0.3, r) * 0.75;
+  outColor = vec4(uColor * mix(w, ring, vEstimated) * vAlpha * uOpacity, 1.0);
 }`;
+
+export interface ShipSample {
+  id: number;
+  lat: number;
+  lon: number;
+  sog: number;
+  classIndex: number;
+  lengthM: number;
+  slBroad: number;
+}
 
 export class ShipLayer {
   readonly geometry = new THREE.BufferGeometry();
@@ -120,6 +138,7 @@ export class ShipLayer {
   private readonly ids = new Uint32Array(MAX_SHIPS);
   private readonly classes = new Uint8Array(MAX_SHIPS);
   private readonly lengths = new Uint16Array(MAX_SHIPS);
+  private readonly estimated = new Float32Array(MAX_SHIPS);
   /** Niveaux sources par bande (dB re 1 µPa·m) : basse, moyenne, haute. */
   private readonly slBands = new Float32Array(MAX_SHIPS * 3);
   private count = 0;
@@ -144,6 +163,7 @@ export class ShipLayer {
     this.geometry.setAttribute('aAmp', new THREE.BufferAttribute(this.amp, 1).setUsage(THREE.DynamicDrawUsage));
     this.geometry.setAttribute('aSeed', new THREE.BufferAttribute(this.seed, 1).setUsage(THREE.DynamicDrawUsage));
     this.geometry.setAttribute('aSL', new THREE.BufferAttribute(this.slBands, 3).setUsage(THREE.DynamicDrawUsage));
+    this.geometry.setAttribute('aEstimated', new THREE.BufferAttribute(this.estimated, 1).setUsage(THREE.DynamicDrawUsage));
     this.geometry.setDrawRange(0, 0);
 
     this.injectMaterial = new THREE.RawShaderMaterial({
@@ -200,7 +220,21 @@ export class ShipLayer {
   }
 
   /** Données d'un navire pour le son : identifiant, position extrapolée, vitesse, classe, longueur, niveau. */
-  shipAt(i: number, now: number): { id: number; lat: number; lon: number; sog: number; classIndex: number; lengthM: number; slBroad: number } {
+  shipAt(i: number, now: number): ShipSample {
+    return this.shipInto(i, now, { id: 0, lat: 0, lon: 0, sog: 0, classIndex: 0, lengthM: 0, slBroad: 0 });
+  }
+
+  /** Identifiant et niveau source large bande du navire i (préfiltrage sans calcul de position). */
+  idOf(i: number): number {
+    return this.ids[i];
+  }
+
+  slBroadOf(i: number): number {
+    return this.slBroad[i];
+  }
+
+  /** Comme shipAt, sans allocation (parcours de dizaines de milliers de navires). */
+  shipInto(i: number, now: number, out: ShipSample): ShipSample {
     const dt = this.dtSim(now);
     const lat0 = this.latLon[2 * i];
     const lon0 = this.latLon[2 * i + 1];
@@ -209,7 +243,14 @@ export class ShipLayer {
     const dist = sog * 0.514444 * dt;
     const lat = lat0 + ((dist * Math.cos(cog)) / 6_371_000) * (180 / Math.PI);
     const lon = lon0 + ((dist * Math.sin(cog)) / (6_371_000 * Math.max(Math.cos((lat0 * Math.PI) / 180), 0.05))) * (180 / Math.PI);
-    return { id: this.ids[i], lat, lon, sog, classIndex: this.classes[i], lengthM: this.lengths[i], slBroad: this.slBroad[i] };
+    out.id = this.ids[i];
+    out.lat = lat;
+    out.lon = lon;
+    out.sog = sog;
+    out.classIndex = this.classes[i];
+    out.lengthM = this.lengths[i];
+    out.slBroad = this.slBroad[i];
+    return out;
   }
 
   get currentTimeScale(): number {
@@ -225,6 +266,7 @@ export class ShipLayer {
       const id = v.getUint32(o, true);
       this.ids[i] = id;
       this.classes[i] = v.getUint8(o + 20);
+      this.estimated[i] = v.getUint8(o + 21) & FLAG_ESTIMATED ? 1 : 0;
       this.lengths[i] = v.getUint16(o + 22, true);
       this.latLon[2 * i] = v.getFloat32(o + 4, true);
       this.latLon[2 * i + 1] = v.getFloat32(o + 8, true);
@@ -244,7 +286,7 @@ export class ShipLayer {
     this.receivedAt = receivedAt;
     this.timeScale = snap.timeScale;
     this.recomputeAmplitudes(cfg);
-    for (const name of ['aLatLon', 'aMotion', 'aSeed', 'aSL']) (this.geometry.getAttribute(name) as THREE.BufferAttribute).needsUpdate = true;
+    for (const name of ['aLatLon', 'aMotion', 'aSeed', 'aSL', 'aEstimated']) (this.geometry.getAttribute(name) as THREE.BufferAttribute).needsUpdate = true;
     this.geometry.setDrawRange(0, n);
   }
 

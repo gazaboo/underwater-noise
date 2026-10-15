@@ -217,8 +217,34 @@
     liveSilenceSec: 60, // silence du direct avant bascule
     liveRecoverSec: 20, // bonne santé requise avant de revenir au direct
     liveMinShips: 300, // au démarrage, on attend d'avoir assez de navires avant d'afficher le direct
-    hybrid: false, // navires simulés dans les zones non couvertes : désactivé, cela « invente » des données
-    hybridCoverageThreshold: 0.15,
+    // Navires affichés (touche N, ou panneau) : 'real' (AIS direct, replay, simulation par routes en secours),
+    // 'estimated' (navires estimés d'après la densité mondiale Global Fishing Watch, voir estimated ci-dessous),
+    // 'mixed' (réels là où l'AIS couvre, estimés ailleurs : la terra incognita disparaît).
+    ships: 'real',
+    coverageThreshold: 0.15, // mode mixte : couverture (0–1) sous laquelle une cellule de 1° reçoit des navires estimés
+  },
+
+  // Navires estimés : nombre et position tirés de la présence AIS mondiale (terrestre + satellite) de Global
+  // Fishing Watch, navires en route (≥ 2 nœuds), moyenne sur 30 jours : data/density (uv run tools/build_presence.py).
+  // L'effectif est SOURCÉ (λ = heures de présence / durée = navires présents en moyenne) ; le mouvement est synthétique.
+  // Statut des valeurs : docs/REVUE_SCIENTIFIQUE.md (navires estimés).
+  estimated: {
+    dir: 'data/density',
+    timeScale: 20, // comme la simulation (choix d'affichage)
+    maxShips: 60000, // plafond technique (≈ 51 000 en route en moyenne sur oct. 2026 ; le client en affiche 70 000 au plus) ; s'il est atteint, le diagnostic le signale
+    lifetimeHours: 24, // empirique : un navire renaît ailleurs au bout d'un jour simulé en moyenne (renouvelle la répartition)
+    lookAheadKm: 30, // empirique : distance d'anticipation pour suivre les couloirs de densité
+    // Répartition des groupes GFW en classes JOMOPANS-ECHO. GFW ne distingue pas vraquiers et pétroliers :
+    // cargo_fast (≥ 15 nœuds) → porte-conteneurs (même règle que la classification AIS : > 16 nœuds) ;
+    // le reste : ORDRES DE GRANDEUR (flotte mondiale en nombre de navires, CNUCED, Review of Maritime Transport).
+    classMix: {
+      cargo_fast: { container: 1 },
+      cargo_slow: { bulker: 0.6, tanker: 0.4 },
+      passenger: { passenger: 0.9, cruise: 0.1 },
+      fishing: { fishing: 1 },
+      other: { other: 0.6, tug: 0.4 },
+    },
+    seed: 7,
   },
 
   // AIS en direct (aisstream.io). La clé se lit dans .env : AISSTREAM_API_KEY=…

@@ -64,6 +64,7 @@ npm run build && npm start   # http://localhost:8787
 | `O` | mode de sortie : carte, globe, demi-sphère, équirect, fisheye |
 | `C` | mire de calibration (méridiens, parallèles, cercles, croix d'axe) |
 | `J` | palette de jour ↔ de nuit (`dayPalette` dans la configuration) |
+| `N` | navires réels → estimés → réels + estimés (`source.ships`) |
 | `F` | plein écran |
 | molette / pincement | zoom centré sur le curseur (jusqu'à ×40) |
 | glisser | déplacer la carte |
@@ -99,7 +100,18 @@ Le curseur disparaît après deux secondes d'immobilité.
 - **Enregistrement** : le flux direct est enregistré dans `data/recordings/AAAA-MM-JJ/HH.ndjson.gz`
   (heure UTC, une position par navire toutes les 30 s). Pour l'exposition, rejouez vos propres
   enregistrements : `replay: { path: 'data/recordings' }`.
-- **Mode hybride** (`source.hybrid`, désactivé) : ajoute des navires simulés dans les zones mal couvertes.
+- **Navires réels / estimés** (`source.ships`, touche `N` ou panneau `P`) :
+  - `real` (défaut) : la source ci-dessus ;
+  - `estimated` : uniquement des **navires estimés**, tirés de la présence AIS mondiale (terrestre et
+    satellite) de Global Fishing Watch : leur **nombre et leur répartition** sont ceux du trafic réel en
+    moyenne sur 30 jours (navires en route, ≥ 2 nœuds), leur mouvement est synthétique ;
+  - `mixed` : navires réels là où l'AIS couvre, estimés ailleurs.
+
+  En modes `estimated` et `mixed`, la terra incognita disparaît ; les navires estimés sont dessinés en
+  **anneaux creux** et comptés à part dans le diagnostic (`D`). Données : jeton gratuit (usage non
+  commercial) de [Global Fishing Watch](https://globalfishingwatch.org/our-apis/) dans `.env`
+  (`GLOBALFISHINGWATCH_API_KEY=…`), puis `uv run tools/build_presence.py` (≈ 10 min, une fois ; produit
+  `data/density/`). Méthode et limites : `docs/REVUE_SCIENTIFIQUE.md` §5 bis.
 
 Fichier de replay fourni : `data/replays/dma-2025-02-26.ndjson.gz` — une heure de trafic dans les
 eaux danoises (Autorité maritime danoise, données ouvertes). Pour en produire d'autres :

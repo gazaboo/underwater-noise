@@ -5,6 +5,7 @@
  * l'artiste) ; ce schéma n'en vérifie que la forme et les bornes.
  */
 import { z } from 'zod';
+import { SHIP_CLASSES } from './acoustics/jomopans-echo.ts';
 
 const color = z.string().regex(/^#[0-9a-fA-F]{6}$/, 'couleur au format #rrggbb');
 const unit = z.number().min(0).max(1);
@@ -247,9 +248,29 @@ export const configSchema = z.object({
     liveRecoverSec: z.number().min(0).max(3600),
     /** Nombre minimal de navires suivis pour considérer le direct exploitable. */
     liveMinShips: z.number().int().min(0),
-    /** Mode hybride : navires simulés là où la couverture AIS est faible. */
-    hybrid: z.boolean(),
-    hybridCoverageThreshold: unit,
+    /**
+     * Navires affichés : real = source réelle (direct, replay, ou simulation par routes en secours) ;
+     * estimated = navires estimés d'après la densité mondiale Global Fishing Watch ;
+     * mixed = réels là où l'AIS couvre, estimés ailleurs.
+     */
+    ships: z.enum(['real', 'estimated', 'mixed']),
+    /** En mode mixte : couverture AIS (0–1) en dessous de laquelle une cellule de 1° reçoit des navires estimés. */
+    coverageThreshold: unit,
+  }),
+  /** Navires estimés (tools/build_presence.py → data/density). */
+  estimated: z.object({
+    dir: z.string(),
+    /** Temps simulé / temps réel en mode « estimés » (en mode mixte : celui de la source réelle). */
+    timeScale: z.number().min(0.1).max(3600),
+    /** Plafond de sécurité : au-delà, l'effectif est réduit (le bruit est alors sous-estimé). */
+    maxShips: z.number().int().min(0).max(65000),
+    /** Durée de vie moyenne d'un navire avant renaissance ailleurs (heures simulées). */
+    lifetimeHours: z.number().min(0.1).max(1000),
+    /** Distance d'anticipation pour suivre les couloirs de densité (km). */
+    lookAheadKm: z.number().min(1).max(500),
+    /** Répartition de chaque groupe GFW en classes JOMOPANS-ECHO (poids relatifs). */
+    classMix: z.record(z.string(), z.record(z.enum(SHIP_CLASSES), z.number().min(0))),
+    seed: z.number().int(),
   }),
   live: z.object({
     url: z.string(),

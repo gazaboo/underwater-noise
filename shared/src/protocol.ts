@@ -32,6 +32,7 @@ export const SHIP_STRIDE = 40;
 /** Drapeaux par navire. */
 export const FLAG_SYNTHETIC = 1 << 0; // navire simulé
 export const FLAG_STALE = 1 << 1; // position extrapolée (plus de message reçu depuis un moment)
+export const FLAG_ESTIMATED = 1 << 2; // navire estimé d'après la densité mondiale (Global Fishing Watch)
 
 export interface ShipRecord {
   id: number;
@@ -141,8 +142,10 @@ export function messageType(buf: ArrayBuffer): number {
 export interface SourceStatus {
   mode: 'auto' | 'live' | 'replay' | 'simulation';
   active: 'live' | 'replay' | 'simulation';
-  hybrid: boolean;
+  /** Navires affichés (voir config source.ships) ; 'real' si les navires estimés sont indisponibles. */
+  shipsMode: 'real' | 'estimated' | 'mixed';
   ships: number;
+  estimated: { available: boolean; ships: number; capped: boolean; period: [string, string] | null };
   live: { configured: boolean; connected: boolean; messagesPerSec: number; lastMessageAgoSec: number | null; ships: number; error: string | null };
   replay: { available: boolean; file: string | null; speed: number };
   recorder: { enabled: boolean; file: string | null };

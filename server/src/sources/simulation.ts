@@ -74,7 +74,7 @@ export interface SimulationOptions {
 }
 
 /** Générateur pseudo-aléatoire reproductible (mulberry32). */
-function rng(seed: number): () => number {
+export function rng(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -85,12 +85,12 @@ function rng(seed: number): () => number {
   };
 }
 
-function gaussian(rand: () => number): number {
+export function gaussian(rand: () => number): number {
   const u = Math.max(rand(), 1e-12);
   return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * rand());
 }
 
-function pickWeighted<T>(items: readonly T[], weight: (t: T) => number, rand: () => number): T {
+export function pickWeighted<T>(items: readonly T[], weight: (t: T) => number, rand: () => number): T {
   let total = 0;
   for (const it of items) total += weight(it);
   let r = rand() * total;
@@ -105,6 +105,21 @@ function pickWeighted<T>(items: readonly T[], weight: (t: T) => number, rand: ()
 function cruiseSpeed(cls: ShipClass, rand: () => number): number {
   const v = CLASS_PARAMS[cls].vRef * (1 + 0.1 * gaussian(rand));
   return Math.max(2, v);
+}
+
+/** Niveaux sources (modèle JOMOPANS-ECHO) et vitesse d'un enregistrement de navire. */
+export function setLevels(record: ShipRecord, cls: ShipClass, speedKn: number, lengthM: number, bands: readonly AnalysisBand[]): void {
+  const [low, mid, high] = bands;
+  record.slLow = shipBandLevel(low, speedKn, lengthM, cls);
+  record.slMid = shipBandLevel(mid, speedKn, lengthM, cls);
+  record.slHigh = shipBandLevel(high, speedKn, lengthM, cls);
+  record.slBroad = shipBroadbandLevel(speedKn, lengthM, cls);
+  record.sog = speedKn;
+}
+
+/** Longueur tirée autour de la longueur moyenne de la classe (log-normale, σ = 0,25). */
+export function sampleLength(cls: ShipClass, rand: () => number): number {
+  return Math.max(8, CLASS_PARAMS[cls].meanLength * Math.exp(0.25 * gaussian(rand)));
 }
 
 export class SimulationSource implements ShipSource {
@@ -157,7 +172,7 @@ export class SimulationSource implements ShipSource {
   }
 
   private makeShip(id: number, cls: ShipClass, state: SimShip['state']): SimShip {
-    const lengthM = Math.max(8, CLASS_PARAMS[cls].meanLength * Math.exp(0.25 * gaussian(this.rand)));
+    const lengthM = sampleLength(cls, this.rand);
     const ship: SimShip = {
       id: 900_000_000 + id,
       cls,
@@ -213,12 +228,7 @@ export class SimulationSource implements ShipSource {
   }
 
   private updateLevels(s: SimShip): void {
-    const [low, mid, high] = this.opts.bands;
-    s.record.slLow = shipBandLevel(low, s.speedKn, s.lengthM, s.cls);
-    s.record.slMid = shipBandLevel(mid, s.speedKn, s.lengthM, s.cls);
-    s.record.slHigh = shipBandLevel(high, s.speedKn, s.lengthM, s.cls);
-    s.record.slBroad = shipBroadbandLevel(s.speedKn, s.lengthM, s.cls);
-    s.record.sog = s.speedKn;
+    setLevels(s.record, s.cls, s.speedKn, s.lengthM, this.opts.bands);
   }
 
   /** Calcule position et cap à partir de l'état. */

@@ -53,6 +53,10 @@ export class Panel {
     on(disp, 'display');
     // Hors du dossier « Affichage » : changer de palette ne doit pas recharger la cible.
     pane.addBinding(cfg.display, 'theme', { label: 'palette', options: { 'nuit (installation)': 'night', jour: 'day' } });
+    // Réglage du serveur, appliqué aussitôt (touche N).
+    pane
+      .addBinding(cfg.source, 'ships', { label: 'navires (N)', options: { réels: 'real', estimés: 'estimated', 'réels + estimés': 'mixed' } })
+      .on('change', () => this.onChange('ships'));
 
     const waves = pane.addFolder({ title: 'Ondes' });
     waves.addBinding(cfg.waves, 'courant', { label: 'vitesse', min: 0.05, max: 0.67, step: 0.01 });

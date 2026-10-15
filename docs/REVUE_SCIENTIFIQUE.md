@@ -275,6 +275,36 @@ navires de pêche (12 %, errance autour d'un point du plateau)** : tous **[A]**.
 V_C de la Table 1 J-E ± 10 % [S]+[E]. Temps accéléré ×20 [A]. **Ne jamais présenter le mode simulation
 comme le trafic réel** (le diagnostic l'indique).
 
+## 5 bis. Navires estimés (Global Fishing Watch) — [S] effectif et répartition, [E] mouvement
+
+Ajouté le 15/10 (`server/src/sources/estimated.ts`, `density.ts`, `tools/build_presence.py`). Modes
+`source.ships` : `real` (inchangé), `estimated` (uniquement des navires estimés), `mixed` (réels là où la
+couverture AIS du flux direct ou du replay dépasse `source.coverageThreshold` = 0,15 [E], estimés ailleurs,
+par cellules de 1°).
+
+| Élément | Statut | Détail |
+|---|---|---|
+| Donnée | [S] | GFW, « AIS vessel presence » (`public-global-presence:latest`, v4.0) : une position par navire et par heure, AIS terrestre **et satellite**, cellules de 0,1°, en heures de présence. Période : 30 jours se terminant au dernier jour disponible (≈ 4 jours de retard), voir `data/density/meta.json` |
+| Effectif par cellule | [S]+[C] | λ = heures de présence / (24 × 30) = nombre moyen de navires présents à un instant. Le nombre de navires estimés est Σ λ (sur la zone autorisée), **pas un réglage** |
+| Navires en route seulement | [S] filtre / [E] seuil | filtre de vitesse GFW ≥ 2 nœuds : à quai ou au mouillage, un navire est quasi silencieux (J-E borne déjà sa vitesse à 0,5 nœud) |
+| Vitesse | [S] | tranche tirée selon les heures de présence du groupe par tranche GFW (2–4, 4–6, 6–10, 10–15, 15–25, > 25 nœuds), uniforme dans la tranche |
+| Classe J-E | [S] / **[L] ordre de grandeur** | `cargo`+`carrier` ≥ 15 nœuds → porte-conteneurs (même règle que la classification AIS, §4.1) ; < 15 nœuds → 60 % vraquiers / 40 % pétroliers ; passagers → 90 % ferries / 10 % croisière ; `support`, `bunker`, `other`, `seismic_vessel` → 60 % « autres » / 40 % remorqueurs : **ordres de grandeur non vérifiés** (GFW ne distingue pas ces types). Longueur : moyenne J-E de la classe ± log-normale σ = 0,25 [E] |
+| Mouvement | **[E]** | synthétique : le navire suit les couloirs de densité (choix de cap tous les 5 km parmi ±0/20/40°, densité à 15 et 30 km), renaît ailleurs (tirage ∝ λ) après une durée de vie exponentielle de moyenne 24 h simulées, s'il touche terre ou se perd. **Les trajectoires ne sont pas celles de vrais navires** |
+| Effectif obtenu | [C] | période 11/09 → 11/10/2026 : **≈ 50 850 navires en route en moyenne** dans le monde — 13 300 cargos et assimilés (dont 1 800 à ≥ 15 nœuds), 6 250 navires à passagers, 12 650 navires de pêche, 18 650 autres (soutien, soutage, sismique, non classés). Ordre de grandeur cohérent avec la flotte mondiale (≈ 105 000 navires ≥ 100 GT selon la CNUCED [L], dont une partie à quai), mais non comparé formellement |
+| Plafond | [A] technique | `estimated.maxShips` = 60 000 (au-dessus des ≈ 51 000 actuels) ; s'il est atteint, l'effectif est réduit et le diagnostic l'affiche (bruit alors sous-estimé) |
+| Terra incognita | [A] | absente en modes `estimated` et `mixed` : le bruit n'y est plus sous-estimé par défaut d'observation |
+
+Limites à dire au public :
+- **Ce sont des navires « vraisemblables », pas les navires du moment** : la répartition et le nombre sont
+  ceux d'une moyenne récente de 30 jours ; les positions individuelles et les routes sont inventées.
+- Les navires **sans AIS** (« navires sombres », nombreux petits navires de pêche) ne sont pas comptés :
+  le trafic, donc le bruit, reste **sous-estimé**, surtout près des côtes de certaines régions.
+- La réception satellite de l'AIS est imparfaite dans les zones très denses (collisions de messages) :
+  la présence y est sans doute sous-estimée.
+- Échelle de 0,1° (≈ 11 km) et masque terre/mer de 0,18° : une partie des navires très côtiers (ports,
+  chenaux) est replacée au large, faute de cellule de mer assez fine.
+- Licence : usage non commercial, attribution obligatoire (voir `docs/SOURCES_DONNEES.md`).
+
 ---
 
 ## 6. Cétacés
