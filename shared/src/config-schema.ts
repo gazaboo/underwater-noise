@@ -51,6 +51,9 @@ const palette = z.object({
   /** Intensité du relief bathymétrique (0 = invisible). */
   bathyRelief: unit,
   land: color,
+  /** Terres « gouache » : luminosité générale (basse la nuit) et teinte multipliée (chaleur). */
+  landLight: unit,
+  landTint: color,
   coast: color,
   /** Luminosité relative des zones non observées par l'AIS (terra incognita) : 1 = aucune différence. */
   unknownDim: unit,
@@ -215,6 +218,41 @@ export const configSchema = z.object({
     fallMinutes: z.number().min(0.01).max(1440),
     /** Intensité de la lueur. */
     strength: z.number().min(0).max(4),
+  }),
+  /** Terres peintes (gouache d'après Natural Earth II) et ornements « Petit Prince ». Paramètres artistiques. */
+  land: z.object({
+    /** 'gouache' : couleurs des milieux, relief, coups de pinceau ; 'flat' : aplat `palette.land` (rendu d'origine). */
+    style: z.enum(['gouache', 'flat']),
+    /** Saturation des couleurs Natural Earth II (pastel à l'origine : > 1 les ravive). */
+    saturation: z.number().min(0).max(3),
+    /** Nombre de paliers de luminosité (aplats de gouache) ; 0 = dégradé continu. */
+    steps: z.number().int().min(0).max(12),
+    /** Intensité du relief ombré (lumière chaude, ombre froide). */
+    relief: z.number().min(0).max(2),
+    /** Taille des coups de pinceau (degrés) et amplitude de la déformation des frontières. */
+    brushScale: z.number().min(0.05).max(10),
+    brushWarp: unit,
+    /** Grain du pigment (granulation de l'aquarelle). */
+    granulation: unit,
+    /** Pigment accumulé au bord des côtes (bord « mouillé »). */
+    wetEdge: unit,
+    /** Petits arbres (forêts) et volcans (positions du Smithsonian GVP), visibles au zoom sur la carte plate. */
+    ornaments: z.object({
+      enabled: z.boolean(),
+      /** Zoom à partir duquel ils apparaissent (fondu). */
+      minZoom: z.number().min(1).max(40),
+      /** Part des cellules forestières qui portent un arbre. */
+      treeDensity: unit,
+      volcanoes: z.boolean(),
+      /** Taille des volcans à l'écran (pixels CSS, au zoom d'apparition). */
+      volcanoSize: z.number().min(2).max(80),
+      /** Panache de fumée pour les volcans dont la dernière éruption est postérieure à cette année. */
+      smokeSinceYear: z.number().int(),
+    }),
+    /** Grain de papier sur toute l'image (espace écran). */
+    paper: z.object({ enabled: z.boolean(), strength: unit, scale: z.number().min(0.2).max(10) }),
+    /** Ciel étoilé et halo d'atmosphère autour du globe (mode globe à l'écran seulement). */
+    stars: z.object({ enabled: z.boolean(), density: unit, twinkle: unit, halo: unit }),
   }),
   /** Matière de la terra incognita (zones non observées par l'AIS). */
   incognita: z.object({

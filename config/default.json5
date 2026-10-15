@@ -81,7 +81,10 @@
     oceanShallow: '#030a10',
     oceanDeep: '#000102',
     bathyRelief: 0.4, // relief du fond marin, à peine perceptible
-    land: '#000000',
+    land: '#000000', // aplat (land.style = 'flat')
+    // Terres « gouache » (land.style = 'gouache') : discrètes la nuit, pour que les ondes restent le sujet.
+    landLight: 0.3, // luminosité générale des terres (artistique)
+    landTint: '#ffdcb4', // teinte chaude multipliée (artistique)
     coast: '#1b2a36',
     coastOpacity: 0.55,
     unknownDim: 0.4, // zones jamais observées par l'AIS : dans l'ombre (terra incognita)
@@ -99,6 +102,8 @@
     oceanDeep: '#163a56',
     bathyRelief: 0.6,
     land: '#cfc7b4',
+    landLight: 0.95,
+    landTint: '#fff4e4',
     coast: '#4e4a40',
     coastOpacity: 0.8,
     unknownDim: 0.8,
@@ -106,6 +111,27 @@
     fog: '#24445c',
     wave: '#eef8ff',
     ship: '#ffffff',
+  },
+
+  // Terres peintes, façon gouache / aquarelle (inspiration : illustrations du Petit Prince).
+  // Tout est artistique, sauf les couleurs de départ (Natural Earth II, Tom Patterson, domaine public :
+  // couverture du sol stylisée, pas une mesure) et la position des volcans (Smithsonian GVP).
+  land: {
+    style: 'gouache', // 'gouache' ou 'flat' (aplat palette.land : rendu d'origine)
+    saturation: 1.7, // NE II est pastel : on ravive
+    steps: 5, // paliers de luminosité (aplats) ; 0 = dégradé continu
+    relief: 0.9, // relief ombré d'après ETOPO (lumière chaude au nord-ouest, ombre froide)
+    brushScale: 1.2, // taille des coups de pinceau (degrés)
+    brushWarp: 0.5, // déformation des frontières entre aplats
+    granulation: 0.35, // grain du pigment
+    wetEdge: 0.5, // pigment accumulé le long des côtes
+    // Petits arbres sur les forêts (indice de forêt tiré des couleurs NE II, artistique) et volcans holocènes
+    // émergés (positions : Smithsonian GVP). Carte plate seulement, au-delà de minZoom.
+    ornaments: { enabled: true, minZoom: 3, treeDensity: 0.55, volcanoes: true, volcanoSize: 14, smokeSinceYear: 1950 },
+    // Grain de papier sur toute l'image (océan compris), en espace écran.
+    paper: { enabled: true, strength: 0.35, scale: 1.0 },
+    // Ciel étoilé et halo d'atmosphère autour du globe à l'écran (jamais projeté hors de la demi-sphère).
+    stars: { enabled: true, density: 0.5, twinkle: 0.5, halo: 0.5 },
   },
 
   // Surcharges propres à chaque cible.
