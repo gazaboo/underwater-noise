@@ -8,13 +8,16 @@ Pour chaque station du protocole et chacun de ses jours :
   - figure par station : spectres de percentiles (L1, L10, L50, L90, L99) et spectrogramme par jour.
 Les critères 3, 5 et 6 (littérature, écoulement, interventions) sont reportés à la main dans la fiche.
 Sortie : <out>/<station>-qc.json et <out>/<station>-qc.png ; la fiche station n'est pas modifiée.
+Les jours extraits sont conservés dans <cache>/days/ (avec l'empreinte du fichier source) ; avec
+--prune-raw, le fichier ICES brut est ensuite supprimé (re-téléchargeable : identifiant et empreinte
+dans la fiche).
 """
 from __future__ import annotations
 import argparse
 import csv
 import json
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 import numpy as np
 import matplotlib
@@ -51,10 +54,11 @@ def main():
     parser.add_argument('--cache', type=Path, default=ROOT / 'tools/.cache/science')
     parser.add_argument('--out', type=Path, default=ROOT / 'docs/validation/qc')
     parser.add_argument('--station', action='append')
+    parser.add_argument('--prune-raw', action='store_true', help='supprime les HDF5 ICES une fois tous leurs jours extraits')
     args = parser.parse_args()
     protocol = json.loads(args.protocol.read_text())
     args.out.mkdir(parents=True, exist_ok=True)
-    work = args.cache / 'qc'; work.mkdir(exist_ok=True)
+    work = args.cache / 'days'; work.mkdir(exist_ok=True)
     for spec in protocol['stations']:
         if args.station and spec['id'] not in args.station: continue
         station = json.loads((HERE / 'stations' / f"{spec['id']}.json").read_text())
@@ -66,9 +70,12 @@ def main():
             if 'ices' in spec:
                 entry = station['ices']['files'][day]
                 deployment = {**station['deployment'], 'receiverDepthM': round(station['deployment']['waterDepthM'] - entry['heightAboveBottomM'], 2),
-                              'periodStart': f'{day}T00:15:00Z', 'periodEnd': f'{day}T23:59:59Z'}
-                export(args.cache / 'ices' / entry['file'], deployment, csv_path, 60, entry.get('segment'))
+                              'periodStart': f'{day}T00:15:00Z', 'periodEnd': f'{(date.fromisoformat(day) + timedelta(days=1)).isoformat()}T00:00:00Z'}
+                raw = args.cache / 'ices' / entry['file']
+                if raw.exists():
+                    export(raw, deployment, csv_path, 60, entry.get('segment'))
                 meta = json.loads(csv_path.with_suffix('.metadata.json').read_text())
+                if meta['sourceSha256'] != entry['sha256']: raise ValueError(f'{csv_path.name} : empreinte source ≠ fiche')
                 calibration = meta['instrument'].get('CalibrationProcedure')
                 integrity = {k: meta[k] for k in ['segments', 'selectedSegment', 'exactDuplicatesRemoved', 'discontinuities', 'overlappingSteps', 'windows']}
             else:
@@ -93,6 +100,10 @@ def main():
         fig.savefig(args.out / f"{spec['id']}-qc.png", dpi=80); plt.close(fig)
         (args.out / f"{spec['id']}-qc.json").write_text(json.dumps(report, indent=1, ensure_ascii=False) + '\n')
         print(spec['id'], {d: (v['windows'], v['floorSuspectBandsHz']) for d, v in report['days'].items()}, flush=True)
+        if args.prune_raw and 'ices' in spec:
+            for entry in station['ices']['files'].values():
+                raw = args.cache / 'ices' / entry['file']
+                if raw.exists(): raw.unlink(); print(f'  supprimé : {raw.name} (empreinte {entry["sha256"][:12]}… dans la fiche)')
 
 
 if __name__ == '__main__': main()

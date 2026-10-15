@@ -12,6 +12,7 @@ an explicit QC file read by validate.py, never here.
 from __future__ import annotations
 import argparse
 import csv
+import hashlib
 import json
 import math
 from collections import Counter
@@ -32,6 +33,13 @@ def decidecade(frequency: float) -> tuple[float, float]:
     if abs(frequency - exact) / exact > .025: raise ValueError(f'{frequency} Hz : pas un centre de décidécade')
     nominal = NOMINAL[n % 10] * 10 ** (n // 10 - 1)
     return (int(nominal) if nominal == int(nominal) else nominal), exact
+
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open('rb') as f:
+        for chunk in iter(lambda: f.read(1 << 20), b''): h.update(chunk)
+    return h.hexdigest()
 
 
 def iso(t: float) -> str:
@@ -131,7 +139,7 @@ def export(source, station, output, window_sec=60, segment=None):
                     writer.writerow({'station': station['station'], 'start': iso(start), 'end': iso(start + window_sec), 'bandHz': nominal, 'centerHz': exact,
                                      'lat': station['lat'], 'lon': station['lon'], 'receiverDepthM': station['receiverDepthM'], 'observedDb': level, 'quality': 'unreviewed'})
                     count += 1
-        metadata = {'source': Path(source).name, 'deployment': station, 'windowSec': window_sec, 'averagingSec': averaging,
+        metadata = {'source': Path(source).name, 'sourceSha256': sha256_file(Path(source)), 'deployment': station, 'windowSec': window_sec, 'averagingSec': averaging,
                     'file': {k: scalar(f'FileInformation/{k}') for k in ['StationCode', 'Institution', 'CountryCode', 'StartDate', 'EndDate', 'CreationDate']},
                     'instrument': {k: scalar(f'Metadata/{k}') for k in ['HydrophoneType', 'HydrophoneSerialNumber', 'RecorderType', 'MeasurementHeight', 'MeasurementSetup', 'RigDesign',
                                                                       'CalibrationProcedure', 'CalibrationDateTime', 'ProcessingAlgorithm', 'DatasetVersion', 'Comments']},

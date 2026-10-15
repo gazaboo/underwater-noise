@@ -92,6 +92,7 @@ def main():
     parser.add_argument('--protocol', type=Path, default=Path(__file__).with_name('protocol-v1.json'))
     parser.add_argument('--cache', type=Path, default=ROOT / 'tools/.cache/science')
     parser.add_argument('--only', choices=['ices', 'dma', 'mc', 'nrs'], action='append')
+    parser.add_argument('--relog', action='store_true', help='consigne les fichiers présents absents du journal (empreinte et taille seules)')
     args = parser.parse_args()
     protocol = json.loads(args.protocol.read_text())
     only = set(args.only or ['ices', 'dma', 'mc', 'nrs'])
@@ -105,6 +106,12 @@ def main():
         tmp = log_path.with_name(f'{log_path.name}.{key}.tmp'); tmp.write_text(json.dumps(log, indent=2, ensure_ascii=False) + '\n'); tmp.replace(log_path)
         print(key, entry['bytes'], flush=True)
     for folder in ['ices', 'ais', 'nrs']: (args.cache / folder).mkdir(parents=True, exist_ok=True)
+    if args.relog:
+        known = {v['file'] for v in read_log().values()}
+        for path in sorted([*(args.cache / 'ais').glob('*.csv.gz'), *(args.cache / 'nrs').glob('*')]):
+            rel = str(path.relative_to(args.cache))
+            if rel not in known: record(f"{path.parent.name}-{path.name}", path, {'note': 'consigné après coup (--relog) : taille et empreinte seules'})
+        return
     if 'ices' in only:
         for station in protocol['stations']:
             for day, upload in station['days'].items():

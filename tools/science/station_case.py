@@ -72,11 +72,18 @@ def run(args):
     if 'nrs' in station:
         measurement = export_nrs(cache / 'nrs', station, day, observations)
         hdf5 = cache / 'nrs' / measurement['source']
-    else:
+    elif (cache / 'ices' / entry['file']).exists():
         hdf5 = cache / 'ices' / entry['file']
         if sha256(hdf5) != entry['sha256']: raise ValueError(f'Empreinte ICES différente de la fiche station : {hdf5}')
         period = {'periodStart': args.start, 'periodEnd': args.end}
         export(hdf5, {**station['deployment'], **period}, observations, 60, entry.get('segment'))
+    else:
+        # Fichier brut supprimé après extraction (qc.py --prune-raw) : jour extrait, empreinte source vérifiée.
+        hdf5 = cache / 'days' / f'{sid}-{day}.csv'
+        meta = json.loads(hdf5.with_suffix('.metadata.json').read_text())
+        if meta['sourceSha256'] != entry['sha256'] or meta['deployment']['receiverDepthM'] != station['deployment']['receiverDepthM']:
+            raise ValueError(f'{hdf5.name} : extraction incompatible avec la fiche (empreinte ou profondeur)')
+        observations.write_bytes(hdf5.read_bytes())
     # 2. AIS : le replay doit couvrir la période et la mise en route du registre.
     replay = args.replay
     ais = json.loads(Path(f'{replay}.json').read_text())
