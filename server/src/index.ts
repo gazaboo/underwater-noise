@@ -96,7 +96,7 @@ const server = createServer(async (req, res) => {
   try {
     if (url.pathname === '/api/science' && req.method === 'GET') {
       res.writeHead(200, { 'content-type': MIME['.json'], 'cache-control': 'no-store' });
-      res.end(JSON.stringify({ status: science.status(store.config), dataset: science.read(store.config) }));
+      res.end(JSON.stringify({ status: science.status(store.config), validation: science.read(store.config) }));
       return;
     }
     if (url.pathname === '/api/config' && req.method === 'GET') {

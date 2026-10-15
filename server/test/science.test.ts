@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ConfigStore } from '../src/config-store.ts';
 import { ScienceStore } from '../src/science-store.ts';
+import { summary } from '../../shared/test/fixtures.ts';
 
 const directories: string[] = [];
 function setup() {
@@ -26,12 +27,18 @@ describe('scientific configuration and unavailable data', () => {
     const store = new ConfigStore(config);
     expect(store.config.ambient.windSpeedMs).toBe(5); expect(store.config.physics.extraLossDbPerKm).toBe(0);
   });
-  it('reports missing, malformed, and out-of-directory datasets as unavailable', () => {
+  it('ne publie que un résumé de validation valide, du bon profil, sous data/science', () => {
     const { root, store } = setup(); const science = new ScienceStore(root);
-    expect(science.status(store.config)).toMatchObject({ regionalAvailable: false, observationalStatus: 'not-validated' });
-    mkdirSync(join(root, 'data', 'science'), { recursive: true });
-    writeFileSync(join(root, 'data', 'science', 'north-sea.json'), '{"invalid":true}');
+    expect(science.status(store.config)).toMatchObject({ validationAvailable: false });
+    const dir = join(root, 'data', 'science'); mkdirSync(dir, { recursive: true });
+    const file = join(dir, 'validation-summary.json');
+    writeFileSync(file, '{"invalid":true}');
     expect(science.read(store.config)).toBeNull(); expect(science.status(store.config).message).toMatch(/invalide/);
-    expect(science.read({ ...store.config, science: { ...store.config.science, dataset: 'config/default.json5' } })).toBeNull();
+    writeFileSync(file, JSON.stringify({ ...summary(), profileId: 'autre-profil' }));
+    expect(science.read(store.config)).toBeNull(); expect(science.status(store.config).message).toMatch(/autre profil/);
+    writeFileSync(file, JSON.stringify(summary()));
+    expect(science.read(store.config)?.regions[0].id).toBe('danish-straits');
+    expect(science.status(store.config).validationAvailable).toBe(true);
+    expect(science.read({ ...store.config, science: { ...store.config.science, validationSummary: 'config/default.json5' } })).toBeNull();
   });
 });

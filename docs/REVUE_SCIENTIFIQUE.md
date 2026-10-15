@@ -1,8 +1,9 @@
 # La carte du vacarme — dossier de revue scientifique
 
-> Mise à jour : le profil physique de référence est désormais fixe et une chaîne RAM régionale distincte
-> a été ajoutée. Voir [ACOUSTIQUE_SCIENTIFIQUE.md](ACOUSTIQUE_SCIENTIFIQUE.md). Les chiffres ci-dessous
-> décrivent le moteur mondial historique ; ils ne valident pas le nouveau moteur régional.
+> Mise à jour : le profil physique de référence est désormais fixe, et la confrontation du moteur mondial
+> aux mesures d’hydrophones suit un protocole pré-enregistré ([VALIDATION_PROTOCOLE.md](VALIDATION_PROTOCOLE.md)) ;
+> chaîne et outils : [ACOUSTIQUE_SCIENTIFIQUE.md](ACOUSTIQUE_SCIENTIFIQUE.md). Les §4.6, §10 et §11 seront
+> mis à jour avec les écarts mesurés.
 
 Ce document recense **tout** ce que l'œuvre calcule, affiche ou fait entendre, et pour chaque élément
 **d'où il vient**. Il est écrit pour une relecture critique avant un usage de vulgarisation : il doit

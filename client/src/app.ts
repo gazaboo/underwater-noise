@@ -95,7 +95,7 @@ export class App {
     this.wave = new WaveSim(assets.oceanWidth, assets.ocean);
     this.wave.clear(this.renderer);
     this.flat = new FlatView(assets);
-    this.science = new SciencePanel((texture, grid, excess, enabled) => this.flat.setScience(texture, grid, excess, enabled));
+    this.science = new SciencePanel();
     this.detail = new DetailWaves(assets);
     // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale.
     const t0 = performance.now();
@@ -425,8 +425,8 @@ export class App {
       this.lastGlobe = null;
       this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, view, cfg, now / 1000, detail ? { sim: detail, weight: this.detail.weight } : undefined);
       // Les points grossissent un peu quand on zoome, pour rester lisibles.
-      if (!this.science.active) this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
-      if (cfg.physics.enabled && !this.science.active) this.whales?.draw(r, view, cfg, levels, this.coverage, now / 1000, r.getPixelRatio());
+      this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
+      if (cfg.physics.enabled) this.whales?.draw(r, view, cfg, levels, this.coverage, now / 1000, r.getPixelRatio());
     } else {
       // Texture « monde » : composition complète en équirectangulaire, puis reprojection.
       const W = this.profile.worldTextureWidth;
@@ -444,8 +444,8 @@ export class App {
       }
       const world = worldTransform(W);
       this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, world, cfg, now / 1000, undefined, this.worldTarget);
-      if (!this.science.active) this.ships.draw(r, now, world, cfg, 1, this.worldTarget);
-      if (cfg.physics.enabled && !this.science.active) this.whales?.draw(r, world, cfg, levels, this.coverage, now / 1000, 1, this.worldTarget);
+      this.ships.draw(r, now, world, cfg, 1, this.worldTarget);
+      if (cfg.physics.enabled) this.whales?.draw(r, world, cfg, levels, this.coverage, now / 1000, 1, this.worldTarget);
       this.globeCtl.update(cfg, Math.min(dt, 250) / 1000);
       const facingLat = this.globeCtl.facingLatFor(cfg);
       const M = viewToEarth(facingLat, this.globeCtl.facingLon);
@@ -462,7 +462,7 @@ export class App {
       this.lastCursorRead = now;
       if (this.hud.visible) this.cursorInfo = this.readCursor();
       const geo = this.cursorGeo();
-      const world = geo && this.science.wantsLevels && !this.science.active && cfg.physics.enabled ? this.physics.readComponents(r, geo.lat, geo.lon, cfg) : null;
+      const world = geo && this.science.wantsLevels && cfg.physics.enabled ? this.physics.readComponents(r, geo.lat, geo.lon, cfg) : null;
       this.science.update(geo, world, cfg, this.sourceStatus);
     }
     this.hud.frame(dt, performance.now() - t0, this.gpu.lastMs, () => ({

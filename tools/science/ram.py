@@ -1,16 +1,11 @@
-"""RAM v1.5 through PyRAM 1.0.1. No parameters are inferred from the display.
+"""RAM v1.5 through PyRAM 1.0.1 : référence de propagation hors ligne (jamais affichée).
 
-Input paths explicitly describe bathymetry, water SSP and sediment properties.
-Grid cells without a path remain missing; no empirical loss is substituted.
+Les trajets décrivent explicitement bathymétrie, profil de célérité et sédiment ; aucun paramètre
+n'est déduit de l'affichage. Utilisé par station_case.py (courbes au récepteur) et benchmark.py.
 """
 from __future__ import annotations
 
-import argparse
-import hashlib
-import importlib.metadata
-import json
 import math
-from pathlib import Path
 
 import numpy as np
 
@@ -151,65 +146,3 @@ def receiver_curves(path: dict, max_range_m: float, step_m: float = 100, count: 
                        'relevantMaxRangeM': float(query[relevant].max()) if relevant.any() else None, 'history': history})
         bands.append(samples)
     return {'bands': bands, 'convergence': report}
-
-
-def build(environment: dict) -> dict:
-    if importlib.metadata.version('pyram') != '1.0.1':
-        raise ValueError('Version PyRAM 1.0.1 requise pour la reproductibilité.')
-    mode = environment['depthMode']
-    if mode not in ['receiver', 'depth-mean']:
-        raise ValueError('depthMode invalide')
-    errors = []
-    paths = []
-    source_ids = {s['id']: s for s in environment['sources']}
-    grid = environment['grid']
-    if len(source_ids) != len(environment['sources']): raise ValueError('Identifiants sources dupliqués')
-    for path in environment['paths']:
-        cell = path['cellIndex']
-        if cell < 0 or cell >= grid['width'] * grid['height']: raise ValueError('Cellule réceptrice hors grille')
-        source = source_ids[path['sourceId']]
-        lat = grid['north'] - (cell // grid['width'] + .5) * grid['deltaLat']
-        lon = grid['west'] + (cell % grid['width'] + .5) * grid['deltaLon']
-        phi1, phi2 = math.radians(source['lat']), math.radians(lat)
-        a = math.sin((phi2-phi1)/2)**2 + math.cos(phi1)*math.cos(phi2)*math.sin(math.radians(lon-source['lon'])/2)**2
-        distance = 2 * 6371000 * math.asin(min(1, math.sqrt(a)))
-        if abs(path['bathymetry'][-1][0] - distance) > max(5, distance * .01): raise ValueError('La longueur du trajet ne correspond pas aux coordonnées source/récepteur (tolérance 1 % ou 5 m).')
-        bands = []
-        for center in CENTERS:
-            samples = quadrature(center)
-            coarse = [transmission(path, s['frequencyHz'], mode, 1) for s in samples]
-            for sample in samples:
-                sample['lossDb'] = transmission(path, sample['frequencyHz'], mode, 2)
-            # Band-integrated grid convergence (single-frequency fringes are not the predicted quantity).
-            errors.append(abs(10 * math.log10(band_gain(samples, [s['lossDb'] for s in samples]) / band_gain(samples, coarse))))
-            # Frequency convergence matters in a waveguide with interference.
-            refined = quadrature(center, 10)
-            for sample in refined:
-                sample['lossDb'] = transmission(path, sample['frequencyHz'], mode, 2)
-            coarse_gain = sum(s['widthHz'] * 10 ** (-s['lossDb'] / 10) for s in samples)
-            fine_gain = sum(s['widthHz'] * 10 ** (-s['lossDb'] / 10) for s in refined)
-            errors.append(abs(10 * math.log10(fine_gain / coarse_gain)))
-            bands.append(refined)
-        paths.append({'sourceId': path['sourceId'], 'cellIndex': path['cellIndex'], 'bands': bands,
-                      'receiverDepthM': path.get('receiverDepthM') if mode == 'receiver' else None})
-    return {'schemaVersion': 1, 'method': 'RAM-PyRAM-1.0.1', 'frequenciesHz': CENTERS,
-            'sourceDepthM': 6, 'depthMode': mode, 'grid': environment['grid'], 'sources': environment['sources'],
-            'paths': paths, 'validFrom': environment['validFrom'], 'validTo': environment['validTo'],
-            'maxSourceOffsetM': environment['maxSourceOffsetM'],
-            'provenance': {'environment': environment['provenance']['environment'], 'assumptions': environment['provenance']['assumptions'] + [
-                'PyRAM 1.0.1 avec corrections amont du démarrage et du pas entier ; couche absorbante 80 longueurs d’onde.',
-                'Propagation 2D par trajet ; fond fluide homogène sur chaque trajet ; absorption de Thorp ajoutée.',
-                'Convergence sur l’énergie de bande intégrée : pas distance/profondeur divisés par deux, quadrature fréquentielle 5 puis 10 points (spectre plat pour ce dernier contrôle).']},
-            'environmentHash': hashlib.sha256(json.dumps(environment, sort_keys=True).encode()).hexdigest(),
-            'numerical': {'maxDifferenceDb': max(errors) if errors else None, 'benchmark': None}}
-
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Pré-calcul RAM 63/125 Hz et contrôle de convergence (pas divisés par deux).')
-    parser.add_argument('environment', type=Path)
-    parser.add_argument('output', type=Path)
-    args = parser.parse_args()
-    result = build(json.loads(args.environment.read_text()))
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(result, allow_nan=False, indent=2) + '\n')
-    print(f"{len(result['paths'])} trajets ; écart de convergence max {result['numerical']['maxDifferenceDb']:.2f} dB. Validation observationnelle non réalisée.")

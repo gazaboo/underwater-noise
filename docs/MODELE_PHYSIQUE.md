@@ -1,7 +1,7 @@
 # Modèle physique
 
-> Ce document décrit le moteur mondial historique. Le profil fixe, la chaîne RAM régionale et leurs
-> limites actuelles sont décrits dans [ACOUSTIQUE_SCIENTIFIQUE.md](ACOUSTIQUE_SCIENTIFIQUE.md).
+> Le profil physique fixe et la confrontation aux mesures d’hydrophones sont décrits dans
+> [ACOUSTIQUE_SCIENTIFIQUE.md](ACOUSTIQUE_SCIENTIFIQUE.md) et [VALIDATION_PROTOCOLE.md](VALIDATION_PROTOCOLE.md).
 
 > Le statut de chaque hypothèse (sourcée, empirique, artistique, non vérifiée) est tenu à jour dans
 > [`REVUE_SCIENTIFIQUE.md`](REVUE_SCIENTIFIQUE.md). En cas de divergence, c'est ce dossier qui fait foi.
