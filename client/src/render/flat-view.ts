@@ -66,7 +66,7 @@ const COMPOSITE_FRAG = /* glsl */ `
 in vec2 vUv;
 out vec4 outColor;
 
-uniform sampler2D uElevN;   // altitude 16 bits (au plus proche)
+uniform sampler2D uElevN;   // altitude 16 bits (lue texel par texel, interpolée après décodage)
 uniform sampler2D uElevL;   // fraction de terre en B (linéaire)
 uniform sampler2D uWave;    // R = u
 uniform sampler2D uCoverage; // R = couverture AIS (0 = jamais observé)
@@ -102,9 +102,22 @@ uniform float uTime;
 
 const float PI = 3.141592653589793;
 
-float altitude(vec2 uv) {
-  vec4 e = texture(uElevN, uv);
+float altitudeAt(ivec2 p, ivec2 size) {
+  p.x = (p.x % size.x + size.x) % size.x;
+  p.y = clamp(p.y, 0, size.y - 1);
+  vec4 e = texelFetch(uElevN, p, 0);
   return (e.r * 255.0 * 256.0 + e.g * 255.0) - 11000.0;
+}
+
+// Altitude interpolée après décodage (le décodage 16 bits interdit le filtrage matériel) :
+// au plus proche, le relief du fond marin se voyait en marches dès qu'on zoome.
+float altitude(vec2 uv) {
+  ivec2 size = textureSize(uElevN, 0);
+  vec2 pos = uv * vec2(size) - 0.5;
+  ivec2 i = ivec2(floor(pos));
+  vec2 f = pos - floor(pos);
+  return mix(mix(altitudeAt(i, size), altitudeAt(i + ivec2(1, 0), size), f.x),
+             mix(altitudeAt(i + ivec2(0, 1), size), altitudeAt(i + ivec2(1, 1), size), f.x), f.y);
 }
 
 // Catmull-Rom en 9 lectures bilinéaires (d'après J. Jimenez) : ondes douces même de près.
@@ -251,7 +264,8 @@ void main() {
     float frac = texture(uElevL, uv).b;
     float land = smoothstep(0.42, 0.58, frac);
     float coast = exp(-pow((frac - 0.5) / 0.16, 2.0)) * uCoastOpacity;
-    col = mix(sea, uLand, land) + uCoast * coast;
+    // Mélange (et non ajout) : un trait sombre reste possible sur des terres claires (mode jour).
+    col = mix(mix(sea, uLand, land), uCoast, min(coast, 1.0));
   }
 
   // --- Finition (absente quand on dessine la texture « monde » : la passe globe s'en charge).

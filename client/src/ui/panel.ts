@@ -51,6 +51,8 @@ export class Panel {
     disp.addBinding(cfg.display, 'quality', { label: 'profil', options: { expo: 'expo', léger: 'light' } });
     disp.addBinding(cfg.render, 'renderScale', { label: 'échelle de rendu', min: 0.25, max: 2, step: 0.05 });
     on(disp, 'display');
+    // Hors du dossier « Affichage » : changer de palette ne doit pas recharger la cible.
+    pane.addBinding(cfg.display, 'theme', { label: 'palette', options: { 'nuit (installation)': 'night', jour: 'day' } });
 
     const waves = pane.addFolder({ title: 'Ondes' });
     waves.addBinding(cfg.waves, 'courant', { label: 'vitesse', min: 0.05, max: 0.67, step: 0.01 });
@@ -152,6 +154,15 @@ export class Panel {
     pal.addBinding(cfg.palette, 'bathyRelief', { label: 'relief du fond', min: 0, max: 1, step: 0.01 });
     pal.addBinding(cfg.palette, 'coastOpacity', { label: 'trait de côte', min: 0, max: 1, step: 0.01 });
     on(pal, 'palette');
+
+    const day = pane.addFolder({ title: 'Palette de jour (J)', expanded: false });
+    for (const k of ['background', 'oceanShallow', 'oceanDeep', 'land', 'coast', 'wave', 'glow', 'fog', 'ship'] as const) {
+      if (cfg.dayPalette[k] !== undefined) day.addBinding(cfg.dayPalette, k, { view: 'color' });
+    }
+    for (const k of ['bathyRelief', 'coastOpacity', 'unknownDim'] as const) {
+      if (cfg.dayPalette[k] !== undefined) day.addBinding(cfg.dayPalette, k, { min: 0, max: 1, step: 0.01 });
+    }
+    on(day, 'palette');
 
     const rnd = pane.addFolder({ title: 'Rendu', expanded: false });
     rnd.addBinding(cfg.render, 'exposure', { label: 'exposition', min: 0, max: 4, step: 0.01 });

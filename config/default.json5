@@ -14,6 +14,8 @@
     mode: 'flat',
     // Profil de qualité (voir qualityProfiles). Surchargeable par l'URL : ?quality=light
     quality: 'expo',
+    // 'night' : palette de l'installation ; 'day' : palette claire (continents lisibles). Touche J.
+    theme: 'night',
   },
 
   qualityProfiles: {
@@ -87,6 +89,23 @@
     fog: '#0b1117', // brouillard de la terra incognita : plus sombre que le calme connu, mais texturé
     wave: '#cfeaff',
     ship: '#e8f4ff',
+  },
+
+  // Mode jour (touche J) : remplace la palette ci-dessus champ par champ. Choix artistiques : l'océan reste
+  // assez sombre pour que les ondes et la lueur (additives) se lisent, les terres sont claires.
+  dayPalette: {
+    background: '#0e1a24',
+    oceanShallow: '#3f7a98',
+    oceanDeep: '#163a56',
+    bathyRelief: 0.6,
+    land: '#cfc7b4',
+    coast: '#4e4a40',
+    coastOpacity: 0.8,
+    unknownDim: 0.8,
+    glow: '#a6dcf5',
+    fog: '#24445c',
+    wave: '#eef8ff',
+    ship: '#ffffff',
   },
 
   // Surcharges propres à chaque cible.

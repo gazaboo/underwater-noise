@@ -60,21 +60,28 @@ export class Whales {
     private readonly ocean: OceanCpu,
     data: Map<string, SpeciesData>,
     elevLinear: THREE.Texture,
-    elevNearest: THREE.Texture,
+    oceanTexture: THREE.Texture,
     private readonly coverageAt: (lat: number, lon: number) => number,
     cfg: Config,
     private readonly scene?: string,
   ) {
     this.agents = new WhaleAgents(ocean, data);
     this.agents.populate(cfg, scene);
-    this.renderer = new WhaleRenderer(elevLinear, elevNearest);
+    this.renderer = new WhaleRenderer(elevLinear, oceanTexture);
   }
 
-  static async create(cfg: Config, oceanUrl: string, elevLinear: THREE.Texture, elevNearest: THREE.Texture, coverageAt: (lat: number, lon: number) => number, scene?: string): Promise<Whales> {
+  static async create(cfg: Config, oceanUrl: string, elevLinear: THREE.Texture, coverageAt: (lat: number, lon: number) => number, scene?: string): Promise<Whales> {
     const { ByteGrid, loadSpeciesData } = await import('./geo-grids.ts');
     const grid = (await ByteGrid.load(oceanUrl)) as ByteGrid;
     const data = await loadSpeciesData(cfg.whales.species.map((s) => s.id));
-    return new Whales(new OceanCpu(grid), data, elevLinear, elevNearest, coverageAt, cfg, scene);
+    // Même grille côté GPU (espace de communication), mipmappée : voir WhaleRenderer.
+    const tex = new THREE.DataTexture(Uint8Array.from(grid.data), grid.width, grid.height, THREE.RGBAFormat, THREE.UnsignedByteType);
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.magFilter = THREE.LinearFilter;
+    tex.minFilter = THREE.LinearMipmapLinearFilter;
+    tex.generateMipmaps = true;
+    tex.needsUpdate = true;
+    return new Whales(new OceanCpu(grid), data, elevLinear, tex, coverageAt, cfg, scene);
   }
 
   repopulate(cfg: Config): void {

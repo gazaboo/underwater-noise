@@ -50,6 +50,7 @@ npm run build && npm start   # http://localhost:8787
 | `hud` | (présent) | affiche le diagnostic au démarrage |
 | `scene` | `duo` | scène de test des liens (deux groupes en mer Ligure) |
 | `mode` | `flat`, `globe`, `hemisphere`, `equirect`, `fisheye` | mode de rendu |
+| `theme` | `night` (défaut), `day` | palette de nuit (installation) ou de jour (continents lisibles) |
 
 ### Clavier
 
@@ -62,6 +63,7 @@ npm run build && npm start   # http://localhost:8787
 | `G` | carte plate ↔ globe (globe : glisser = tourner, molette = zoom) |
 | `O` | mode de sortie : carte, globe, demi-sphère, équirect, fisheye |
 | `C` | mire de calibration (méridiens, parallèles, cercles, croix d'axe) |
+| `J` | palette de jour ↔ de nuit (`dayPalette` dans la configuration) |
 | `F` | plein écran |
 | molette / pincement | zoom centré sur le curseur (jusqu'à ×40) |
 | glisser | déplacer la carte |
@@ -70,7 +72,8 @@ npm run build && npm start   # http://localhost:8787
 
 Au-delà d'un zoom ×2,5 (`view.detail.minZoom`), une **grille d'ondes de détail** couvre la zone
 visible (≈ 6 km par cellule au zoom ×7, contre ≈ 20 km pour la grille mondiale) : les fronts d'onde
-restent fins quand on explore une mer ou un détroit. Elle est recalculée quand on sort de son emprise.
+restent fins quand on explore une mer ou un détroit. Elle est recalculée quand on sort de son emprise,
+en reprenant l'état des ondes de l'ancienne grille : le déplacement ne fait pas sursauter les fronts.
 
 Le curseur disparaît après deux secondes d'immobilité.
 

@@ -76,6 +76,8 @@ export const configSchema = z.object({
      *  equirect : texture « monde » brute (TouchDesigner, MapMap) ; fisheye : projection azimutale. */
     mode: z.enum(['flat', 'globe', 'hemisphere', 'equirect', 'fisheye']),
     quality: z.enum(['expo', 'light']),
+    /** night : palette de l'installation (fond noir) ; day : palette claire pour lire la carte (touche J). */
+    theme: z.enum(['night', 'day']),
   }),
   qualityProfiles: z.object({ expo: qualityProfile, light: qualityProfile }),
   view: z.object({
@@ -85,6 +87,8 @@ export const configSchema = z.object({
   }),
   render,
   palette,
+  /** Palette du mode jour (display.theme = 'day') : remplace `palette` champ par champ. */
+  dayPalette: palette.partial(),
   /** Globe (modes globe, hemisphere, fisheye) : rotation de la Terre sous un regard fixe. */
   globe: z.object({
     /** Durée d'un tour complet (minutes, temps réel). 0 = immobile. */

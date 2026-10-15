@@ -28,6 +28,7 @@ export interface UrlOverrides {
   hud?: boolean;
   scene?: string;
   mode?: Config['display']['mode'];
+  theme?: Config['display']['theme'];
 }
 
 const MODES: Config['display']['mode'][] = ['flat', 'globe', 'hemisphere', 'equirect', 'fisheye'];
@@ -115,7 +116,7 @@ export class App {
     if (overrides.hud) this.hud.toggle(true);
 
     this.speciesKey = JSON.stringify(this.cfg.whales.species);
-    void Whales.create(this.cfg, `/data/grid/ocean_1024.png`, assets.elevationLinear, assets.elevationNearest, (lat, lon) => this.coverageAt(lat, lon), overrides.scene).then((w) => {
+    void Whales.create(this.cfg, `/data/grid/ocean_1024.png`, assets.elevationLinear, (lat, lon) => this.coverageAt(lat, lon), overrides.scene).then((w) => {
       this.whales = w;
       if (overrides.scene === 'duo') this.nav.goTo(8.1, 43.4, 22);
     }, (e) => console.error('[cétacés] initialisation impossible :', e));
@@ -144,6 +145,7 @@ export class App {
     const t = target ?? this.overrides.target ?? raw.display.target;
     let withQuality = this.overrides.quality ? deepMerge(raw, { display: { quality: this.overrides.quality } }) : raw;
     if (this.overrides.mode) withQuality = deepMerge(withQuality, { display: { mode: this.overrides.mode } });
+    if (this.overrides.theme) withQuality = deepMerge(withQuality, { display: { theme: this.overrides.theme } });
     // Copie profonde : le panneau modifie cet objet en place.
     return structuredClone(resolveForTarget(withQuality, t));
   }
@@ -229,8 +231,9 @@ export class App {
   private async save(): Promise<string> {
     const c = this.cfg;
     const body = {
-      display: { quality: c.display.quality, mode: c.display.mode },
+      display: { quality: c.display.quality, mode: c.display.mode, theme: c.display.theme },
       palette: c.palette,
+      dayPalette: c.dayPalette,
       waves: c.waves,
       ships: c.ships,
       accumulation: c.accumulation,
@@ -244,6 +247,12 @@ export class App {
     };
     const res = await fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     return res.ok ? `enregistré (${new Date().toLocaleTimeString()})` : `erreur : ${await res.text()}`;
+  }
+
+  /** Configuration de rendu : en mode jour, la palette de jour remplace la palette champ par champ. */
+  private themed(): Config {
+    const c = this.cfg;
+    return c.display.theme === 'day' ? { ...c, palette: { ...c.palette, ...c.dayPalette } } : c;
   }
 
   /** Couverture AIS (0–1) en un point. */
@@ -309,6 +318,10 @@ export class App {
       else if (k === 'g') this.cfg.display.mode = this.cfg.display.mode === 'flat' ? 'globe' : 'flat';
       else if (k === 'o') this.cfg.display.mode = MODES[(MODES.indexOf(this.cfg.display.mode) + 1) % MODES.length];
       else if (k === 'c') this.globe.calibration = !this.globe.calibration;
+      else if (k === 'j') {
+        this.cfg.display.theme = this.cfg.display.theme === 'day' ? 'night' : 'day';
+        this.panel.refresh();
+      }
       else if (k === 'd') this.hud.toggle();
       else if (k === 'f') {
         if (document.fullscreenElement) void document.exitFullscreen();
@@ -340,7 +353,7 @@ export class App {
     const dt = now - this.lastFrame;
     this.lastFrame = now;
     const t0 = performance.now();
-    const cfg = this.cfg;
+    const cfg = this.themed();
     const r = this.renderer;
     const steps = this.profile.visualSimSteps;
 
@@ -350,7 +363,7 @@ export class App {
     const flatMode = mode === 'flat';
     this.nav.enabled = flatMode;
     const view = computeFlatTransform(cfg, size.x, size.y, flatMode ? this.nav.update(dt) : undefined);
-    const detail = flatMode ? this.detail.update(r, view, this.nav.zoom, cfg, now) : this.detail.update(r, view, 1, cfg, now);
+    const detail = this.detail.update(r, view, flatMode ? this.nav.zoom : 1, cfg, now, this.wave);
     const splat = 3 * (this.wave.width / 2048);
     for (let s = 0; s < steps; s++) {
       this.ships.inject(r, this.wave.sourceTarget, this.wave.domain, splat, now, this.clock, cfg, this.wave.courant, steps * NOMINAL_FPS);

@@ -68,15 +68,13 @@ uniform float uScale;
 uniform vec2 uResolution;
 uniform sampler2D uLevels;
 uniform sampler2D uElevL;
-uniform sampler2D uElevN;
+uniform sampler2D uOcean;   // grille océan (G profondeur log, B fraction de terre), mipmappée
+uniform float uOceanPerDeg; // texels de uOcean par degré
 uniform sampler2D uCoverage;
 uniform float uFill, uContour, uSoftness, uTime;
 uniform vec3 uBandFreq;
 ${LOSS_UNIFORMS_GLSL}
-float depthAt(vec2 uv) {
-  vec4 e = texture(uElevN, uv);
-  return max(10.0, -((e.r * 255.0 * 256.0 + e.g * 255.0) - 11000.0));
-}
+
 
 float hav(vec2 a, vec2 b) { // distance (km), a et b en (lat, lon) degrés
   vec2 ra = radians(a), rb = radians(b);
@@ -84,6 +82,23 @@ float hav(vec2 a, vec2 b) { // distance (km), a et b en (lat, lon) degrés
   return 2.0 * 6371.0 * asin(min(1.0, sqrt(s)));
 }
 vec2 uvOf(vec2 ll) { return vec2(fract((ll.y + 180.0) / 360.0), (90.0 - ll.x) / 180.0); }
+// Catmull-Rom en 9 lectures bilinéaires (comme la composition de la carte) : en bilinéaire, les isolignes
+// du bruit suivent les cellules de la grille physique et le contour dessine des marches.
+vec4 sampleCubic(sampler2D tex, vec2 uv) {
+  vec2 size = vec2(textureSize(tex, 0));
+  vec2 texel = 1.0 / size;
+  vec2 c = floor(uv * size - 0.5) + 0.5;
+  vec2 f = uv * size - c;
+  vec2 w0 = f * (-0.5 + f * (1.0 - 0.5 * f));
+  vec2 w1 = 1.0 + f * f * (-2.5 + 1.5 * f);
+  vec2 w2 = f * (0.5 + f * (2.0 - 1.5 * f));
+  vec2 w3 = f * f * (-0.5 + 0.5 * f);
+  vec2 w12 = w1 + w2;
+  vec2 t0 = (c - 1.0) * texel, t3 = (c + 2.0) * texel, t12 = (c + w2 / w12) * texel;
+  return (texture(tex, vec2(t0.x, t0.y)) * w0.x + texture(tex, vec2(t12.x, t0.y)) * w12.x + texture(tex, vec2(t3.x, t0.y)) * w3.x) * w0.y
+       + (texture(tex, vec2(t0.x, t12.y)) * w0.x + texture(tex, vec2(t12.x, t12.y)) * w12.x + texture(tex, vec2(t3.x, t12.y)) * w3.x) * w12.y
+       + (texture(tex, vec2(t0.x, t3.y)) * w0.x + texture(tex, vec2(t12.x, t3.y)) * w12.x + texture(tex, vec2(t3.x, t3.y)) * w3.x) * w3.y;
+}
 
 void main() {
   vec2 d = (gl_FragCoord.xy - 0.5 * uResolution) / uScale;
@@ -93,39 +108,47 @@ void main() {
   // Pas d'élimination (discard) avant les dérivées : fwidth() serait faux au bord des zones éliminées.
   // On calcule tout, puis on masque.
   float mask = step(dVis, vMisc.w) * step(texture(uElevL, uv).b, 0.5); // dans le quad, en mer
-  // Ombre des terres : l'appel ne traverse pas les continents (test le long du segment).
   vec2 dl = ll - vWhale;
   dl.y = mod(dl.y + 180.0, 360.0) - 180.0;
-  // Le long du segment : pertes au fond et coupure modale à chaque point (même modèle que le champ).
+  // Le long du segment : pertes au fond et coupure modale à chaque point (même modèle que le champ et
+  // que les liens, même grille océan). La grille est lue au niveau de mipmap qui correspond à l'écart
+  // entre échantillons : l'intégrande est lissé à cette échelle, sinon un seul échantillon tombant sur
+  // un haut-fond fait varier l'excès de signal de dizaines de dB d'un pixel à l'autre (faux contours).
   float band = vMisc.x;
   float fBand = band < 0.5 ? uBandFreq.x : band < 1.5 ? uBandFreq.y : uBandFreq.z;
+  const int N = 24;
+  float lod = log2(max(length(dl) / float(N) * uOceanPerDeg, 1.0));
   float rate = 0.0;
-  for (int i = 0; i <= 12; i++) {
-    vec2 p = vWhale + dl * (float(i) / 12.0);
-    vec2 puv = uvOf(p);
-    if (i > 0 && i < 12) mask *= step(texture(uElevL, puv).b, 0.6);
-    float h = depthAt(puv);
+  float shadow = 1.0; // ombre des terres : l'appel ne traverse pas les continents
+  for (int i = 0; i <= N; i++) {
+    vec2 p = vWhale + dl * (float(i) / float(N));
+    vec4 o = textureLod(uOcean, uvOf(p), lod);
+    if (i > 0 && i < N) shadow *= 1.0 - smoothstep(0.35, 0.65, o.b);
+    float h = max(10.0, 10.0 * pow(1100.0, o.g));
     rate += bottomLossRate(h) + cutoffLossRate(h, vec3(fBand)).x;
   }
-  rate /= 13.0;
+  rate /= float(N + 1);
   // Équation du sonar au point : SE = SL − TL(d) − NL_appel(x) − DT.
   float r = max(dVis * 1000.0 / vMisc.z, 1.0); // distance vraie (m)
   float rt = max(vCall.w, 10.0);
   float tl = (r <= rt ? 20.0 * log(r) : 20.0 * log(rt) + 10.0 * log(r / rt)) / log(10.0) + (vMisc.y + rate) * r / 1000.0;
-  vec4 lv = texture(uLevels, uv);
+  vec4 lv = sampleCubic(uLevels, uv);
   float nl = (band < 0.5 ? lv.g : band < 1.5 ? lv.b : lv.a) - vCall.z;
   float se = vCall.x - tl - nl - vCall.y;
   float w = fwidth(se) * 1.2 + 1e-4;
   // Remplissage (plus dense près du groupe) et contour au seuil.
-  float inside = smoothstep(0.0, uSoftness, se) * (1.0 - 0.55 * clamp(dVis / vMisc.w, 0.0, 1.0));
+  // (fondu au bord du quad : pas de disque à bord net quand l'espace atteint le rayon maximal)
+  float inside = smoothstep(0.0, uSoftness, se) * (1.0 - 0.55 * clamp(dVis / vMisc.w, 0.0, 1.0)) * smoothstep(1.0, 0.85, dVis / vMisc.w);
   float edge = 1.0 - smoothstep(0.0, w, abs(se));
   // Terra incognita : le bruit y est sous-estimé ; contour pointillé et tremblant.
   float cov = smoothstep(0.03, 0.4, texture(uCoverage, uv).r);
   float ang = atan(dl.x, dl.y);
-  float dash = step(0.45, fract(ang * 9.0 + uTime * 0.3));
+  // Tirets selon l'angle ET la distance au groupe : un contour radial est découpé lui aussi
+  // (selon l'angle seul, il restait plein ou se réduisait à une colonne de points).
+  float dash = step(0.45, fract(ang * 9.0 + dVis * 9.0 / vMisc.w + uTime * 0.3));
   edge *= mix(dash * (0.7 + 0.3 * sin(uTime * 7.0 + ang * 31.0)), 1.0, cov);
   if (mask < 0.5) discard;
-  vec3 c = vColor * (uFill * inside + uContour * edge);
+  vec3 c = vColor * (uFill * inside + uContour * edge) * shadow;
   outColor = vec4(c, 1.0);
 }`;
 
@@ -296,7 +319,7 @@ export class WhaleRenderer {
   private linkCount = 0;
   private marks!: THREE.Points;
 
-  constructor(elevLinear: THREE.Texture, elevNearest: THREE.Texture) {
+  constructor(elevLinear: THREE.Texture, ocean: THREE.Texture) {
     // Espace de communication : quads instanciés.
     const quad = new THREE.PlaneGeometry(2, 2);
     this.spaceGeo.index = quad.index;
@@ -314,7 +337,8 @@ export class WhaleRenderer {
         ...flatUniforms(),
         uLevels: { value: null },
         uElevL: { value: elevLinear },
-        uElevN: { value: elevNearest },
+        uOcean: { value: ocean },
+        uOceanPerDeg: { value: (ocean.image as { width: number }).width / 360 },
         uBandFreq: { value: new THREE.Vector3(20, 224, 3162) },
         ...lossUniforms(),
         uCoverage: { value: null },

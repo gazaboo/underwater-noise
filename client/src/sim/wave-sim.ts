@@ -78,6 +78,31 @@ void main() {
   outColor = vec4(next, u, 0.0, 1.0);
 }`;
 
+/**
+ * Reprise d'un état existant : chaque cellule lit (u, u précédent) dans la grille mondiale, et dans
+ * l'ancienne grille de détail là où elle la recouvre (fondue sur ses bords, sa bordure absorbante).
+ */
+const SEED_FRAG = /* glsl */ `
+in vec2 vUv;
+out vec4 outColor;
+uniform vec4 uDomain;       // emprise de la grille à remplir : centre lon, bord nord, étendues (degrés)
+uniform sampler2D uWorld;
+uniform sampler2D uOld;
+uniform vec4 uOldDomain;
+uniform float uHasOld;
+void main() {
+  float lon = uDomain.x + (vUv.x - 0.5) * uDomain.z;
+  float lat = uDomain.y - vUv.y * uDomain.w;
+  vec2 s = texture(uWorld, vec2(fract((lon + 180.0) / 360.0), (90.0 - lat) / 180.0)).rg;
+  if (uHasOld > 0.5) {
+    float dLon = mod(lon - uOldDomain.x + 180.0, 360.0) - 180.0;
+    vec2 ouv = vec2(dLon / uOldDomain.z + 0.5, (uOldDomain.y - lat) / uOldDomain.w);
+    float edge = smoothstep(0.0, 0.08, min(min(ouv.x, 1.0 - ouv.x), min(ouv.y, 1.0 - ouv.y)));
+    if (edge > 0.0) s = mix(s, texture(uOld, ouv).rg, edge);
+  }
+  outColor = vec4(s, 0.0, 1.0);
+}`;
+
 export interface WaveParams {
   courant: number;
   shallowSpeed: number;
@@ -95,6 +120,8 @@ export interface Domain {
 }
 
 export const WORLD_DOMAIN: Domain = { lonCenter: 0, latTop: 90, lonSpan: 360, latSpan: 180 };
+
+let seedPass: FullscreenPass | null = null;
 
 export class WaveSim {
   readonly width: number;
@@ -171,6 +198,31 @@ export class WaveSim {
   /** Champ courant (R = u). */
   get texture(): THREE.Texture {
     return this.targets[0].texture;
+  }
+
+  /**
+   * Remplit l'état à partir de grilles existantes (reconstruction de la grille de détail) :
+   * les ondes continuent au lieu de renaître de zéro.
+   */
+  seed(renderer: THREE.WebGLRenderer, world: WaveSim, old: WaveSim | null): void {
+    seedPass ??= new FullscreenPass(
+      rawMaterial(SEED_FRAG, {
+        uDomain: { value: new THREE.Vector4() },
+        uWorld: { value: null },
+        uOld: { value: null },
+        uOldDomain: { value: new THREE.Vector4() },
+        uHasOld: { value: 0 },
+      }),
+    );
+    const u = seedPass.material.uniforms;
+    const d = this.domain;
+    const od = old?.domain ?? d;
+    (u.uDomain.value as THREE.Vector4).set(d.lonCenter, d.latTop, d.lonSpan, d.latSpan);
+    (u.uOldDomain.value as THREE.Vector4).set(od.lonCenter, od.latTop, od.lonSpan, od.latSpan);
+    u.uWorld.value = world.texture;
+    u.uOld.value = old?.texture ?? world.texture;
+    u.uHasOld.value = old ? 1 : 0;
+    seedPass.render(renderer, this.targets[0]);
   }
 
   clear(renderer: THREE.WebGLRenderer): void {

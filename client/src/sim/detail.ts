@@ -6,8 +6,8 @@
  * son propre masque terre/mer calculé sur le GPU à partir des grilles d'affichage. Elle se fond
  * dans la vue mondiale (fondu au démarrage, fondu sur ses bords).
  *
- * Quand la vue sort de l'emprise, ou que le zoom change beaucoup, la grille est reconstruite
- * (les ondes y renaissent en une ou deux secondes, pendant que la grille mondiale assure le relais).
+ * Quand la vue sort de l'emprise, ou que le zoom change beaucoup, la grille est reconstruite ; elle
+ * reprend l'état des ondes de l'ancienne grille (et de la grille mondiale au-delà) : pas de sursaut.
  */
 import * as THREE from 'three';
 import type { Config } from '@vacarme/shared';
@@ -75,8 +75,9 @@ export class DetailWaves {
     const halfLon = view.width / 2 / view.scale;
     const halfLat = view.height / 2 / view.scale;
     const dLon = ((((view.centerLon - d.lonCenter + 180) % 360) + 360) % 360) - 180;
-    const insetLon = d.lonSpan * 0.04;
-    const insetLat = d.latSpan * 0.04;
+    // Réserve = largeur du fondu de bord (8 %) : la vue ne montre jamais la bordure fondue.
+    const insetLon = d.lonSpan * 0.08;
+    const insetLat = d.latSpan * 0.08;
     return (
       Math.abs(dLon) + halfLon <= d.lonSpan / 2 - insetLon &&
       view.centerLat + halfLat <= d.latTop - insetLat &&
@@ -88,7 +89,7 @@ export class DetailWaves {
    * Met à jour la grille de détail selon la vue. Renvoie la simulation à faire avancer (ou null).
    * @param zoom facteur de zoom de la navigation
    */
-  update(renderer: THREE.WebGLRenderer, view: FlatTransform, zoom: number, cfg: Config, now: number): WaveSim | null {
+  update(renderer: THREE.WebGLRenderer, view: FlatTransform, zoom: number, cfg: Config, now: number, world: WaveSim): WaveSim | null {
     const opts = cfg.view.detail;
     const wanted = opts.enabled && zoom >= opts.minZoom;
     if (!wanted) {
@@ -105,13 +106,15 @@ export class DetailWaves {
     if (!desired) return this.sim;
     const tooCoarse = this.sim && this.sim.domain.lonSpan > desired.lonSpan * 1.9; // on a beaucoup zoomé depuis
     const needs = !this.sim || !this.covers(view) || tooCoarse;
-    if (needs && now - this.lastBuild > 400) this.build(renderer, desired, cfg);
+    if (needs && now - this.lastBuild > 250) this.build(renderer, desired, cfg, world);
     if (this.sim) this.weight = Math.min(1, (now - this.bornAt) / FADE_IN_MS);
     return this.sim;
   }
 
-  private build(renderer: THREE.WebGLRenderer, domain: Domain, cfg: Config): void {
-    this.dispose();
+  private build(renderer: THREE.WebGLRenderer, domain: Domain, cfg: Config, world: WaveSim): void {
+    const old = this.sim;
+    const oldMask = this.mask;
+    const weight = this.weight;
     const profile = cfg.qualityProfiles[cfg.display.quality];
     // Largeur en cellules ; la hauteur suit (cellules carrées en degrés), plafonnée.
     let width = profile.detailSimWidth;
@@ -130,9 +133,13 @@ export class DetailWaves {
     this.sim = new WaveSim(width, this.mask.texture, domain);
     this.sim.setParams(cfg.waves);
     this.sim.clear(renderer);
-    this.bornAt = performance.now();
-    this.lastBuild = this.bornAt;
-    this.weight = 0;
+    this.sim.seed(renderer, world, old);
+    old?.dispose();
+    oldMask?.dispose();
+    // Le fondu d'entrée continue là où il en était (0 à la première construction).
+    this.lastBuild = performance.now();
+    this.bornAt = this.lastBuild - weight * FADE_IN_MS;
+    this.weight = weight;
   }
 
   get fadingOut(): boolean {

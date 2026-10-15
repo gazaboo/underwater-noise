@@ -1,17 +1,34 @@
 /**
  * Navigation sur la carte plate : zoom (molette, pincement du pavé tactile, + / −) centré sur le
  * curseur, déplacement (glisser, flèches), retour au cadrage initial (double-clic, R ou 0).
- * Le mouvement est lissé : la vue rejoint sa cible en ~120 ms.
+ * Le mouvement est lissé : la vue rejoint sa cible en ~120 ms (déplacement) ou ~250 ms (zoom).
+ * Pendant l'animation d'un zoom à la molette, le point sous le curseur reste fixe à chaque image.
  */
 import type { Config } from '@vacarme/shared';
 import { MAX_ZOOM, clampCenterLat, computeFlatTransform, screenToGeo, type FlatNav, type FlatTransform } from '../render/flat-view.ts';
 
 const wrap180 = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
 
+/** Zoom par cran de molette (≈ 100 px de défilement) : ×1,1. */
+const WHEEL_K = Math.log(1.1) / 100;
+/** Défilement maximal pris en compte par évènement (les molettes rapides envoient de grands deltas). */
+const WHEEL_MAX = 100;
+const PAN_TAU_MS = 120;
+const ZOOM_TAU_MS = 250;
+
+/** Point géographique tenu sous un pixel pendant un zoom. */
+interface Anchor {
+  lon: number;
+  lat: number;
+  x: number;
+  y: number;
+}
+
 export class FlatNavigator {
   private target: FlatNav | null = null;
   private current: FlatNav | null = null;
   private dragging: { x: number; y: number } | null = null;
+  private anchor: Anchor | null = null;
   /** Désactivée hors du mode carte plate. */
   enabled = true;
 
@@ -70,15 +87,23 @@ export class FlatNavigator {
     const view = computeFlatTransform(this.getConfig(), b.width, b.height, t);
     const [lon, lat] = screenToGeo(view, x, y);
     t.zoom = Math.min(MAX_ZOOM, Math.max(1, t.zoom * factor));
-    const scale = b.scale * t.zoom;
-    t.centerLon = wrap180(lon - (x - b.width / 2) / scale);
-    t.centerLat = lat - (y - b.height / 2) / scale;
-    this.clamp(t);
+    this.anchor = { lon, lat, x, y };
+    this.placeAround(t, this.anchor);
+  }
+
+  /** Centre la vue `nav` pour que le point de l'ancre tombe sous son pixel. */
+  private placeAround(nav: FlatNav, a: Anchor): void {
+    const b = this.base();
+    const scale = b.scale * nav.zoom;
+    nav.centerLon = wrap180(a.lon - (a.x - b.width / 2) / scale);
+    nav.centerLat = a.lat - (a.y - b.height / 2) / scale;
+    this.clamp(nav);
   }
 
   /** Place la vue (centre et zoom), avec le lissage habituel. */
   goTo(lon: number, lat: number, zoom: number): void {
     this.ensure();
+    this.anchor = null;
     this.target = { zoom, centerLon: wrap180(lon), centerLat: lat };
     this.clamp(this.target);
   }
@@ -86,28 +111,34 @@ export class FlatNavigator {
   reset(): void {
     const b = this.base();
     this.ensure();
+    this.anchor = null;
     this.target = { zoom: 1, centerLon: b.centerLon, centerLat: b.centerLat };
   }
 
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
     const { h, ratio } = this.buffer();
-    // Pincement du pavé tactile : ctrlKey, petits deltas.
-    const k = e.ctrlKey ? 0.01 : 0.0015;
-    const delta = e.deltaMode === 1 ? e.deltaY * 30 : e.deltaY;
+    // Lignes (Firefox) ou pages → pixels ; pincement du pavé tactile (ctrlKey) : petits deltas, plus sensible.
+    let delta = e.deltaMode === 1 ? e.deltaY * 33 : e.deltaMode === 2 ? e.deltaY * 400 : e.deltaY;
+    delta = Math.max(-WHEEL_MAX, Math.min(WHEEL_MAX, delta));
+    const k = e.ctrlKey ? 4 * WHEEL_K : WHEEL_K;
     this.zoomAt(Math.exp(-delta * k), e.offsetX * ratio, h - e.offsetY * ratio);
   }
 
   private onDrag(e: PointerEvent): void {
     if (!this.dragging) return;
     const t = this.ensure();
+    // On part de la vue affichée : un zoom en cours s'arrête là où il en est.
+    const c = this.current ?? t;
+    this.anchor = null;
     const { ratio } = this.buffer();
-    const scale = this.base().scale * t.zoom;
+    const scale = this.base().scale * c.zoom;
     const dx = ((e.clientX - this.dragging.x) * ratio) / scale;
     const dy = ((e.clientY - this.dragging.y) * ratio) / scale;
     this.dragging = { x: e.clientX, y: e.clientY };
-    t.centerLon = wrap180(t.centerLon - dx);
-    t.centerLat += dy;
+    t.zoom = c.zoom;
+    t.centerLon = wrap180(c.centerLon - dx);
+    t.centerLat = c.centerLat + dy;
     this.clamp(t);
     // Pendant le glisser, la vue suit la souris sans retard.
     this.current = { ...t };
@@ -122,6 +153,7 @@ export class FlatNavigator {
     else if (k === 'r' || k === 'R' || k === '0') this.reset();
     else if (k.startsWith('Arrow')) {
       const t = this.ensure();
+      this.anchor = null;
       const step = (0.15 * Math.min(w, h)) / (this.base().scale * t.zoom);
       if (k === 'ArrowLeft') t.centerLon = wrap180(t.centerLon - step);
       if (k === 'ArrowRight') t.centerLon = wrap180(t.centerLon + step);
@@ -136,18 +168,26 @@ export class FlatNavigator {
   forget(): void {
     this.target = null;
     this.current = null;
+    this.anchor = null;
   }
 
   /** Avance le lissage et renvoie la navigation courante (undefined = cadrage de la configuration). */
   update(dtMs: number): FlatNav | undefined {
     if (!this.target || !this.current) return undefined;
-    const a = 1 - Math.exp(-dtMs / 120);
     const c = this.current;
     const t = this.target;
-    c.zoom = Math.exp(Math.log(c.zoom) + (Math.log(t.zoom) - Math.log(c.zoom)) * a);
-    c.centerLon = wrap180(c.centerLon + wrap180(t.centerLon - c.centerLon) * a);
-    c.centerLat += (t.centerLat - c.centerLat) * a;
-    this.clamp(c);
+    const az = 1 - Math.exp(-dtMs / ZOOM_TAU_MS);
+    c.zoom = Math.exp(Math.log(c.zoom) + (Math.log(t.zoom) - Math.log(c.zoom)) * az);
+    if (this.anchor) {
+      // Zoom à la molette : le centre découle du zoom courant (point sous le curseur fixe).
+      this.placeAround(c, this.anchor);
+      if (Math.abs(Math.log(t.zoom / c.zoom)) < 1e-4) this.anchor = null;
+    } else {
+      const a = 1 - Math.exp(-dtMs / PAN_TAU_MS);
+      c.centerLon = wrap180(c.centerLon + wrap180(t.centerLon - c.centerLon) * a);
+      c.centerLat += (t.centerLat - c.centerLat) * a;
+      this.clamp(c);
+    }
     return c;
   }
 

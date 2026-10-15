@@ -5,6 +5,7 @@
  *   ?hud=1                      affiche le diagnostic au démarrage
  *   ?scene=duo                  scène de test : deux groupes de rorquals communs en mer Ligure
  *   ?mode=flat|globe|hemisphere|equirect|fisheye   mode de rendu
+ *   ?theme=night|day            palette de nuit (installation) ou de jour
  */
 import { App, type UrlOverrides } from './app.ts';
 
@@ -15,6 +16,7 @@ const overrides: UrlOverrides = {
   hud: params.has('hud'),
   scene: params.get('scene') ?? undefined,
   mode: (['flat', 'globe', 'hemisphere', 'equirect', 'fisheye'] as const).find((m) => m === params.get('mode')),
+  theme: (['night', 'day'] as const).find((t) => t === params.get('theme')),
 };
 
 const status = document.getElementById('status')!;
