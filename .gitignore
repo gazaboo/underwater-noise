@@ -12,3 +12,6 @@ tools/.cache/
 tools/.venv/
 __pycache__/
 *.log
+
+# Worktrees des sessions Claude Code (dépôts git imbriqués)
+.claude/worktrees/
