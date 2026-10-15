@@ -49,13 +49,12 @@ lent avec `VACARME_SLOW=1`, ~10 s, OK). Tout est vert au dernier commit.
 ## 4. Données : état exact (cache `tools/.cache/science/`, hors dépôt)
 
 - `ais/` : `mc-*.csv.gz` (4 jours, complets) ; `dma-2019-02-20.csv.gz` + **replay déjà construit**
-  (`dma-2019-02-20.replay.ndjson.gz` + `.json`) ; `dma-2019-04-16` et `dma-2019-06-05` complets ;
-  `dma-2019-11-12` en cours (`.part`) au moment de la passation.
+  (`dma-2019-02-20.replay.ndjson.gz` + `.json`) ; `dma-2019-04-16`, `dma-2019-06-05` et `dma-2019-11-12` complets
+  (**tous les téléchargements du protocole sont terminés**).
 - `ices/` : **tous les fichiers du protocole sont téléchargés** (24 fichiers uniques, journal complet) +
   les deux fichiers de développement (~10 Go au total : à supprimer après extraction, `qc.py --prune-raw`).
 - `nrs/` : NRS11 complet (4 jours). `days/` : jours extraits (Hjelm, NRS11).
-- Processus en arrière-plan au moment de la passation (peuvent mourir avec la session) :
-  `fetch_protocol.py --only dma` (seul restant). **Relançable sans risque**
+- Aucun processus en arrière-plan. `fetch_protocol.py` reste **relançable sans risque**
   (fichiers présents sautés ; un `.part` DMA est réécrit).
 
 ## 5. Reprise : commandes, dans l’ordre
