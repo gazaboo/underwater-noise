@@ -1,5 +1,8 @@
 # Modèle physique
 
+> Le statut de chaque hypothèse (sourcée, empirique, artistique, non vérifiée) est tenu à jour dans
+> [`REVUE_SCIENTIFIQUE.md`](REVUE_SCIENTIFIQUE.md). En cas de divergence, c'est ce dossier qui fait foi.
+
 L'œuvre vise des **ordres de grandeur justes**, pas une prédiction de gestion : chaque
 simplification ci-dessous est assumée et documentée. Deux grilles coexistent :
 
@@ -102,10 +105,11 @@ d'après les courbes de Wenz pour un état de mer ~3, sans trafic : 88 dB (basse
 | Atlantique Nord, 35° O | 95 dB | 96 dB | ≈ naturel |
 | Océan Indien Sud | ≈ naturel | ≈ naturel | ≈ naturel |
 
-Ordres de grandeur cohérents avec les mesures publiées (niveaux de bande de 100–120 dB dans les
-grands couloirs, 90–100 dB au large), avec une tendance à la surestimation de quelques dB près des
-couloirs : une cellule de 39 km moyenne le champ proche de plusieurs navires. Le niveau réel dépend
-aussi de la couverture AIS : un navire invisible ne fait pas de bruit dans l'œuvre.
+Ces niveaux n'ont **pas** été comparés à des mesures publiées pour les mêmes bandes et les mêmes
+lieux (voir `docs/REVUE_SCIENTIFIQUE.md`, §4.6) : ce sont des sorties du modèle, à ne pas présenter
+comme des mesures. Ils ont été relevés avant la borne de vitesse (§1) et avant la correction
+empirique (`extraLossDbPerKm`), puis de nouveau après : voir la revue pour les valeurs à jour. Le niveau
+dépend aussi de la couverture AIS : un navire invisible ne fait pas de bruit dans l'œuvre.
 
 ## 6. Accumulation (ce que l'on voit)
 
@@ -140,18 +144,20 @@ Un appel de niveau SL est entendu à la distance r si la marge **SE = SL − TL(
   ramené à la largeur de bande de l'appel : NL_appel = NL_bande − 10·log10(B_bande / B_appel).
 - **DT** : seuil de détection, qui inclut la capacité à reconnaître l'appel.
 
-Paramètres (`config/default.json5`, ordres de grandeur ; Richardson et al. 1995, Erbe et al. 2016) :
+Paramètres (`config/default.json5` ; sources et statut de chaque valeur : `docs/REVUE_SCIENTIFIQUE.md` §6) :
 
 | Espèce | Bande | SL (dB re 1 µPa·m) | B_appel | DT | Portée en océan calme* | Exagération visuelle |
 |---|---|---|---|---|---|---|
-| Rorqual bleu | basse | 186 | 5 Hz | 6 dB | ≈ 700–1 000 km | ×1 |
-| Rorqual commun | basse | 189 | 10 Hz | 6 dB | ≈ 900–1 100 km | ×1 |
-| Baleine à bosse | moyenne | 172 | 100 Hz | 6 dB | ≈ 50–150 km | ×4 |
-| Cachalot (codas) | haute | 175 | 5 kHz | 8 dB | ≈ 20–40 km | ×10 |
-| Orque | haute | 165 | 2 kHz | 4 dB | ≈ 2–15 km | ×20 |
+| Rorqual bleu | basse | 189 (Širović et al. 2007) | 5 Hz | 6 dB | ≈ 980 km (4 000 m) ; 2 650 km (100 m) | ×1 |
+| Rorqual commun | basse | 189 (Širović et al. 2007) | 10 Hz | 6 dB | ≈ 730 km (4 000 m) ; 2 300 km (100 m) | ×1 |
+| Baleine à bosse | moyenne | 172 (Au et al. 2006 : 151–173) | 100 Hz | 6 dB | ≈ 54 km (4 000 m) ; 550 km (100 m) | ×4 |
+| Cachalot (codas) | haute | 161 (Jacobs et al. 2024) | 5 kHz | 8 dB | ≈ 1,4 km (4 000 m) ; 11 km (100 m) | ×40 |
+| Orque | haute | 153 (Miller 2006) | 2 kHz | 4 dB | ≈ 1,4 km (4 000 m) ; 11 km (100 m) | ×60 |
 
-\* selon la profondeur sous le groupe ; l'étalement cylindrique rend ces portées optimistes en eau
-profonde, du même ordre que les « centaines de kilomètres » avancées pour les grands rorquals.
+\* Les portées des rorquals sont **nettement optimistes** : Širović et al. (2007) localisent des
+rorquals bleus jusqu'à 200 km et suivent des rorquals communs jusqu'à 56 km. En eau peu profonde,
+elles sont irréalistes (l'équation du sonar des cétacés n'inclut pas les pertes par le fond). DT et
+B_appel sont des choix de l'auteur. Voir `docs/REVUE_SCIENTIFIQUE.md` §6.
 
 **Exagération visuelle** : à l'échelle du globe, l'espace d'une orque (quelques km) serait invisible.
 Les distances d'une espèce sont donc multipliées à l'écran par `visualScale`, et ce facteur s'applique

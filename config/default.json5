@@ -220,8 +220,8 @@
   },
 
   // Cétacés (J4) : groupes simulés dans leurs habitats (AquaMaps), espace de communication
-  // (équation du sonar, bruit local) et liens entre groupes. Valeurs acoustiques : ordres de
-  // grandeur de la littérature (Richardson et al. 1995 ; Clark et al. 2009 ; Erbe et al. 2016).
+  // (équation du sonar, bruit local ; principe : Clark et al. 2009) et liens entre groupes.
+  // Statut de chaque valeur (sourcée, empirique, artistique) : docs/REVUE_SCIENTIFIQUE.md §6.
   whales: {
     enabled: true,
     timeScale: 30, // les groupes se déplacent 30 fois plus vite qu'en vrai (sinon immobiles à l'œil)
@@ -248,11 +248,17 @@
       // band : bande du champ physique ; sl : niveau source de l'appel ; dt : seuil de détection ;
       // callBandwidthHz : largeur de l'appel (le bruit compte dans cette largeur) ;
       // visualScale : exagération des distances à l'écran (documentée : la vraie portée serait invisible).
-      { id: 'blue', name: 'Rorqual bleu', latin: 'Balaenoptera musculus', enabled: true, groups: 30, band: 'low', sl: 186, dt: 6, callBandwidthHz: 5, callIntervalSec: 14, minDepthM: 200, speedKmh: 5, visualScale: 1 },
+      // Niveaux sources (sl) : valeurs publiées, voir docs/REVUE_SCIENTIFIQUE.md §6.
+      //   bleu 189 ± 3 et commun 189 ± 4 dB (Širović et al. 2007, JASA 122:1208) ;
+      //   baleine à bosse : unités de chant 151–173 dB (Au et al. 2006) → 172 (haut de la fourchette) ;
+      //   cachalot (codas) : médiane 161 dB rms (Jacobs et al. 2024, JEB) ;
+      //   orque : appels stéréotypés 152,6 ± 5,9 dB (Miller 2006) → 153.
+      // dt, callBandwidthHz : choix de l'auteur (non sourcés), à discuter.
+      { id: 'blue', name: 'Rorqual bleu', latin: 'Balaenoptera musculus', enabled: true, groups: 30, band: 'low', sl: 189, dt: 6, callBandwidthHz: 5, callIntervalSec: 14, minDepthM: 200, speedKmh: 5, visualScale: 1 },
       { id: 'fin', name: 'Rorqual commun', latin: 'Balaenoptera physalus', enabled: true, groups: 40, band: 'low', sl: 189, dt: 6, callBandwidthHz: 10, callIntervalSec: 10, minDepthM: 100, speedKmh: 6, visualScale: 1 },
       { id: 'humpback', name: 'Baleine à bosse', latin: 'Megaptera novaeangliae', enabled: true, groups: 40, band: 'mid', sl: 172, dt: 6, callBandwidthHz: 100, callIntervalSec: 6, minDepthM: 20, speedKmh: 5, visualScale: 4 },
-      { id: 'sperm', name: 'Cachalot', latin: 'Physeter macrocephalus', enabled: true, groups: 30, band: 'high', sl: 175, dt: 8, callBandwidthHz: 5000, callIntervalSec: 4, minDepthM: 1000, speedKmh: 4, visualScale: 10 },
-      { id: 'orca', name: 'Orque', latin: 'Orcinus orca', enabled: true, groups: 30, band: 'high', sl: 165, dt: 4, callBandwidthHz: 2000, callIntervalSec: 5, minDepthM: 10, speedKmh: 8, visualScale: 20 },
+      { id: 'sperm', name: 'Cachalot', latin: 'Physeter macrocephalus', enabled: true, groups: 30, band: 'high', sl: 161, dt: 8, callBandwidthHz: 5000, callIntervalSec: 4, minDepthM: 1000, speedKmh: 4, visualScale: 40 },
+      { id: 'orca', name: 'Orque', latin: 'Orcinus orca', enabled: true, groups: 30, band: 'high', sl: 153, dt: 4, callBandwidthHz: 2000, callIntervalSec: 5, minDepthM: 10, speedKmh: 8, visualScale: 60 },
     ],
   },
 
