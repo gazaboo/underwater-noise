@@ -5,7 +5,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
 const root=fileURLToPath(new URL('..', import.meta.url)).replace(/\/$/, '');
 const original=execFileSync('git',['show','cc72bb3:client/src/render/flat-view.ts'],{cwd:root,encoding:'utf8'}).split('const COMPOSITE_FRAG = /* glsl */ `')[1].split('`;')[0];
-const out=root+'/docs/captures/terres-gouache';mkdirSync(out,{recursive:true});
+const out=process.env.CAPTURE_DIR ?? root+'/docs/captures/terres-gouache';mkdirSync(out,{recursive:true});
 const local=root+'/config/local.json5', oldLocal=existsSync(local)?readFileSync(local):null;
 const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH ?? '/opt/brave.com/brave/brave',headless:true,args:['--no-sandbox','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 const page=await browser.newPage({viewport:{width:1280,height:800}});

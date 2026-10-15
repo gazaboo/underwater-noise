@@ -18,6 +18,9 @@ import { AudioEngine, flatListener, globeListener } from './audio/engine.ts';
 import { WaveSim } from './sim/wave-sim.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
 import { FlatNavigator } from './ui/navigation.ts';
+import { SculptedGlobe } from './render/sculpted-globe.ts';
+import { styledSceneConfig } from './render/scene-style.ts';
+import { SceneSwitcher } from './ui/scene-switcher.ts';
 import { Panel } from './ui/panel.ts';
 
 const CLOCK_WRAP = 1 << 20;
@@ -30,6 +33,7 @@ export interface UrlOverrides {
   scene?: string;
   mode?: Config['display']['mode'];
   theme?: Config['display']['theme'];
+  style?: Config['scene']['style'];
 }
 
 const MODES: Config['display']['mode'][] = ['flat', 'globe', 'hemisphere', 'equirect', 'fisheye'];
@@ -44,6 +48,7 @@ export class App {
   private readonly volcanoes: VolcanoLayer;
   private readonly hud = new Hud();
   private readonly panel: Panel;
+  private readonly sceneSwitcher: SceneSwitcher;
   private readonly nav: FlatNavigator;
   private readonly gpu: GpuTimer;
   private wave: WaveSim;
@@ -62,6 +67,7 @@ export class App {
   private readonly field = new FieldReader();
   private readonly audio = new AudioEngine();
   private readonly globe = new GlobeView();
+  private readonly sculptedGlobe: SculptedGlobe;
   private readonly globeCtl: GlobeController;
   private worldTarget: THREE.WebGLRenderTarget | null = null;
   /** Dernière projection globe (pour le curseur). */
@@ -96,6 +102,7 @@ export class App {
     this.wave.clear(this.renderer);
     this.flat = new FlatView(assets);
     this.volcanoes = new VolcanoLayer(volcanoes);
+    this.sculptedGlobe = new SculptedGlobe(assets, volcanoes);
     this.detail = new DetailWaves(assets);
     // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale.
     const t0 = performance.now();
@@ -110,6 +117,7 @@ export class App {
       (path) => this.onPanelChange(path),
       () => this.save(),
     );
+    this.sceneSwitcher = new SceneSwitcher(() => this.cfg, () => this.panel.refresh());
     this.applyConfig();
     this.resize();
     addEventListener('resize', () => this.resize());
@@ -142,7 +150,8 @@ export class App {
     const quality = overrides.quality ?? raw.display.quality;
     const profile = raw.qualityProfiles[quality];
     const [assets, physicsOcean, volcanoes] = await Promise.all([loadWorldAssets(profile.visualSimWidth), loadOceanGrid(profile.physicsSimWidth), loadVolcanoes()]);
-    return new App(raw, overrides, assets, canvas, physicsOcean, volcanoes);
+    const initial = overrides.style ? deepMerge(raw, { scene: { style: overrides.style } }) : raw;
+    return new App(initial, overrides, assets, canvas, physicsOcean, volcanoes);
   }
 
   private resolve(raw: Config, target?: DisplayTarget): Config {
@@ -192,7 +201,7 @@ export class App {
     if (path === 'display') {
       // Changement de cible : on repart de la configuration serveur pour cette cible,
       // en conservant les réglages artistiques communs en cours d'édition.
-      const keep = { palette: this.cfg.palette, dayPalette: this.cfg.dayPalette, land: this.cfg.land, waves: this.cfg.waves, ships: this.cfg.ships, display: this.cfg.display };
+      const keep = { palette: this.cfg.palette, dayPalette: this.cfg.dayPalette, land: this.cfg.land, scene: this.cfg.scene, waves: this.cfg.waves, ships: this.cfg.ships, display: this.cfg.display };
       const scale = this.cfg.render.renderScale;
       const prevTarget = this.raw.display.target;
       this.cfg = this.resolve(deepMerge(this.raw, keep), this.cfg.display.target);
@@ -203,6 +212,7 @@ export class App {
   }
 
   private afterConfigChange(): void {
+    this.sceneSwitcher.update();
     this.applyConfig();
     this.resize();
     if (this.profile.visualSimWidth !== this.wave.width || this.profile.physicsSimWidth !== this.physics.width) void this.rebuildSim();
@@ -239,6 +249,7 @@ export class App {
       palette: c.palette,
       dayPalette: c.dayPalette,
       land: c.land,
+      scene: c.scene,
       waves: c.waves,
       ships: c.ships,
       accumulation: c.accumulation,
@@ -257,7 +268,7 @@ export class App {
   /** Configuration de rendu : en mode jour, la palette de jour remplace la palette champ par champ. */
   private themed(): Config {
     const c = this.cfg;
-    return c.display.theme === 'day' ? { ...c, palette: { ...c.palette, ...c.dayPalette } } : c;
+    return styledSceneConfig(c.display.theme === 'day' ? { ...c, palette: { ...c.palette, ...c.dayPalette } } : c);
   }
 
   /** Couverture AIS (0–1) en un point. */
@@ -294,7 +305,9 @@ export class App {
     let geo: [number, number] | null;
     if (this.lastGlobe) {
       const g = this.lastGlobe;
-      const ll = pixelToGeo(g.mode, g.cam, g.M, this.cfg, this.mouse.x, this.mouse.y, g.w, g.h);
+      const volume = g.mode === 'globe' && ['sculpted','faceted'].includes(this.cfg.scene.style) && !this.globe.calibration;
+      const ll = volume ? this.sculptedGlobe.pixelToGeo(this.mouse.x,this.mouse.y,g.w,g.h)
+        : pixelToGeo(g.mode, g.cam, g.M, this.cfg, this.mouse.x, this.mouse.y, g.w, g.h);
       geo = ll ? [ll[1], ll[0]] : null;
     } else geo = screenToGeo(this.lastView, this.mouse.x, this.mouse.y);
     if (!geo) return '';
@@ -315,7 +328,7 @@ export class App {
 
   private installKeys(): void {
     addEventListener('keydown', (e) => {
-      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLElement && e.target.closest('input, select, textarea')) return;
       const k = e.key.toLowerCase();
       if (k === 'p') this.panel.toggle();
       else if (k === 'b') this.flat.debugField = (this.flat.debugField + 1) % 5;
@@ -358,6 +371,7 @@ export class App {
     const dt = now - this.lastFrame;
     this.lastFrame = now;
     const t0 = performance.now();
+    this.sceneSwitcher.update();
     const cfg = this.themed();
     const r = this.renderer;
     const steps = this.profile.visualSimSteps;
@@ -419,7 +433,11 @@ export class App {
         });
       }
       const world = worldTransform(W);
-      this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, world, cfg, now / 1000, undefined, this.worldTarget);
+      const volume = mode === 'globe' && ['sculpted','faceted'].includes(cfg.scene.style) && !this.globe.calibration;
+      // La géométrie 3D gère son éclairage : pas de double ombrage dans la couleur des terres.
+      const worldCfg = volume ? { ...cfg, scene: { ...cfg.scene, relief: 0 }, land: { ...cfg.land, relief: 0 } } : cfg;
+      this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, world, worldCfg, now / 1000, undefined, this.worldTarget);
+      if (mode === 'globe' && cfg.scene.style === 'painted') this.volcanoes.draw(r,world,cfg,now/1000,this.worldTarget);
       this.ships.draw(r, now, world, cfg, 1, this.worldTarget);
       if (cfg.physics.enabled) this.whales?.draw(r, world, cfg, levels, this.coverage, now / 1000, 1, this.worldTarget);
       this.globeCtl.update(cfg, Math.min(dt, 250) / 1000);
@@ -427,7 +445,8 @@ export class App {
       const M = viewToEarth(facingLat, this.globeCtl.facingLon);
       const gm = mode as GlobeMode;
       const cam = globeCamera(gm, cfg, size.x / size.y, this.globeCtl.zoom);
-      this.globe.render(r, this.worldTarget.texture, gm, cam, M, cfg, size.x, size.y, now / 1000);
+      const surface = volume ? this.sculptedGlobe.render(r, this.worldTarget.texture, cam, M, cfg, size.x,size.y,now/1000) : null;
+      this.globe.render(r, this.worldTarget.texture, gm, cam, M, cfg, size.x, size.y, now / 1000, surface);
       this.lastGlobe = { mode: gm, cam, M, w: size.x, h: size.y };
       if (gm !== 'equirect') listener = globeListener(facingLat, this.globeCtl.facingLon);
     }

@@ -18,6 +18,10 @@
     theme: 'night',
   },
 
+  // Comparateur artistique : 'current', 'painted' (2,5D), 'sculpted' ou 'faceted' (globes 3D).
+  // Globe et carte seulement ; les projections d'exposition conservent leur rendu actuel.
+  scene: { style: 'current', relief: 0.7 }, // relief purement artistique, sans effet physique
+
   qualityProfiles: {
     // Radeon 780M : 60 images/s visées en 1920×1200 comme en 2256×1504.
     expo: { visualSimWidth: 2048, visualSimSteps: 3, detailSimWidth: 1024, physicsSimWidth: 1024, worldTextureWidth: 2048 },

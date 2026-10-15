@@ -147,6 +147,11 @@ export class Panel {
     au.addBinding(cfg.audio.whales, 'voices', { label: 'appels simultanés', min: 0, max: 16, step: 1 });
     on(au, 'audio');
 
+    const scene = pane.addFolder({ title: 'Direction artistique', expanded: false });
+    scene.addBinding(cfg.scene, 'style', { label: 'proposition', options: { Actuel: 'current', 'Planète peinte': 'painted', 'Monde sculpté': 'sculpted', 'Atlas facetté': 'faceted' } });
+    scene.addBinding(cfg.scene, 'relief', { label: 'relief artistique', min: 0, max: 1, step: 0.01 });
+    on(scene, 'scene');
+
     const land = pane.addFolder({ title: 'Terres (gouache)', expanded: false });
     land.addBinding(cfg.land, 'style', { label: 'style', options: { gouache: 'gouache', aplat: 'flat' } });
     land.addBinding(cfg.palette, 'landLight', { label: 'luminosité nuit', min: 0, max: 1, step: 0.01 });

@@ -1,4 +1,4 @@
-/** Positions GVP sourcées ; cônes, dimensions et fumée artistiques. Carte plate seulement. */
+/** Positions GVP sourcées ; cônes, dimensions et fumée artistiques. Carte plate et illustration 2,5D du globe peint. */
 import * as THREE from 'three';
 import type { Config } from '@vacarme/shared';
 import type { Volcano } from '../assets.ts';
@@ -74,19 +74,20 @@ void main() {
     points.frustumCulled = false;
     this.scene.add(points);
   }
-  draw(renderer: THREE.WebGLRenderer, view: FlatTransform, cfg: Config, time: number): void {
+  draw(renderer: THREE.WebGLRenderer, view: FlatTransform, cfg: Config, time: number, target: THREE.WebGLRenderTarget | null = null): void {
     const l = cfg.land, o = l.ornaments;
-    if (l.style !== 'gouache' || !o.enabled || !o.volcanoes || view.zoom <= o.minZoom) return;
+    const world = view.zoom === 0 && cfg.scene.style === 'painted' && cfg.display.mode === 'globe';
+    if ((l.style !== 'gouache' && cfg.scene.style === 'current') || !o.enabled || !o.volcanoes || (!world && view.zoom <= o.minZoom)) return;
     const u = this.uniforms;
     u.uCenter.value.set(view.centerLon,view.centerLat);
     u.uResolution.value.set(view.width,view.height);
     u.uLatRange.value.set(view.latMin,view.latMax);
     u.uScale.value = view.scale;
-    u.uSize.value = o.volcanoSize*renderer.getPixelRatio()*view.zoom**0.35;
-    u.uFade.value = THREE.MathUtils.smoothstep(view.zoom,o.minZoom,o.minZoom*1.5);
+    u.uSize.value = world ? 7 : o.volcanoSize*renderer.getPixelRatio()*view.zoom**0.35;
+    u.uFade.value = world ? 0.8 : THREE.MathUtils.smoothstep(view.zoom,o.minZoom,o.minZoom*1.5);
     u.uSmokeSince.value = o.smokeSinceYear; u.uTime.value = time;
     hexToVec3(cfg.palette.landTint,u.uTint.value); u.uLight.value = cfg.palette.landLight;
-    renderer.setRenderTarget(null);
+    renderer.setRenderTarget(target);
     renderer.render(this.scene,this.camera);
   }
 }

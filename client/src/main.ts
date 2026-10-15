@@ -7,6 +7,7 @@
  *   ?mode=flat|globe|hemisphere|equirect|fisheye   mode de rendu
  *   ?theme=night|day            palette de nuit (installation) ou de jour
  */
+import { SCENE_STYLES } from './render/scene-style.ts';
 import { App, type UrlOverrides } from './app.ts';
 
 const params = new URLSearchParams(location.search);
@@ -15,6 +16,7 @@ const overrides: UrlOverrides = {
   quality: (['expo', 'light'] as const).find((q) => q === params.get('quality')),
   hud: params.has('hud'),
   scene: params.get('scene') ?? undefined,
+  style: SCENE_STYLES.find(s => s.id === params.get('style'))?.id,
   mode: (['flat', 'globe', 'hemisphere', 'equirect', 'fisheye'] as const).find((m) => m === params.get('mode')),
   theme: (['night', 'day'] as const).find((t) => t === params.get('theme')),
 };

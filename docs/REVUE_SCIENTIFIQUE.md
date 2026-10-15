@@ -505,3 +505,9 @@ La palette Natural Earth II représente des milieux **idéalisés**, et non une 
 Les positions et les années de dernière éruption des volcans holocènes émergés sont **sourcées** (Smithsonian GVP ; citation et extraction dans `SOURCES_DONNEES.md`). Les cônes, tailles et fumées sont **artistiques**. Le seuil `smokeSinceYear` ne constitue ni un indicateur de danger ni un état d'activité en temps réel ; une année inconnue ne produit pas de fumée.
 
 `land.style: 'flat'` restitue les terres en aplat et retire les ornements. Papier et étoiles restent indépendamment désactivables ; les désactiver également permet de retrouver le rendu d'origine. Les ornements n'apparaissent qu'en carte plate zoomée. Les étoiles et le halo sont réservés au mode globe ; le papier respecte le masque des projections.
+
+### Directions artistiques : relief expressif
+
+`scene.style` compare une interprétation peinte (2,5D) et deux globes à géométrie déformée (argile et facettes), avec le rendu actuel comme témoin. Les continents restent géographiques : altitude ETOPO, couleurs idéalisées Natural Earth II et positions des volcans GVP. Le plateau continental surélevé, la conversion non linéaire de l'altitude en rayon et toutes les dimensions de végétation sont **artistiques**, sans échelle métrique revendiquée. Le relief visible n'entre jamais dans le calcul des profondeurs ni des pertes acoustiques.
+
+La végétation du globe est un échantillonnage artistique de l'indice de vert NE II, pas une mesure de forêt actuelle. Les fumées indiquent uniquement le franchissement du seuil d'année de dernière éruption configuré, sans activité en direct. Les teintes et ombres des terres s'appliquent au rendu ; les couches océaniques restent émissives pour conserver la lecture des phénomènes acoustiques. En carte plate, le relief des variantes reste une illusion 2,5D.

@@ -219,3 +219,13 @@ Les terres utilisent les couleurs idéalisées de Natural Earth II, stylisées d
 Le panneau `P`, dossier **Terres (gouache)**, règle la matière et active séparément ornements, papier et étoiles. Les arbres et volcans apparaissent au zoom en carte plate ; étoiles et halo entourent uniquement le globe à l'écran. Les réglages sont enregistrés dans `config/local.json5` par le bouton du panneau. La palette de jour dispose de ses propres réglages `landLight` et `landTint`.
 
 Pour retrouver l'ancien rendu, choisir `land.style: 'flat'` et désactiver `land.paper.enabled` ainsi que `land.stars.enabled`. Les positions des volcans sont sourcées (Smithsonian GVP) ; arbres, indice de forêt, fumée et traitement des couleurs sont **artistiques**, sans mesure de couverture forestière ni activité volcanique en direct. Voir `docs/SOURCES_DONNEES.md` et `docs/REVUE_SCIENTIFIQUE.md`. `npm run data` reconstruit aussi les données des terres.
+
+### Comparer les directions artistiques
+
+Le comparateur en haut à gauche propose **Actuel**, **Planète peinte** (2,5D), **Monde sculpté** (3D) et **Atlas facetté** (3D). Changer de direction conserve la navigation et le temps de simulation. **Masquer** permet d'apprécier la scène ; le bouton « Directions artistiques » réouvre le comparateur.
+
+Les trois propositions existent en carte plate et en globe, chacune de jour et de nuit (`J`). Le globe sculpté et le globe facetté possèdent un relief réel, des arbres et volcans instanciés et des ombres. La carte conserve sa projection géographique et utilise une interprétation en bas-relief. Les sorties demi-sphère, fisheye et équirectangulaire gardent leur rendu actuel : le comparateur y est désactivé et retrouve votre choix au retour au globe ou à la carte.
+
+Le panneau `P`, dossier **Direction artistique**, règle le style et l'intensité du relief. Son bouton d'enregistrement conserve `scene.style` et `scene.relief`. Le rendu initial est `current`. Pour ouvrir directement une proposition : `?mode=globe&theme=day&style=sculpted` (valeurs : `current`, `painted`, `sculpted`, `faceted`). Le paramètre `style` choisit la direction initiale ; les commandes restent utilisables ensuite.
+
+Les volumes, hauteurs, palettes, arbres et fumées sont artistiques. La simulation acoustique conserve ses paramètres et ses données. Le profil `light` réduit la résolution du relief, la densité des ornements et les ombres. [Galerie et vérification](docs/DIRECTIONS_ARTISTIQUES.md).

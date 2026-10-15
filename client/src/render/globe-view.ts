@@ -28,7 +28,8 @@ const GLOBE_DISTANCE = 4.5;
 const GLOBE_FRAG = /* glsl */ `
 in vec2 vUv;
 out vec4 outColor;
-uniform sampler2D uWorld;
+uniform sampler2D uWorld, uSurface;
+uniform bool uHasSurface;
 uniform vec2 uResolution;
 uniform int uMode;
 uniform mat3 uM;           // vue → Terre
@@ -157,6 +158,13 @@ void main() {
     col *= edge;
   }
 
+  if (uMode == 1 && uHasSurface) {
+    vec4 surface = texture(uSurface,frag/uResolution);
+    hit = surface.a > 0.0;
+    edge = surface.a;
+    col = surface.rgb;
+  }
+
   if (uMode == 1 && !hit && uStars > 0.0) {
     // Constantes de répartition, taille et couleur artistiques ; étoiles fixes dans l'écran.
     vec2 cell = floor(frag / 32.0);
@@ -266,6 +274,7 @@ export class GlobeView {
     this.uniforms = {
       uPaperStrength: { value: 0 }, uPaperScale: { value: 1 },
       uStars: { value: 0 }, uStarDensity: { value: 0 }, uTwinkle: { value: 0 }, uHalo: { value: 0 },
+      uSurface: { value: null }, uHasSurface: { value: false },
       uWorld: { value: null },
       uResolution: { value: new THREE.Vector2() },
       uMode: { value: 1 },
@@ -292,13 +301,14 @@ export class GlobeView {
     this.pass = new FullscreenPass(rawMaterial(GLOBE_FRAG, this.uniforms));
   }
 
-  render(renderer: THREE.WebGLRenderer, world: THREE.Texture, mode: GlobeMode, cam: GlobeCamera, M: THREE.Matrix3, cfg: Config, width: number, height: number, time: number): void {
+  render(renderer: THREE.WebGLRenderer, world: THREE.Texture, mode: GlobeMode, cam: GlobeCamera, M: THREE.Matrix3, cfg: Config, width: number, height: number, time: number, surface: THREE.Texture | null = null): void {
     const u = this.uniforms;
     const { paper, stars } = cfg.land;
     u.uPaperStrength.value = paper.enabled ? paper.strength : 0;
     u.uPaperScale.value = paper.scale;
     u.uStars.value = stars.enabled ? 1 : 0;
     u.uStarDensity.value = stars.density; u.uTwinkle.value = stars.twinkle; u.uHalo.value = stars.halo;
+    u.uSurface.value = surface ?? world; u.uHasSurface.value = surface !== null;
     u.uWorld.value = world;
     (u.uResolution.value as THREE.Vector2).set(width, height);
     u.uMode.value = MODE_INDEX[mode];

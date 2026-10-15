@@ -82,6 +82,11 @@ export const configSchema = z.object({
     /** night : palette de l'installation (fond noir) ; day : palette claire pour lire la carte (touche J). */
     theme: z.enum(['night', 'day']),
   }),
+  /** Direction artistique ; relief exagéré sans effet sur les calculs acoustiques. */
+  scene: z.object({
+    style: z.enum(['current', 'painted', 'sculpted', 'faceted']),
+    relief: unit,
+  }),
   qualityProfiles: z.object({ expo: qualityProfile, light: qualityProfile }),
   view: z.object({
     flat: flatView,

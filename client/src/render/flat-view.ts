@@ -6,6 +6,7 @@
  *   → terres et trait de côte → vignettage, exposition, gamma, plancher de noir, tramage.
  */
 import * as THREE from 'three';
+import { sceneStyleIndex } from './scene-style.ts';
 import { PAPER_GLSL } from './paper.ts';
 import type { Config } from '@vacarme/shared';
 import type { WorldAssets } from '../assets.ts';
@@ -69,7 +70,8 @@ in vec2 vUv;
 out vec4 outColor;
 
 uniform sampler2D uLandcover;
-uniform int uLandStyle;
+uniform int uLandStyle, uSceneStyle;
+uniform float uSceneRelief;
 uniform vec3 uLandTint;
 uniform float uLandLight, uLandSat, uLandSteps, uLandRelief;
 uniform float uBrushScale, uBrushWarp, uGranulation, uWetEdge, uTrees, uTreeDensity;
@@ -211,7 +213,16 @@ vec3 trees(vec3 c, vec2 ll, float cell) {
   vec2 q = (ll - center) / cell * vec2(cs, 1.0);
   float radius = min(0.16 + 0.05*hash(id+8.2), 0.32 * cs);
   float aa = 1.0 / (uScale * cell);
-  float canopy = 1.0 - smoothstep(radius-aa, radius+aa, length(q - vec2(0,0.06)));
+  float distance = length(q - vec2(0,0.06));
+  if (uSceneStyle == 1 || uSceneStyle == 2) {
+    distance = min(distance,min(length(q-vec2(-radius*0.45,0.03)),length(q-vec2(radius*0.4,0.0))));
+  }
+  float canopy = 1.0 - smoothstep(radius-aa, radius+aa, distance);
+  if (uSceneStyle == 3) {
+    float y = (q.y+0.13)/(radius*2.2);
+    canopy = (1.0-smoothstep(radius*(1.0-y)-aa,radius*(1.0-y)+aa,abs(q.x)))
+           *smoothstep(-aa,aa,y)*(1.0-smoothstep(1.0-aa,1.0+aa,y));
+  }
   float trunk = (1.0-smoothstep(0.018, 0.018+aa, abs(q.x))) *
                 (1.0-smoothstep(0.12, 0.12+aa, abs(q.y+0.09)));
   float shadow = (1.0-smoothstep(radius*0.5, radius+aa, length((q-vec2(0.06,-0.12))*vec2(1,1.8)))) * 0.2;
@@ -225,6 +236,23 @@ vec3 paintedLand(vec2 uv, vec2 ll, float ax, float ay, float fraction) {
   vec2 p = vec2(ll.x*cos(radians(ll.y)), ll.y) / uBrushScale;
   vec2 warp = (vec2(fbm(p), fbm(p+5.2))-0.5)*uBrushWarp*uBrushScale;
   vec3 c = texture(uLandcover, uv + warp / vec2(360,-180)).rgb;
+  if (uSceneStyle == 3) {
+    // Triangles géographiques stables, palette minérale : approximation 2,5D de l'atlas.
+    vec2 grid = ll / 1.8, id = floor(grid), f = fract(grid);
+    float upper = step(f.x, f.y);
+    vec2 center = (id + mix(vec2(0.6667,0.3333),vec2(0.3333,0.6667),upper))*1.8;
+    c = texture(uLandcover, vec2((center.x+180.0)/360.0,(90.0-center.y)/180.0)).rgb;
+    c = floor(c*14.0+0.5)/14.0;
+    c *= 0.97+0.06*hash(id+upper*37.0);
+  }
+  if (uSceneStyle == 2) {
+    // Argile : verts tendres, hauts plateaux ocre, sommet pâle ; choix artistiques.
+    float a = max(altitude(uv),0.0);
+    float forest = texture(uLandcover,uv).a;
+    c = mix(c, mix(vec3(0.67,0.62,0.4),vec3(0.48,0.65,0.3),forest),0.38);
+    c = mix(c,vec3(0.73,0.53,0.4),smoothstep(1000.0,4000.0,a)*0.6);
+    c = mix(c,vec3(0.95,0.91,0.79),smoothstep(3500.0,6000.0,a)*0.8);
+  }
   float luma = dot(c, vec3(0.299,0.587,0.114));
   c = max(mix(vec3(luma),c,uLandSat), vec3(0.0));
   float L = max(dot(c,vec3(0.299,0.587,0.114)),0.001);
@@ -233,11 +261,21 @@ vec3 paintedLand(vec2 uv, vec2 ll, float ax, float ay, float fraction) {
     float q = (floor(x)+smoothstep(0.35,0.65,fract(x)))/uLandSteps;
     c *= max(q,0.04)/L;
   }
-  float light = dot(normalize(vec3(-ax,-ay,4000)),normalize(vec3(-0.6,0.5,0.62)))-0.62;
+  float normalScale = uSceneStyle > 0 ? mix(5000.0,900.0,uSceneRelief) : 4000.0;
+  float light = dot(normalize(vec3(-ax,-ay,normalScale)),normalize(vec3(-0.6,0.5,0.62)))-0.62;
   c *= vec3(1.0) + uLandRelief * (max(light,0.0)*vec3(0.9,0.65,0.25) + min(light,0.0)*vec3(0.7,0.5,0.2));
-  c *= 1.0-uGranulation*0.15*(fbm(p*6.0)-0.5);
+  if (uSceneStyle > 0) {
+    float edge = 1.0-smoothstep(0.5,0.92,fraction);
+    c = mix(c, c*vec3(1.16,1.03,0.76),edge*0.45);
+    float a = altitude(uv);
+    float occluder = altitude(uv+vec2(-1.4,-1.0)/vec2(360,180));
+    float shadow = smoothstep(150.0,2200.0,occluder-a)*uSceneRelief;
+    c *= 1.0-shadow*0.35;
+  }
+  c *= 1.0-uGranulation*(uSceneStyle == 1 ? 0.55 : 0.15)*(fbm(p*6.0)-0.5);
   c *= 1.0-uWetEdge*0.4*(1.0-smoothstep(0.5,0.7,fraction));
   if (uTrees > 0.0) {
+    if (uSceneStyle == 1 && !uFinish) c = trees(c,ll,4.0);
     c = trees(c,ll,1.0);
     c = trees(c,ll,0.25);
     c = trees(c,ll,0.0625);
@@ -307,6 +345,11 @@ void main() {
     vec3 unknown = uOceanDeep * uUnknownDim + uFogColor * fog * uFogStrength + grain
                  + glow * uUnknownDim + uWaveColor * lightW * uWaveKeep;
     vec3 sea = mix(unknown, known, observed);
+    if (uSceneStyle > 0) {
+      // Ombre de contact de la côte sur l'eau ; les ondes/lueurs restent au-dessus.
+      float shadow = texture(uElevL, uv+vec2(-0.7,-0.5)/vec2(360,180)).b;
+      sea = mix(unknown, ocean*(1.0-0.45*shadow*uSceneRelief)+glow+uWaveColor*lightW,observed);
+    }
 
     // --- Diagnostic : champ physique en dB (touche B).
     if (uDebugField > 0 && uHasLevels > 0.5) {
@@ -321,7 +364,7 @@ void main() {
     float coast = exp(-pow((frac - 0.5) / 0.16, 2.0)) * uCoastOpacity;
     // Mélange (et non ajout) : un trait sombre reste possible sur des terres claires (mode jour).
     vec3 landCol = uLand;
-    if (uLandStyle == 1 && land > 0.0) landCol = paintedLand(uv, vec2(uv.x*360.0-180.0,lat), ax, ay, frac);
+    if ((uLandStyle == 1 || uSceneStyle > 0) && land > 0.0) landCol = paintedLand(uv, vec2(uv.x*360.0-180.0,lat), ax, ay, frac);
     col = mix(mix(sea, landCol, land), uCoast, min(coast, 1.0));
   }
 
@@ -346,6 +389,7 @@ export class FlatView {
     const v3 = () => new THREE.Vector3();
     this.uniforms = {
       uLandcover: { value: assets.landcover },
+      uSceneStyle: { value: 0 }, uSceneRelief: { value: 0.7 },
       uLandStyle: { value: 1 }, uLandTint: { value: v3() }, uLandLight: { value: 1 },
       uLandSat: { value: 1 }, uLandSteps: { value: 5 }, uLandRelief: { value: 1 },
       uBrushScale: { value: 1 }, uBrushWarp: { value: 0 }, uGranulation: { value: 0 },
@@ -426,6 +470,8 @@ export class FlatView {
   ): void {
     const u = this.uniforms;
     if (!u.uLevels.value) u.uLevels.value = wave; // texture valide même sans champ physique
+    u.uSceneStyle.value = sceneStyleIndex(cfg);
+    u.uSceneRelief.value = cfg.scene.relief;
     const l = cfg.land;
     u.uLandStyle.value = l.style === 'gouache' ? 1 : 0;
     hexToVec3(cfg.palette.landTint, u.uLandTint.value);
@@ -434,7 +480,8 @@ export class FlatView {
     u.uBrushScale.value = l.brushScale; u.uBrushWarp.value = l.brushWarp;
     u.uGranulation.value = l.granulation; u.uWetEdge.value = l.wetEdge;
     const fade = THREE.MathUtils.smoothstep(view.zoom, l.ornaments.minZoom, l.ornaments.minZoom * 1.5);
-    u.uTrees.value = l.ornaments.enabled && l.style === 'gouache' ? fade : 0;
+    u.uTrees.value = l.ornaments.enabled && (l.style === 'gouache' || sceneStyleIndex(cfg) > 0)
+      ? (view.zoom === 0 && cfg.scene.style === 'painted' ? 0.9 : fade) : 0;
     u.uTreeDensity.value = l.ornaments.treeDensity;
     u.uPaperStrength.value = l.paper.enabled ? l.paper.strength : 0;
     u.uPaperScale.value = l.paper.scale;
