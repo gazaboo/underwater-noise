@@ -232,7 +232,7 @@ export class Whales {
     this.lastGeometry = -1e9;
   }
 
-  draw(renderer: THREE.WebGLRenderer, view: FlatTransform, cfg: Config, levels: THREE.Texture, coverage: THREE.Texture, timeSec: number, pixelRatio: number): void {
+  draw(renderer: THREE.WebGLRenderer, view: FlatTransform, cfg: Config, levels: THREE.Texture, coverage: THREE.Texture, timeSec: number, pixelRatio: number, target: THREE.WebGLRenderTarget | null = null): void {
     if (!cfg.whales.enabled) return;
     const base = hexToVec3(cfg.whales.color);
     const groups: GroupDraw[] = this.agents.groups.map((g) => {
@@ -256,7 +256,7 @@ export class Whales {
       };
     });
     this.renderer.setGroups(groups);
-    this.renderer.draw(renderer, view, cfg, levels, coverage, timeSec, pixelRatio);
+    this.renderer.draw(renderer, view, cfg, levels, coverage, timeSec, pixelRatio, target);
   }
 
   /** Événements d'appel depuis le dernier relevé (consommés par le son). */

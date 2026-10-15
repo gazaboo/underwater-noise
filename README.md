@@ -6,9 +6,10 @@ sous-marin des navires — et ce qu'il fait à l'espace de communication des cé
 Chaque navire émet des fronts d'onde qui se propagent sur l'océan, interfèrent, s'arrêtent sur les
 côtes ; là où le trafic est dense, l'océan s'illumine ; ailleurs, il reste noir.
 
-> État : **jalon J5** — navires en direct (aisstream.io), en replay ou simulés ; ondes visibles ;
+> État : **jalon J6** — navires en direct (aisstream.io), en replay ou simulés ; ondes visibles ;
 > champ de bruit calibré en dB (trois bandes) ; lueur d'accumulation ; terra incognita ; exploration (zoom) ;
-> cétacés : espace de communication rongé par le bruit, liens entre groupes ; son.
+> cétacés : espace de communication rongé par le bruit, liens entre groupes ; son ; globe et demi-sphère
+> (un projecteur) ; mode exposition. Revue scientifique : [`docs/REVUE_SCIENTIFIQUE.md`](docs/REVUE_SCIENTIFIQUE.md).
 > Plan complet et jalons : voir la section « Feuille de route » plus bas.
 
 ## Installation
@@ -32,6 +33,8 @@ Les fichiers de `data/` sont versionnés : `npm run data` n'est nécessaire que 
 npm run dev         # serveur local (port 8787) + client Vite (http://localhost:5173)
 ```
 
+Exposition (demi-sphère, projecteur, kiosque) : `npm run expo` — voir [`docs/EXPO.md`](docs/EXPO.md).
+
 Production (un seul processus, le serveur sert le client compilé) :
 
 ```bash
@@ -46,6 +49,7 @@ npm run build && npm start   # http://localhost:8787
 | `quality` | `expo` (défaut), `light` | profil de qualité (taille de la simulation, pas par image) |
 | `hud` | (présent) | affiche le diagnostic au démarrage |
 | `scene` | `duo` | scène de test des liens (deux groupes en mer Ligure) |
+| `mode` | `flat`, `globe`, `hemisphere`, `equirect`, `fisheye` | mode de rendu |
 
 ### Clavier
 
@@ -55,6 +59,9 @@ npm run build && npm start   # http://localhost:8787
 | `D` | diagnostic : images/s, temps CPU et GPU, navires, source, calibration, niveau de bruit sous le curseur |
 | `B` | champ physique en dB (isolignes tous les 10 dB) : accumulé → basse → moyenne → haute → rendu |
 | `M` | couper / rétablir le son |
+| `G` | carte plate ↔ globe (globe : glisser = tourner, molette = zoom) |
+| `O` | mode de sortie : carte, globe, demi-sphère, équirect, fisheye |
+| `C` | mire de calibration (méridiens, parallèles, cercles, croix d'axe) |
 | `F` | plein écran |
 | molette / pincement | zoom centré sur le curseur (jusqu'à ×40) |
 | glisser | déplacer la carte |
@@ -200,4 +207,4 @@ npm run typecheck
 - [x] **J3** champ physique calibré en dB (3 bandes), accumulation, terra incognita, exploration (zoom)
 - [x] **J4** cétacés, espace de communication, liens entre groupes
 - [x] **J5** son (sans spatialisation)
-- [ ] **J6** globe, demi-sphère avec un projecteur, mode exposition
+- [x] **J6** globe, demi-sphère avec un projecteur, mode exposition

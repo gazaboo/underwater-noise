@@ -115,6 +115,24 @@ export class Panel {
     }
     on(wh, 'whales');
 
+    const gl = pane.addFolder({ title: 'Globe et demi-sphère', expanded: false });
+    gl.addBinding(cfg.display, 'mode', { label: 'mode', options: { 'carte plate': 'flat', globe: 'globe', 'demi-sphère': 'hemisphere', équirect: 'equirect', fisheye: 'fisheye' } });
+    gl.addBinding(cfg.globe, 'periodMinutes', { label: 'tour (min)', min: 0, max: 120, step: 0.5 });
+    gl.addBinding(cfg.globe, 'viewLatDeg', { label: 'latitude face au public', min: -90, max: 90, step: 1 });
+    gl.addBinding(cfg.globe, 'limbShading', { label: 'limbe (écran)', min: 0, max: 1, step: 0.01 });
+    gl.addBinding(cfg.globe, 'screenSize', { label: 'taille à l\'écran', min: 0.2, max: 1.5, step: 0.01 });
+    const h = cfg.hemisphere;
+    gl.addBinding(h, 'distanceRatio', { label: 'd / R', min: 1.2, max: 20, step: 0.05 });
+    gl.addBinding(h, 'throwRatio', { label: 'rapport de projection', min: 0.3, max: 5, step: 0.01 });
+    gl.addBinding(h, 'scale', { label: 'échelle', min: 0.2, max: 3, step: 0.002 });
+    gl.addBinding(h, 'shiftX', { label: 'décalage X', min: -1, max: 1, step: 0.001 });
+    gl.addBinding(h, 'shiftY', { label: 'décalage Y', min: -1, max: 1, step: 0.001 });
+    gl.addBinding(h, 'rollDeg', { label: 'rotation (°)', min: -180, max: 180, step: 0.1 });
+    gl.addBinding(h, 'edgeCompensation', { label: 'compensation du bord', min: 0, max: 1, step: 0.01 });
+    gl.addBinding(h, 'maxGain', { label: 'gain max', min: 1, max: 10, step: 0.1 });
+    gl.addBinding(h, 'edgeSoftness', { label: 'fondu du bord', min: 0, max: 0.5, step: 0.005 });
+    on(gl, 'globe');
+
     const au = pane.addFolder({ title: 'Son', expanded: false });
     au.addBinding(cfg.audio, 'enabled', { label: 'actif' });
     au.addBinding(cfg.audio, 'master', { label: 'volume général', min: 0, max: 1, step: 0.01 });

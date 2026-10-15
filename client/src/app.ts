@@ -6,13 +6,14 @@ import * as THREE from 'three';
 import { deepMerge, resolveForTarget, type Config, type DisplayTarget, type SourceStatus } from '@vacarme/shared';
 import { loadOceanGrid, loadWorldAssets, type WorldAssets } from './assets.ts';
 import { ShipStream } from './net/ship-stream.ts';
-import { computeFlatTransform, FlatView, screenToGeo, type FlatTransform } from './render/flat-view.ts';
+import { computeFlatTransform, FlatView, screenToGeo, worldTransform, type FlatTransform } from './render/flat-view.ts';
+import { GlobeController, GlobeView, globeCamera, pixelToGeo, viewToEarth, type GlobeMode } from './render/globe-view.ts';
 import { ShipLayer } from './render/ships.ts';
 import { DetailWaves } from './sim/detail.ts';
 import { PhysicsField, calibrate, type CalibrationResult } from './sim/physics-sim.ts';
 import { Whales } from './whales/whales.ts';
 import { FieldReader } from './whales/field-reader.ts';
-import { AudioEngine } from './audio/engine.ts';
+import { AudioEngine, flatListener, globeListener } from './audio/engine.ts';
 import { WaveSim } from './sim/wave-sim.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
 import { FlatNavigator } from './ui/navigation.ts';
@@ -26,7 +27,10 @@ export interface UrlOverrides {
   quality?: Config['display']['quality'];
   hud?: boolean;
   scene?: string;
+  mode?: Config['display']['mode'];
 }
+
+const MODES: Config['display']['mode'][] = ['flat', 'globe', 'hemisphere', 'equirect', 'fisheye'];
 
 export class App {
   /** Configuration telle que reçue du serveur. */
@@ -54,6 +58,11 @@ export class App {
   /** Copie processeur du champ de bruit (cétacés, son). */
   private readonly field = new FieldReader();
   private readonly audio = new AudioEngine();
+  private readonly globe = new GlobeView();
+  private readonly globeCtl: GlobeController;
+  private worldTarget: THREE.WebGLRenderTarget | null = null;
+  /** Dernière projection globe (pour le curseur). */
+  private lastGlobe: { mode: GlobeMode; cam: ReturnType<typeof globeCamera>; M: THREE.Matrix3; w: number; h: number } | null = null;
   private speciesKey = '';
   private clock = 0;
   private connected = false;
@@ -101,6 +110,8 @@ export class App {
     addEventListener('resize', () => this.resize());
     this.installKeys();
     this.nav = new FlatNavigator(canvas, () => this.cfg);
+    this.globeCtl = new GlobeController(this.cfg);
+    this.globeCtl.install(canvas, () => this.cfg.display.mode === 'globe');
     if (overrides.hud) this.hud.toggle(true);
 
     this.speciesKey = JSON.stringify(this.cfg.whales.species);
@@ -131,7 +142,8 @@ export class App {
 
   private resolve(raw: Config, target?: DisplayTarget): Config {
     const t = target ?? this.overrides.target ?? raw.display.target;
-    const withQuality = this.overrides.quality ? deepMerge(raw, { display: { quality: this.overrides.quality } }) : raw;
+    let withQuality = this.overrides.quality ? deepMerge(raw, { display: { quality: this.overrides.quality } }) : raw;
+    if (this.overrides.mode) withQuality = deepMerge(withQuality, { display: { mode: this.overrides.mode } });
     // Copie profonde : le panneau modifie cet objet en place.
     return structuredClone(resolveForTarget(withQuality, t));
   }
@@ -217,7 +229,7 @@ export class App {
   private async save(): Promise<string> {
     const c = this.cfg;
     const body = {
-      display: { quality: c.display.quality },
+      display: { quality: c.display.quality, mode: c.display.mode },
       palette: c.palette,
       waves: c.waves,
       ships: c.ships,
@@ -225,6 +237,9 @@ export class App {
       incognita: c.incognita,
       whales: c.whales,
       audio: c.audio,
+      globe: c.globe,
+      hemisphere: c.hemisphere,
+      fisheye: c.fisheye,
       targets: { [c.display.target]: { render: c.render, view: c.view } },
     };
     const res = await fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -262,9 +277,16 @@ export class App {
   /** Niveaux de bruit sous le curseur (lecture d'un pixel du champ physique). */
   private readCursor(): string {
     if (!this.mouse || !this.lastView || !this.cfg.physics.enabled) return '';
-    const [lon0, lat] = screenToGeo(this.lastView, this.mouse.x, this.mouse.y);
+    let geo: [number, number] | null;
+    if (this.lastGlobe) {
+      const g = this.lastGlobe;
+      const ll = pixelToGeo(g.mode, g.cam, g.M, this.cfg, this.mouse.x, this.mouse.y, g.w, g.h);
+      geo = ll ? [ll[1], ll[0]] : null;
+    } else geo = screenToGeo(this.lastView, this.mouse.x, this.mouse.y);
+    if (!geo) return '';
+    const [lon0, lat] = geo;
     const lon = ((((lon0 + 180) % 360) + 360) % 360) - 180;
-    if (lat < this.lastView.latMin || lat > this.lastView.latMax) return '';
+    if (!this.lastGlobe && (lat < this.lastView.latMin || lat > this.lastView.latMax)) return '';
     const lv = this.physics.readLevels(this.renderer, lat, lon);
     const pos = `${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'O'}`;
     if (!lv) return pos;
@@ -284,6 +306,9 @@ export class App {
       if (k === 'p') this.panel.toggle();
       else if (k === 'b') this.flat.debugField = (this.flat.debugField + 1) % 5;
       else if (k === 'm') this.audio.toggleMute();
+      else if (k === 'g') this.cfg.display.mode = this.cfg.display.mode === 'flat' ? 'globe' : 'flat';
+      else if (k === 'o') this.cfg.display.mode = MODES[(MODES.indexOf(this.cfg.display.mode) + 1) % MODES.length];
+      else if (k === 'c') this.globe.calibration = !this.globe.calibration;
       else if (k === 'd') this.hud.toggle();
       else if (k === 'f') {
         if (document.fullscreenElement) void document.exitFullscreen();
@@ -321,8 +346,11 @@ export class App {
 
     this.gpu.begin();
     const size = r.getDrawingBufferSize(new THREE.Vector2());
-    const view = computeFlatTransform(cfg, size.x, size.y, this.nav.update(dt));
-    const detail = this.detail.update(r, view, this.nav.zoom, cfg, now);
+    const mode = cfg.display.mode;
+    const flatMode = mode === 'flat';
+    this.nav.enabled = flatMode;
+    const view = computeFlatTransform(cfg, size.x, size.y, flatMode ? this.nav.update(dt) : undefined);
+    const detail = flatMode ? this.detail.update(r, view, this.nav.zoom, cfg, now) : this.detail.update(r, view, 1, cfg, now);
     const splat = 3 * (this.wave.width / 2048);
     for (let s = 0; s < steps; s++) {
       this.ships.inject(r, this.wave.sourceTarget, this.wave.domain, splat, now, this.clock, cfg, this.wave.courant, steps * NOMINAL_FPS);
@@ -348,13 +376,45 @@ export class App {
       this.flat.setLevels(null);
     }
     this.lastView = view;
-    this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, view, cfg, now / 1000, detail ? { sim: detail, weight: this.detail.weight } : undefined);
-    // Les points grossissent un peu quand on zoome, pour rester lisibles.
-    this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
-    if (cfg.physics.enabled) this.whales?.draw(r, view, cfg, this.physics.levels.texture, this.coverage, now / 1000, r.getPixelRatio());
+    const levels = this.physics.levels.texture;
+    let listener = flatListener(view);
+    if (flatMode) {
+      this.lastGlobe = null;
+      this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, view, cfg, now / 1000, detail ? { sim: detail, weight: this.detail.weight } : undefined);
+      // Les points grossissent un peu quand on zoome, pour rester lisibles.
+      this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
+      if (cfg.physics.enabled) this.whales?.draw(r, view, cfg, levels, this.coverage, now / 1000, r.getPixelRatio());
+    } else {
+      // Texture « monde » : composition complète en équirectangulaire, puis reprojection.
+      const W = this.profile.worldTextureWidth;
+      if (!this.worldTarget || this.worldTarget.width !== W) {
+        this.worldTarget?.dispose();
+        this.worldTarget = new THREE.WebGLRenderTarget(W, W / 2, {
+          type: THREE.HalfFloatType,
+          generateMipmaps: true,
+          minFilter: THREE.LinearMipmapLinearFilter,
+          magFilter: THREE.LinearFilter,
+          wrapS: THREE.RepeatWrapping,
+          wrapT: THREE.ClampToEdgeWrapping,
+          depthBuffer: false,
+        });
+      }
+      const world = worldTransform(W);
+      this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, world, cfg, now / 1000, undefined, this.worldTarget);
+      this.ships.draw(r, now, world, cfg, 1, this.worldTarget);
+      if (cfg.physics.enabled) this.whales?.draw(r, world, cfg, levels, this.coverage, now / 1000, 1, this.worldTarget);
+      this.globeCtl.update(cfg, Math.min(dt, 250) / 1000);
+      const facingLat = this.globeCtl.facingLatFor(cfg);
+      const M = viewToEarth(facingLat, this.globeCtl.facingLon);
+      const gm = mode as GlobeMode;
+      const cam = globeCamera(gm, cfg, size.x / size.y, this.globeCtl.zoom);
+      this.globe.render(r, this.worldTarget.texture, gm, cam, M, cfg, size.x, size.y, now / 1000);
+      this.lastGlobe = { mode: gm, cam, M, w: size.x, h: size.y };
+      if (gm !== 'equirect') listener = globeListener(facingLat, this.globeCtl.facingLon);
+    }
     this.gpu.end();
 
-    this.audio.update(now, cfg, view, this.ships, this.field, this.whales?.drainEvents() ?? []);
+    this.audio.update(now, cfg, listener, this.ships, this.field, this.whales?.drainEvents() ?? []);
     if (this.hud.visible && now - this.lastCursorRead > 250) {
       this.lastCursorRead = now;
       this.cursorInfo = this.readCursor();
@@ -371,7 +431,9 @@ export class App {
       timeScale: this.ships.currentTimeScale,
       simSize: `${this.wave.width}×${this.wave.height}${this.detail.sim ? ` + détail ${this.detail.sim.width}×${this.detail.sim.height} (${(this.detail.sim.domain.lonSpan / this.detail.sim.width * 111).toFixed(1)} km/cellule)` : ''}`,
       steps,
-      canvas: `${size.x}×${size.y}   zoom ×${this.nav.zoom.toFixed(1)} (${view.centerLon.toFixed(1)}°, ${view.centerLat.toFixed(1)}°)`,
+      canvas: flatMode
+        ? `${size.x}×${size.y}   carte plate, zoom ×${this.nav.zoom.toFixed(1)} (${view.centerLon.toFixed(1)}°, ${view.centerLat.toFixed(1)}°)`
+        : `${size.x}×${size.y}   ${mode} (texture monde ${this.profile.worldTextureWidth}), face au public ${this.globeCtl.facingLatFor(cfg).toFixed(0)}°, ${this.globeCtl.facingLon.toFixed(0)}°${this.globe.calibration ? '   MIRE' : ''}`,
       target: cfg.display.target,
       quality: cfg.display.quality,
     }));

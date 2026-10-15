@@ -21,6 +21,7 @@ const FLAT_GLSL = /* glsl */ `
 uniform vec2 uCenter;
 uniform float uScale;
 uniform vec2 uResolution;
+uniform float uShift; // copie décalée de ±360° (objets à cheval sur le bord de la carte)
 vec4 flatProject(float lat, float lon) {
   float dLon = mod(lon - uCenter.x + 180.0, 360.0) - 180.0;
   vec2 px = vec2(dLon, lat - uCenter.y) * uScale;
@@ -44,8 +45,10 @@ ${FLAT_GLSL}
 void main() {
   float R = iMisc.w / 111.195; // degrés
   float lat = iWhale.x + position.y * R;
-  float lon = iWhale.y + position.x * R / max(cos(radians(iWhale.x)), 0.05);
-  gl_Position = flatProject(lat, lon);
+  // Repli relatif au groupe : le quad reste d'un seul tenant même à cheval sur le bord de la carte.
+  float dl0 = mod(iWhale.y - uCenter.x + 180.0, 360.0) - 180.0 + uShift;
+  float dLon = dl0 + position.x * R / max(cos(radians(iWhale.x)), 0.05);
+  gl_Position = vec4(vec2(dLon, lat - uCenter.y) * uScale / (0.5 * uResolution), 0.0, 1.0);
   vWhale = iWhale;
   vCall = iCall;
   vMisc = iMisc;
@@ -157,7 +160,7 @@ flat out vec4 vState;
 flat out vec4 vMeta;
 ${FLAT_GLSL}
 void main() {
-  float dl0 = mod(aLon0 - uCenter.x + 180.0, 360.0) - 180.0;
+  float dl0 = mod(aLon0 - uCenter.x + 180.0, 360.0) - 180.0 + uShift;
   float lon = uCenter.x + dl0 + (aLatLon.y - aLon0);
   vec2 px = vec2(lon - uCenter.x, aLatLon.x - uCenter.y) * uScale;
   gl_Position = vec4(px / (0.5 * uResolution), 0.0, 1.0);
@@ -208,6 +211,7 @@ void main() {
 
 function flatUniforms() {
   return {
+    uShift: { value: 0 },
     uCenter: { value: new THREE.Vector2() },
     uScale: { value: 1 },
     uResolution: { value: new THREE.Vector2(1, 1) },
@@ -275,6 +279,7 @@ export class WhaleRenderer {
   private readonly stateData = new Float32Array(MAX_LINKS * 4);
   private readonly metaData = new Float32Array(MAX_LINKS * 4);
   private linkCount = 0;
+  private marks!: THREE.Points;
 
   constructor(elevLinear: THREE.Texture) {
     // Espace de communication : quads instanciés.
@@ -325,6 +330,7 @@ export class WhaleRenderer {
     });
     const marks = new THREE.Points(this.markGeo, this.markMat);
     marks.frustumCulled = false;
+    this.marks = marks;
 
     // Liens : segments, état par lien dans deux petites textures.
     const tex = (data: Float32Array<ArrayBuffer>) => {
@@ -426,7 +432,7 @@ export class WhaleRenderer {
     this.metaTex.needsUpdate = true;
   }
 
-  draw(renderer: THREE.WebGLRenderer, view: FlatTransform, cfg: Config, levels: THREE.Texture, coverage: THREE.Texture, timeSec: number, pixelRatio: number): void {
+  draw(renderer: THREE.WebGLRenderer, view: FlatTransform, cfg: Config, levels: THREE.Texture, coverage: THREE.Texture, timeSec: number, pixelRatio: number, target: THREE.WebGLRenderTarget | null = null): void {
     const w = cfg.whales;
     for (const mat of [this.spaceMat, this.markMat, this.linkMat]) setFlat(mat.uniforms, view);
     const su = this.spaceMat.uniforms;
@@ -444,8 +450,15 @@ export class WhaleRenderer {
     lu.uTime.value = timeSec;
     lu.uPulseSpeed.value = w.links.pulseSpeed;
     lu.uHyst.value = w.links.hysteresisDb;
-    renderer.setRenderTarget(null);
-    renderer.render(this.scene, this.camera);
+    renderer.setRenderTarget(target);
+    // Trois passes décalées de −360°, 0, +360° : les espaces et les fils à cheval sur l'antiméridien
+    // de la carte apparaissent des deux côtés (les points des groupes ne sont dessinés qu'une fois).
+    for (const shift of [-360, 0, 360]) {
+      for (const mat of [this.spaceMat, this.linkMat]) mat.uniforms.uShift.value = shift;
+      this.marks.visible = shift === 0;
+      renderer.render(this.scene, this.camera);
+    }
+    this.marks.visible = true;
   }
 }
 

@@ -46,6 +46,11 @@ export function computeFlatTransform(cfg: Config, width: number, height: number,
   return { width, height, scale, centerLon: nav.centerLon, centerLat: clampCenterLat(nav.centerLat, lo, hi, height / 2 / scale), latMin: lo, latMax: hi };
 }
 
+/** Transformation de la texture « monde » : équirectangulaire complète, 360° × 180°. */
+export function worldTransform(width: number): FlatTransform {
+  return { width, height: width / 2, scale: width / 360, centerLon: 0, centerLat: 0, latMin: -90, latMax: 90 };
+}
+
 /** Garde la vue dans la bande de latitudes autorisée (ou centrée si la vue est plus haute). */
 export function clampCenterLat(lat: number, lo: number, hi: number, halfSpan: number): number {
   if (hi - lo <= 2 * halfSpan) return (lo + hi) / 2;
@@ -92,6 +97,7 @@ uniform float uBathyRelief, uCoastOpacity;
 uniform float uWaveBrightness, uWaveRelief;
 uniform float uExposure, uGamma, uBlackLift, uVignette;
 uniform bool uDither;
+uniform bool uFinish;
 uniform float uTime;
 
 const float PI = 3.141592653589793;
@@ -248,7 +254,8 @@ void main() {
     col = mix(sea, uLand, land) + uCoast * coast;
   }
 
-  // --- Finition.
+  // --- Finition (absente quand on dessine la texture « monde » : la passe globe s'en charge).
+  if (!uFinish) { outColor = vec4(col, 1.0); return; }
   vec2 q = frag / uResolution - 0.5;
   q.x *= uResolution.x / uResolution.y;
   col *= 1.0 - uVignette * smoothstep(0.35, 1.05, length(q) * 1.2);
@@ -312,6 +319,7 @@ export class FlatView {
       uBlackLift: { value: 0 },
       uVignette: { value: 0 },
       uDither: { value: true },
+      uFinish: { value: true },
       uTime: { value: 0 },
     };
     this.pass = new FullscreenPass(rawMaterial(COMPOSITE_FRAG, this.uniforms));
@@ -327,7 +335,17 @@ export class FlatView {
   /** 0 : rendu ; 1 : niveau accumulé ; 2–4 : bandes basse, moyenne, haute. */
   debugField = 0;
 
-  render(renderer: THREE.WebGLRenderer, wave: THREE.Texture, waveSize: THREE.Vector2Like, coverage: THREE.Texture, view: FlatTransform, cfg: Config, time: number, detail?: { sim: WaveSim; weight: number }): void {
+  render(
+    renderer: THREE.WebGLRenderer,
+    wave: THREE.Texture,
+    waveSize: THREE.Vector2Like,
+    coverage: THREE.Texture,
+    view: FlatTransform,
+    cfg: Config,
+    time: number,
+    detail?: { sim: WaveSim; weight: number },
+    target: THREE.WebGLRenderTarget | null = null,
+  ): void {
     const u = this.uniforms;
     if (!u.uLevels.value) u.uLevels.value = wave; // texture valide même sans champ physique
     const acc = cfg.accumulation;
@@ -381,6 +399,7 @@ export class FlatView {
     u.uVignette.value = r.vignette;
     u.uDither.value = r.dither;
     u.uTime.value = time;
-    this.pass.render(renderer, null);
+    u.uFinish.value = target === null;
+    this.pass.render(renderer, target);
   }
 }

@@ -133,7 +133,7 @@ export class Hud {
       i.audio,
       i.cursor,
       `rendu ${i.canvas}   cible ${i.target}   profil ${i.quality}`,
-      `molette zoom · glisser déplacer · R recadrer · B champ physique · M son · P réglages · D diagnostic · F plein écran`,
+      `G plat/globe · O mode de sortie · C mire · molette zoom · glisser · R recadrer · B champ · M son · P réglages · D diagnostic · F plein écran`,
     ]
       .filter(Boolean)
       .join('\n');

@@ -9,7 +9,8 @@
     // Cible d'affichage : "screen" (écran du portable) ou "projector" (Epson EB-990U).
     // Surchargeable par l'URL : ?display=projector
     target: 'screen',
-    // Mode de rendu. J1 : carte plate uniquement ; le globe et la demi-sphère arrivent au J6.
+    // Mode de rendu : 'flat' (carte plate), 'globe' (globe à l'écran), 'hemisphere' (demi-sphère + projecteur),
+    // 'equirect' (texture monde brute, pour TouchDesigner / MapMap), 'fisheye'. Touche O : cycle ; G : plat ↔ globe.
     mode: 'flat',
     // Profil de qualité (voir qualityProfiles). Surchargeable par l'URL : ?quality=light
     quality: 'expo',
@@ -17,8 +18,8 @@
 
   qualityProfiles: {
     // Radeon 780M : 60 images/s visées en 1920×1200 comme en 2256×1504.
-    expo: { visualSimWidth: 2048, visualSimSteps: 3, detailSimWidth: 1024, physicsSimWidth: 1024 },
-    light: { visualSimWidth: 1536, visualSimSteps: 2, detailSimWidth: 768, physicsSimWidth: 768 },
+    expo: { visualSimWidth: 2048, visualSimSteps: 3, detailSimWidth: 1024, physicsSimWidth: 1024, worldTextureWidth: 2048 },
+    light: { visualSimWidth: 1536, visualSimSteps: 2, detailSimWidth: 768, physicsSimWidth: 768, worldTextureWidth: 1536 },
   },
 
   view: {
@@ -32,6 +33,35 @@
     // Au-delà de minZoom, une grille d'ondes fine couvre la zone visible (marge comprise).
     detail: { enabled: true, minZoom: 2.5, margin: 1.35 },
   },
+
+  // Globe : la Terre tourne lentement sous un regard fixe (modes globe, hemisphere, fisheye).
+  globe: {
+    periodMinutes: 12, // un tour en 12 minutes
+    viewLatDeg: 25, // l'hémisphère nord, où le trafic est le plus dense, est un peu tourné vers le public
+    startLonDeg: 0,
+    // Ralentissements (artistiques) quand une zone passe face au public :
+    dwell: [
+      { name: 'Manche et mer du Nord', lonDeg: 2, widthDeg: 25, slowdown: 0.35 },
+      { name: 'Détroit de Malacca et mer de Chine', lonDeg: 110, widthDeg: 30, slowdown: 0.4 },
+    ],
+    limbShading: 0.45, // à l'écran : relief du globe ; au projecteur, la sphère physique s'en charge
+    screenSize: 0.92,
+  },
+
+  // Demi-sphère bombée, un seul projecteur (Epson EB-990U) dans son axe. Calibration sur place : touche C (mire).
+  hemisphere: {
+    distanceRatio: 5.5, // d/R : ex. sphère de 1 m (R = 0,5 m) et projecteur à 2,75 m
+    throwRatio: 1.6, // EB-990U : 1,39 (grand angle) à 2,23 (télé)
+    shiftX: 0,
+    shiftY: 0, // décalage fixe de l'objectif (à mesurer sur place)
+    scale: 1.0, // ajustement fin du diamètre du disque
+    rollDeg: 0,
+    edgeCompensation: 0.6, // la lumière arrive rasante au bord : on renforce, plafonné
+    maxGain: 2.5,
+    edgeSoftness: 0.06, // fondu du bord du disque (pas de lumière sur le mur)
+  },
+
+  fisheye: { fovDeg: 180, model: 'equidistant' },
 
   // Rendu final (communs aux deux cibles, puis surchargés dans `targets`).
   render: {

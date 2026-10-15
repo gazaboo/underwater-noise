@@ -1,0 +1,23 @@
+# Service utilisateur systemd : démarre l'installation à l'ouverture de session et la relance si elle s'arrête.
+#
+# Installation :
+#   mkdir -p ~/.config/systemd/user
+#   cp scripts/vacarme.service ~/.config/systemd/user/
+#   (adapter WorkingDirectory ci-dessous)
+#   systemctl --user daemon-reload && systemctl --user enable --now vacarme.service
+# Journal : journalctl --user -u vacarme -f
+[Unit]
+Description=La carte du vacarme (installation)
+After=graphical-session.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/Documents/dev/frag-carte-bruit
+ExecStart=/usr/bin/env bash scripts/expo.sh
+Restart=always
+RestartSec=5
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=graphical-session.target

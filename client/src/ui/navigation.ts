@@ -12,14 +12,16 @@ export class FlatNavigator {
   private target: FlatNav | null = null;
   private current: FlatNav | null = null;
   private dragging: { x: number; y: number } | null = null;
+  /** Désactivée hors du mode carte plate. */
+  enabled = true;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly getConfig: () => Config,
   ) {
-    canvas.addEventListener('wheel', (e) => this.onWheel(e), { passive: false });
+    canvas.addEventListener('wheel', (e) => this.enabled && this.onWheel(e), { passive: false });
     canvas.addEventListener('pointerdown', (e) => {
-      if (e.button !== 0) return;
+      if (!this.enabled || e.button !== 0) return;
       this.dragging = { x: e.clientX, y: e.clientY };
       canvas.setPointerCapture(e.pointerId);
       canvas.style.cursor = 'grabbing';
@@ -31,8 +33,8 @@ export class FlatNavigator {
     };
     canvas.addEventListener('pointerup', endDrag);
     canvas.addEventListener('pointercancel', endDrag);
-    canvas.addEventListener('dblclick', () => this.reset());
-    addEventListener('keydown', (e) => this.onKey(e));
+    canvas.addEventListener('dblclick', () => this.enabled && this.reset());
+    addEventListener('keydown', (e) => this.enabled && this.onKey(e));
   }
 
   /** Taille du tampon de rendu et rapport tampon / pixels CSS. */

@@ -13,6 +13,7 @@
  */
 import type { Config } from '@vacarme/shared';
 import type { FlatTransform } from '../render/flat-view.ts';
+import { DEG } from '@vacarme/shared';
 import type { ShipLayer } from '../render/ships.ts';
 import type { FieldReader } from '../whales/field-reader.ts';
 import type { CallEvent } from '../whales/whales.ts';
@@ -20,6 +21,59 @@ import { allocate } from './allocator.ts';
 import { AudioOutput, noiseBuffer } from './output.ts';
 import { Bed, ShipVoice } from './ship-voice.ts';
 import { playCall } from './whale-voice.ts';
+
+/**
+ * Ce que l'on « écoute » : distance normalisée d'un point au centre de l'écoute (0 au centre, ~1 au bord,
+ * Infinity hors de vue) et points d'échantillonnage du bruit pour la nappe.
+ */
+export interface Listener {
+  distance(lat: number, lon: number): number;
+  samples(): [number, number][];
+}
+
+/** Carte plate : le centre de la vue, la vue entière. */
+export function flatListener(view: FlatTransform): Listener {
+  return {
+    distance(lat, lon) {
+      const dLon = ((((lon - view.centerLon + 180) % 360) + 360) % 360) - 180;
+      const x = dLon * view.scale;
+      const y = (lat - view.centerLat) * view.scale;
+      if (Math.abs(x) > view.width * 0.55 || Math.abs(y) > view.height * 0.55) return Infinity;
+      return Math.hypot(x, y) / (0.5 * Math.hypot(view.width, view.height));
+    },
+    samples() {
+      const out: [number, number][] = [];
+      for (let gy = 0; gy < 8; gy++)
+        for (let gx = 0; gx < 12; gx++) {
+          const lon = view.centerLon + ((gx + 0.5) / 12 - 0.5) * (view.width / view.scale);
+          const lat = view.centerLat + ((gy + 0.5) / 8 - 0.5) * (view.height / view.scale);
+          if (lat >= view.latMin && lat <= view.latMax) out.push([lat, lon]);
+        }
+      return out;
+    },
+  };
+}
+
+/** Globe : la face visible, centrée sur le point face au public (distance angulaire / 80°). */
+export function globeListener(facingLat: number, facingLon: number): Listener {
+  const p1 = facingLat * DEG;
+  const angle = (lat: number, lon: number) => {
+    const p2 = lat * DEG;
+    const c = Math.sin(p1) * Math.sin(p2) + Math.cos(p1) * Math.cos(p2) * Math.cos((lon - facingLon) * DEG);
+    return Math.acos(Math.max(-1, Math.min(1, c))) / DEG;
+  };
+  return {
+    distance(lat, lon) {
+      const a = angle(lat, lon);
+      return a > 85 ? Infinity : a / 80;
+    },
+    samples() {
+      const out: [number, number][] = [];
+      for (let lat = -80; lat <= 80; lat += 10) for (let lon = -180; lon < 180; lon += 10) if (angle(lat, lon) < 70) out.push([lat, lon]);
+      return out;
+    },
+  };
+}
 
 /** Durée approximative d'un appel (s), pour limiter la polyphonie des cétacés. */
 const CALL_DURATION: Record<string, number> = { blue: 20, fin: 3, humpback: 8, sperm: 2, orca: 2 };
@@ -69,16 +123,7 @@ export class AudioEngine {
     this.muted = !this.muted;
   }
 
-  /** Projection géographique → position relative au centre de la vue (0 au centre, 1 au coin). */
-  private viewDistance(view: FlatTransform, lat: number, lon: number): number {
-    const dLon = ((((lon - view.centerLon + 180) % 360) + 360) % 360) - 180;
-    const x = dLon * view.scale;
-    const y = (lat - view.centerLat) * view.scale;
-    if (Math.abs(x) > view.width * 0.55 || Math.abs(y) > view.height * 0.55) return Infinity;
-    return Math.hypot(x, y) / (0.5 * Math.hypot(view.width, view.height));
-  }
-
-  update(now: number, cfg: Config, view: FlatTransform, ships: ShipLayer, field: FieldReader, calls: CallEvent[]): void {
+  update(now: number, cfg: Config, listener: Listener, ships: ShipLayer, field: FieldReader, calls: CallEvent[]): void {
     const ctx = this.ctx;
     if (!ctx || !this.output || ctx.state !== 'running') {
       if (ctx?.state === 'suspended') this.status = 'son : en attente d\'un clic ou d\'une touche';
@@ -93,7 +138,7 @@ export class AudioEngine {
     for (const ev of calls) {
       if (!a.enabled || this.callsUntil.length >= a.whales.voices) continue;
       const g = ev.group;
-      const d = this.viewDistance(view, g.lat, g.lon);
+      const d = listener.distance(g.lat, g.lon);
       if (!Number.isFinite(d)) continue;
       const clarity = g.rangeM / Math.max(1, g.quietRangeM);
       playCall(ctx, this.output.input, {
@@ -114,7 +159,7 @@ export class AudioEngine {
     for (let i = 0; i < ships.shipCount; i++) {
       const s = ships.shipAt(i, now);
       if (s.sog < 0.5) continue;
-      const d = this.viewDistance(view, s.lat, s.lon);
+      const d = listener.distance(s.lat, s.lon);
       if (!Number.isFinite(d)) continue;
       candidates.push({ id: s.id, score: s.slBroad - a.ships.edgeAttenuationDb * d, i, sog: s.sog, classIndex: s.classIndex, lengthM: s.lengthM });
     }
@@ -146,17 +191,12 @@ export class AudioEngine {
     if (field.ready) {
       let e = 0;
       let k = 0;
-      for (let gy = 0; gy < 8; gy++) {
-        for (let gx = 0; gx < 12; gx++) {
-          const lon = view.centerLon + ((gx + 0.5) / 12 - 0.5) * (view.width / view.scale);
-          const lat = view.centerLat + ((gy + 0.5) / 8 - 0.5) * (view.height / view.scale);
-          if (lat < view.latMin || lat > view.latMax) continue;
-          const db = field.sample(lat, lon, 1);
-          const nat = cfg.bands[0].naturalDb;
-          if (!Number.isFinite(db) || db <= nat + 0.01) continue; // terre ou silence absolu
-          e += Math.pow(10, db / 10);
-          k++;
-        }
+      for (const [lat, lon] of listener.samples()) {
+        const db = field.sample(lat, lon, 1);
+        const nat = cfg.bands[0].naturalDb;
+        if (!Number.isFinite(db) || db <= nat + 0.01) continue; // terre ou silence absolu
+        e += Math.pow(10, db / 10);
+        k++;
       }
       const mean = k ? 10 * Math.log10(e / k) : cfg.bands[0].naturalDb;
       const acc = cfg.accumulation;

@@ -1,4 +1,4 @@
 // Surcharges pour l'exposition (actives avec VACARME_MODE=expo, voir npm run expo au J6).
 {
-  display: { target: 'projector', quality: 'expo' },
+  display: { target: 'projector', quality: 'expo', mode: 'hemisphere' },
 }

@@ -301,7 +301,7 @@ export class ShipLayer {
   }
 
   /** Dessine les navires sur la carte plate. */
-  draw(renderer: THREE.WebGLRenderer, now: number, view: FlatTransform, cfg: Config, pixelRatio: number): void {
+  draw(renderer: THREE.WebGLRenderer, now: number, view: FlatTransform, cfg: Config, pixelRatio: number, target: THREE.WebGLRenderTarget | null = null): void {
     if (!cfg.ships.visible) return;
     const u = this.displayMaterial.uniforms;
     u.uDt.value = this.dtSim(now);
@@ -312,7 +312,7 @@ export class ShipLayer {
     u.uPointSize.value = cfg.ships.pointSize * pixelRatio;
     hexToVec3(cfg.palette.ship, u.uColor.value as THREE.Vector3);
     u.uOpacity.value = cfg.ships.opacity;
-    renderer.setRenderTarget(null);
+    renderer.setRenderTarget(target);
     renderer.render(this.displayScene, this.camera);
   }
 }

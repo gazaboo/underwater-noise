@@ -18,6 +18,8 @@ const qualityProfile = z.object({
   detailSimWidth: z.number().int().min(256).max(2048),
   /** Largeur de la grille physique (champ de bruit calibré en dB). */
   physicsSimWidth: z.number().int().min(256).max(2048),
+  /** Largeur de la texture « monde » (modes globe, demi-sphère, équirect, fisheye). */
+  worldTextureWidth: z.number().int().min(1024).max(4096),
 });
 
 const flatView = z.object({
@@ -70,7 +72,9 @@ const targetOverride = z.object({
 export const configSchema = z.object({
   display: z.object({
     target: z.enum(['screen', 'projector']),
-    mode: z.enum(['flat']),
+    /** flat : carte plate ; globe : globe à l'écran ; hemisphere : demi-sphère éclairée par un projecteur ;
+     *  equirect : texture « monde » brute (TouchDesigner, MapMap) ; fisheye : projection azimutale. */
+    mode: z.enum(['flat', 'globe', 'hemisphere', 'equirect', 'fisheye']),
     quality: z.enum(['expo', 'light']),
   }),
   qualityProfiles: z.object({ expo: qualityProfile, light: qualityProfile }),
@@ -81,6 +85,43 @@ export const configSchema = z.object({
   }),
   render,
   palette,
+  /** Globe (modes globe, hemisphere, fisheye) : rotation de la Terre sous un regard fixe. */
+  globe: z.object({
+    /** Durée d'un tour complet (minutes, temps réel). 0 = immobile. */
+    periodMinutes: z.number().min(0).max(1440),
+    /** Latitude présentée au centre (inclinaison de l'axe vers le public). */
+    viewLatDeg: z.number().min(-90).max(90),
+    /** Longitude au centre au démarrage. */
+    startLonDeg: z.number().min(-180).max(180),
+    /** Ralentissements : quand une longitude passe au centre, la rotation ralentit. */
+    dwell: z.array(z.object({ name: z.string(), lonDeg: z.number(), widthDeg: z.number().min(1).max(180), slowdown: z.number().min(0.02).max(1) })),
+    /** Assombrissement du limbe à l'écran (relief du globe), 0 = aucun. */
+    limbShading: unit,
+    /** Taille du globe à l'écran (fraction de la hauteur). */
+    screenSize: z.number().min(0.2).max(1.5),
+  }),
+  /** Demi-sphère bombée éclairée par un seul projecteur dans son axe. */
+  hemisphere: z.object({
+    /** Distance projecteur – centre de la sphère, en rayons de sphère (d/R). */
+    distanceRatio: z.number().min(1.2).max(50),
+    /** Rapport de projection du projecteur (distance / largeur d'image) au zoom utilisé. */
+    throwRatio: z.number().min(0.3).max(5),
+    /** Décalage de l'axe optique (fraction de la demi-hauteur d'image) : décalage fixe de l'objectif. */
+    shiftX: z.number().min(-2).max(2),
+    shiftY: z.number().min(-2).max(2),
+    /** Ajustement fin de l'échelle et rotation de l'image (degrés). */
+    scale: z.number().min(0.2).max(5),
+    rollDeg: z.number().min(-180).max(180),
+    /** Compensation de luminosité vers le bord (0 = aucune, 1 = 1/cos complet), plafonnée. */
+    edgeCompensation: unit,
+    maxGain: z.number().min(1).max(10),
+    /** Largeur du fondu au bord du disque (en cosinus d'incidence). */
+    edgeSoftness: z.number().min(0).max(0.5),
+  }),
+  fisheye: z.object({
+    fovDeg: z.number().min(60).max(360),
+    model: z.enum(['equidistant', 'equisolid']),
+  }),
   targets: z.object({ screen: targetOverride, projector: targetOverride }),
   waves: z.object({
     /** Nombre de Courant à l'équateur (cellules par pas) : vitesse visuelle des ondes. */
