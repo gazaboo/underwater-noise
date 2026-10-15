@@ -56,3 +56,27 @@ Basan et al. (2024), §4.1.2 et §4.2.3, PDF conservé dans le cache : bruit
 d’écoulement surtout aux basses fréquences ; pic de plateforme identifié à FINO3,
 station de développement. Aucune attribution supplémentaire de panne ou de pic
 instrumental n’est faite aux stations du protocole à partir de cette source.
+
+## Revue achevée, avant comparaison
+
+Toutes les fiches portent `reviewed` ; ce statut signifie application des critères écrits,
+pas validation par un acousticien. Tous les jours déclarent un étalonnage [S] ; les
+segments retenus ne présentent aucun chevauchement [C]. Aucune intervention
+supplémentaire n’est documentée dans les métadonnées consultées.
+
+| Station | Jours prévus [C] | Minutes extraites [C] | Décision sur les mesures seules |
+|---|---:|---:|---|
+| [hjelm](hjelm-qc.png) | 3 | 2115 | Deux silences exclus en été, total 47 min [C]. |
+| [anholt](anholt-qc.png) | 4 | 4983 | Automne exclu, silence persistant ; printemps segment 1, été segment 0 [C]. |
+| [lillebaelt](lillebaelt-qc.png) | 4 | 2820 | Conservée ; pauses d’acquisition laissées absentes. |
+| [stevns](stevns-qc.png) | 3 | 2115 | Hiver exclu, silence persistant. |
+| [fehmarn](fehmarn-qc.png) | 4 | 1380 | Conservée ; acquisition intermittente laissée telle quelle. |
+| [arkona](arkona-qc.png) | 3 | 1035 | Conservée ; pics non attribués conservés. |
+| [hornsrev3](hornsrev3-qc.png) | 3 | 4258 | Printemps et automne : segment 1 [C] ; automne, début à 00:30:07 UTC [C], segment offrant la plus longue durée dans le jour. |
+| [nrs11](nrs11-qc.png) | 4 | 5659 | Conservée ; biologie possible signalée, bandes NOAA inutilisables absentes dès l’export. |
+
+Aucune décidécade supplémentaire exclue par le critère 4b [C]. Les basses fréquences
+sont signalées pour l’écoulement dans les fiches ICES et ne participent pas au calage.
+Les figures laissent désormais les lacunes temporelles en blanc, sans étirer les
+minutes mesurées. Les HDF5 du protocole ont été supprimés après contrôle des empreintes
+et extraction des jours ; le journal et les notices de réutilisation restent dans le cache.

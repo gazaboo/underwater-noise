@@ -91,7 +91,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--protocol', type=Path, default=Path(__file__).with_name('protocol-v1.json'))
     parser.add_argument('--cache', type=Path, default=ROOT / 'tools/.cache/science')
-    parser.add_argument('--only', choices=['ices', 'dma', 'mc', 'nrs'], action='append')
+    parser.add_argument('--only', choices=['ices', 'dma', 'mc', 'nrs', 'wind'], action='append')
     parser.add_argument('--relog', action='store_true', help='consigne les fichiers présents absents du journal (empreinte et taille seules)')
     args = parser.parse_args()
     protocol = json.loads(args.protocol.read_text())
@@ -136,6 +136,17 @@ def main():
             out = args.cache / 'ais' / f'mc-{day}.csv.gz'
             if out.exists(): continue
             record(f'mc-{day}', out, fetch_marinecadastre(day, protocol['marinecadastre']['bounds'], out))
+    if 'wind' in only:
+        # Préparer les seules données météo sans ouvrir une comparaison, en
+        # particulier avant l'exécution unique de la phase de test.
+        from datetime import datetime, timedelta, timezone
+        from station_case import wind_file
+        for spec in protocol['stations']:
+            station = json.loads((Path(__file__).parent / 'stations' / f"{spec['id']}.json").read_text())
+            for day in sorted(spec['days']):
+                start = datetime.fromisoformat(day).replace(tzinfo=timezone.utc)
+                path = wind_file(args.cache, station, start, start + timedelta(days=1))
+                record(f"wind-{spec['id']}-{day}", path, {'source': 'Open-Meteo archive, ERA5 ; paramètres dans station_case.wind_file'})
 
 
 if __name__ == '__main__': main()

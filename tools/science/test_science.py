@@ -122,6 +122,32 @@ class QualityTests(unittest.TestCase):
         self.assertTrue(np.allclose(floor, 55))
         self.assertEqual(dropouts(starts[:60], [20], matrix[:60, :1])[0], [])
 
+    def test_instrument_silence_never_bridges_recording_gaps(self):
+        from qc import dropouts
+        starts = [f'2019-06-05T00:{m:02d}:00Z' for m in range(40)]
+        matrix = np.full((40, 2), 100.0)
+        matrix[20:30] = 50.0
+        # Deux suites de cinq minutes séparées par dix minutes absentes : aucune
+        # n'atteint les dix minutes consécutives du critère 4a.
+        starts[25:] = [f'2019-06-05T00:{m:02d}:00Z' for m in range(35, 50)]
+        self.assertEqual(dropouts(starts, [63, 125], matrix)[0], [])
+
+    def test_persistent_floor_requires_stability_and_matching_spectrum(self):
+        from qc import persistent_floor
+        floor = np.array([55., 60., 65.])
+        stable = np.tile(floor + .2, (100, 1))
+        self.assertTrue(persistent_floor(stable, floor)['detected'])
+        self.assertFalse(persistent_floor(stable + 10, floor)['detected'])
+        varying = stable.copy(); varying[:30] += 5
+        self.assertFalse(persistent_floor(varying, floor)['detected'])
+
+    def test_spectrogram_leaves_recording_gaps_blank(self):
+        from qc import spectrogram_cells
+        edges, cells = spectrogram_cells([0., 1 / 60, 1.], np.array([[80.], [90.], [100.]]))
+        np.testing.assert_allclose(edges, [0., 1 / 60, 2 / 60, 1., 1 + 1 / 60])
+        self.assertTrue(np.isnan(cells[2, 0]))
+        np.testing.assert_allclose(cells[[0, 1, 3], 0], [80, 90, 100])
+
 
 class NoaaTests(unittest.TestCase):
     def test_hmd_to_decidecade_is_exact_for_white_noise(self):
@@ -148,6 +174,34 @@ class CalibrationTests(unittest.TestCase):
         for bounce, sediment, cutoff, depth, f, expected in self.TS_CASES:
             p = {'bottomBounceLossDb': bounce, 'sedimentSoundSpeed': sediment, 'cutoffLossDbPerKm': cutoff, 'grazingAngleDeg': 10, 'extraLossDbPerKm': 0}
             self.assertAlmostEqual(float(loss_rate(np.array(depth, dtype=float), f, p)), expected, places=8)
+
+    def test_calibration_rejects_holdout_and_decimated_geometry(self):
+        from calibrate import Case
+        with tempfile.TemporaryDirectory() as directory:
+            folder = Path(directory)
+            (folder / 's-20190101-world-law.json').write_text('{}')
+            station = folder / 's-20190101-station.json'
+            station.write_text(json.dumps({'split': 'holdout', 'qc': {'status': 'reviewed'}}))
+            with self.assertRaisesRegex(ValueError, 'seules stations de calage'):
+                Case(folder, 's', '2019-01-01')
+            station.write_text(json.dumps({'split': 'calibration', 'qc': {'status': 'reviewed'}}))
+            (folder / 's-20190101-observations.csv').write_text('start,end\n')
+            (folder / 's-20190101-geometry.bin.json').write_text('{"dumpEvery":6}')
+            with self.assertRaisesRegex(ValueError, 'sous-échantillonnée'):
+                Case(folder, 's', '2019-01-01')
+
+    def test_optimizer_keeps_bounds_and_passes_left_out_station(self):
+        from calibrate import BOUNDS, optimize
+        reference = {'bottomBounceLossDb': .09, 'sedimentSoundSpeed': 1700., 'cutoffLossDbPerKm': 5.}
+        calls = []
+        def objective(params, factor, exclude):
+            calls.append(exclude)
+            for name, (lo, hi) in BOUNDS.items(): self.assertTrue(lo <= params[name] <= hi)
+            return ((params['sedimentSoundSpeed'] - 1800) / 100) ** 2 + (factor - 2) ** 2, []
+        value, params, factor = optimize(reference, 3, objective, 'withheld')
+        self.assertEqual(set(calls), {'withheld'})
+        self.assertLess(value, .01)
+        self.assertEqual(factor, 2.)
 
 
 class ValidationTests(unittest.TestCase):

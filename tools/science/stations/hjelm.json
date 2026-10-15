@@ -44,9 +44,22 @@
     "coverageNote": "À quantifier par le diagnostic de rayon."
   },
   "qc": {
-    "status": "draft",
+    "status": "reviewed",
     "excludeBands": [],
-    "excludePeriods": [],
+    "excludePeriods": [
+      {
+        "start": "2019-06-05T20:00:01Z",
+        "end": "2019-06-05T20:30:01Z",
+        "reason": "Silence instrumental, critère 4a ; mesures seules [C].",
+        "source": "docs/validation/qc/hjelm-qc.json"
+      },
+      {
+        "start": "2019-06-05T21:00:01Z",
+        "end": "2019-06-05T21:17:01Z",
+        "reason": "Silence instrumental, critère 4a ; mesures seules [C].",
+        "source": "docs/validation/qc/hjelm-qc.json"
+      }
+    ],
     "flags": [
       {
         "bandsUpToHz": 63,
@@ -56,7 +69,9 @@
       }
     ],
     "notes": [
-      "Revue non réalisée."
-    ]
+      "Étalonnage déclaré dans tous les jours ; absence de chevauchement dans les segments retenus. Aucun autre événement d’intervention documenté dans les métadonnées consultées. Des pics non attribués restent conservés.",
+      "Critères écrits du protocole appliqués par l’agent sur les mesures seules ; pas une revue d’acousticien. Figures et rapports QC examinés le 15/10/2026, avant toute comparaison sur les stations de test."
+    ],
+    "reviewedDate": "2026-10-15"
   }
 }

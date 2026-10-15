@@ -19,12 +19,27 @@
     "product": "NRS Hybrid Millidecade Spectra v3, doi:10.25921/tr4q-xa94, CC0-1.0",
     "note": "Bandes 0–10 Hz et 2–2,5 kHz déclarées inutilisables par le producteur ; « Data include Navy redactions »."
   },
-  "ais": { "source": "MarineCadastre (NOAA/BOEM), AIS terrestre américain", "coverageNote": "À quantifier par le diagnostic de rayon (station à ~60 km de la côte)." },
+  "ais": {
+    "source": "MarineCadastre (NOAA/BOEM), AIS terrestre américain",
+    "coverageNote": "À quantifier par le diagnostic de rayon (station à ~60 km de la côte)."
+  },
   "qc": {
-    "status": "draft",
+    "status": "reviewed",
     "excludeBands": [],
     "excludePeriods": [],
-    "flags": [],
-    "notes": ["Revue non réalisée."]
+    "flags": [
+      {
+        "bandsUpToHz": 31.5,
+        "flag": "possible-fin-whale-chorus",
+        "note": "Signalement : structure stable autour de 20 Hz [C], compatible avec un chœur de rorquals selon la passation ; attribution non confirmée par un acousticien. Biologie non modélisée, aucune exclusion.",
+        "source": "Figures des mesures seules ; docs/PASSATION_VALIDATION.md §5.3"
+      }
+    ],
+    "notes": [
+      "Bandes déclarées inutilisables par NOAA retirées dès l’export ; 10–40 Hz et 1–10 kHz incomplets, non reconstitués artificiellement. Périodes absentes conservées absentes (dont éventuelles redactions Navy, attribution individuelle non disponible).",
+      "Étalonnage déclaré dans tous les jours ; absence de chevauchement dans les segments retenus. Aucun autre événement d’intervention documenté dans les métadonnées consultées. Des pics non attribués restent conservés.",
+      "Critères écrits du protocole appliqués par l’agent sur les mesures seules ; pas une revue d’acousticien. Figures et rapports QC examinés le 15/10/2026, avant toute comparaison sur les stations de test."
+    ],
+    "reviewedDate": "2026-10-15"
   }
 }

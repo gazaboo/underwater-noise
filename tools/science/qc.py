@@ -53,12 +53,14 @@ def dropouts(starts, bands, matrix):
     """Silences instrumentaux (critère 4a) et bandes au plancher (4b)."""
     broadband = 10 * np.log10(np.nansum(10 ** (matrix / 10), axis=1))
     median = np.median(broadband)
-    low = broadband < median - DROPOUT_BELOW_DB
-    steady = np.r_[False, np.abs(np.diff(broadband)) < DROPOUT_STEADY_DB]
+    low = broadband <= median - DROPOUT_BELOW_DB
+    times = np.array([datetime.fromisoformat(s.replace('Z', '+00:00')).timestamp() for s in starts])
+    contiguous = np.r_[False, np.diff(times) == 60]
+    steady = contiguous & np.r_[False, np.abs(np.diff(broadband)) < DROPOUT_STEADY_DB]
     candidate = low & (steady | np.r_[steady[1:], False])
     periods, run = [], []
     for i, flag in enumerate(candidate):
-        if flag and (not run or i == run[-1] + 1): run.append(i); continue
+        if flag and (not run or contiguous[i]): run.append(i); continue
         if len(run) >= DROPOUT_MIN: periods.append(run)
         run = [i] if flag else []
     if len(run) >= DROPOUT_MIN: periods.append(run)
@@ -82,6 +84,60 @@ def day_stats(starts, bands, matrix):
     return {'windows': len(starts), 'bandsHz': bands, 'percentiles': pct, 'narrowDistributionBandsHz': narrow,
             'instrumentSilences': silences, 'bandsAtInstrumentFloorHz': at_floor,
             'floorSuspectBandsHz': at_floor}
+
+
+def persistent_floor(matrix, floor):
+    """Écart n° 3 : jour stable et spectre identique à un silence du même hydrophone.
+
+    La correspondance du numéro d'instrument et des fréquences est vérifiée par
+    persistent_floor_checks ; ce calcul ne lit aucune prédiction.
+    """
+    broadband = 10 * np.log10(np.sum(10 ** (matrix / 10), axis=1))
+    spread = float(np.percentile(broadband, 99) - np.percentile(broadband, 1))
+    delta = float(np.max(np.abs(np.median(matrix, axis=0) - floor)))
+    return {'detected': spread < DROPOUT_STEADY_DB and delta < FLOOR_SPREAD_DB,
+            'broadbandP99MinusP1Db': spread, 'maxMedianSpectrumDifferenceDb': delta}
+
+
+def persistent_floor_checks(protocol, cache, out):
+    """Deuxième passe sur les seules extractions et rapports QC déjà disponibles."""
+    days, references = [], []
+    for spec in protocol['stations']:
+        if 'ices' not in spec: continue
+        report_path = out / f"{spec['id']}-qc.json"
+        if not report_path.exists(): continue
+        report = json.loads(report_path.read_text())
+        for day, stats in report['days'].items():
+            path = cache / 'days' / f"{spec['id']}-{day}.csv"
+            meta = json.loads(path.with_suffix('.metadata.json').read_text())
+            serial = meta['instrument'].get('HydrophoneSerialNumber')
+            if not serial: continue
+            starts, bands, matrix = load(path)
+            days.append((spec['id'], day, serial, bands, matrix, report_path))
+            mask = np.array([any(p['start'] <= s < p['end'] for p in stats['instrumentSilences']) for s in starts])
+            if mask.any():
+                references.append((spec['id'], day, serial, bands, np.median(matrix[mask], axis=0)))
+    for sid, day, serial, bands, matrix, report_path in days:
+        checks = []
+        for ref_sid, ref_day, ref_serial, ref_bands, floor in references:
+            if serial != ref_serial or bands != ref_bands or (sid, day) == (ref_sid, ref_day): continue
+            check = persistent_floor(matrix, floor)
+            checks.append({**check, 'referenceStation': ref_sid, 'referenceDay': ref_day, 'hydrophoneSerialNumber': serial})
+        report = json.loads(report_path.read_text())
+        report['days'][day]['persistentFloorChecks'] = checks
+        report_path.write_text(json.dumps(report, indent=1, ensure_ascii=False) + '\n')
+        for check in checks:
+            if check['detected']: print('Silence persistant :', sid, day, check, flush=True)
+
+
+def spectrogram_cells(hours, matrix):
+    """Cellules de 60 s et cellules vides aux lacunes, sans étirer les mesures."""
+    edges, columns = [hours[0]], []
+    for hour, values in zip(hours, matrix):
+        if hour > edges[-1] + 1e-8:
+            columns.append(np.full(matrix.shape[1], np.nan)); edges.append(hour)
+        columns.append(values); edges.append(hour + 1 / 60)
+    return np.array(edges), np.array(columns)
 
 
 def main():
@@ -131,7 +187,9 @@ def main():
             ax = axes[1][column]
             if len(starts):
                 hours = [(datetime.fromisoformat(s.replace('Z', '+00:00')) - datetime.fromisoformat(f'{day}T00:00:00+00:00')).total_seconds() / 3600 for s in starts]
-                mesh = ax.pcolormesh(hours, bands, matrix.T, shading='nearest', cmap='viridis', vmin=np.nanpercentile(matrix, 2), vmax=np.nanpercentile(matrix, 98))
+                edges, displayed = spectrogram_cells(hours, matrix)
+                frequency_edges = np.r_[bands[0] / 10 ** .05, np.array(bands) * 10 ** .05]
+                mesh = ax.pcolormesh(edges, frequency_edges, displayed.T, shading='flat', cmap='viridis', vmin=np.nanpercentile(matrix, 2), vmax=np.nanpercentile(matrix, 98))
                 ax.set_yscale('log'); ax.set_xlabel('heure UTC'); ax.set_ylabel('Hz'); fig.colorbar(mesh, ax=ax, label='dB')
         fig.suptitle(f"Contrôle qualité des mesures — {station['name']} (aucune prédiction affichée)", fontsize=10)
         fig.savefig(args.out / f"{spec['id']}-qc.png", dpi=80); plt.close(fig)
@@ -141,6 +199,7 @@ def main():
             for entry in station['ices']['files'].values():
                 raw = args.cache / 'ices' / entry['file']
                 if raw.exists(): raw.unlink(); print(f'  supprimé : {raw.name} (empreinte {entry["sha256"][:12]}… dans la fiche)')
+    persistent_floor_checks(protocol, args.cache, args.out)
 
 
 if __name__ == '__main__': main()

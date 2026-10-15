@@ -115,8 +115,9 @@ def run(args):
         if not ram_converged: print(f'ATTENTION : RAM non convergé ({convergence}) ; référence RAM à ne pas interpréter.')
         models['ram-curves'] = ['--ram-curves', str(curves_path)]
     reports = {}
-    # Géométrie des contributions (un instant par minute) pour le calage, profil de référence seulement.
-    models['world-law'] = models['world-law'] + ['--dump', str(out / f'{sid}-{start:%Y%m%d}-geometry.bin')]
+    # Tous les instants de la prédiction : recalcul du calage sur la même énergie,
+    # sans sous-échantillonnage silencieux à un instant par minute.
+    models['world-law'] = models['world-law'] + ['--dump', str(out / f'{sid}-{start:%Y%m%d}-geometry.bin'), '--dump-every', '1']
     for model, extra in models.items():
         prediction = out / f'{sid}-{start:%Y%m%d}-{model}.json'
         predict(station_path, observations, replay, wind, args.start, args.end, model, prediction, [*extra, '--radius-km', str(args.radius_km)])

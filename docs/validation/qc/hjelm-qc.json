@@ -235,7 +235,8 @@
    "narrowDistributionBandsHz": [],
    "instrumentSilences": [],
    "bandsAtInstrumentFloorHz": [],
-   "floorSuspectBandsHz": []
+   "floorSuspectBandsHz": [],
+   "persistentFloorChecks": []
   },
   "2019-04-16": {
    "calibration": "CPC",
@@ -467,7 +468,8 @@
    "narrowDistributionBandsHz": [],
    "instrumentSilences": [],
    "bandsAtInstrumentFloorHz": [],
-   "floorSuspectBandsHz": []
+   "floorSuspectBandsHz": [],
+   "persistentFloorChecks": []
   },
   "2019-06-05": {
    "calibration": "CPC",
@@ -700,13 +702,20 @@
    "instrumentSilences": [
     {
      "start": "2019-06-05T20:00:01Z",
+     "end": "2019-06-05T20:30:01Z",
+     "minutes": 30,
+     "broadbandDb": 78.1480953469848
+    },
+    {
+     "start": "2019-06-05T21:00:01Z",
      "end": "2019-06-05T21:17:01Z",
-     "minutes": 47,
-     "broadbandDb": 78.13128960247712
+     "minutes": 17,
+     "broadbandDb": 78.05436846223348
     }
    ],
    "bandsAtInstrumentFloorHz": [],
-   "floorSuspectBandsHz": []
+   "floorSuspectBandsHz": [],
+   "persistentFloorChecks": []
   }
  }
 }
