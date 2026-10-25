@@ -165,4 +165,14 @@
       notes: 'Contient aussi des appels lointains de phoques léopards (source AWI).',
     },
   ],
+
+  // Photos (fiches espèces) : un fichier de Wikimedia Commons par espèce. Auteur, licence et date sont lus
+  // sur Commons par build_media.py. Choix du 25 oct. 2026 : domaine public (NOAA) d'abord, sinon CC.
+  photos: [
+    { id: 'photo-blue', subject: { species: 'blue' }, title: 'Rorqual bleu en surface', commons: 'Anim1755 - Flickr - NOAA Photo Library.jpg' },
+    { id: 'photo-fin', subject: { species: 'fin' }, title: 'Rorqual commun qui souffle', commons: 'Finhval.jpg', place: 'au large du Groenland' },
+    { id: 'photo-humpback', subject: { species: 'humpback' }, title: 'Baleines à bosse en position de chant', commons: 'Humpback whales in singing position.jpg', place: 'sanctuaire marin national des baleines à bosse (Hawaï)' },
+    { id: 'photo-sperm', subject: { species: 'sperm' }, title: 'Cachalot et son petit', commons: 'Mother and baby sperm whale.jpg', place: 'au large de Maurice' },
+    { id: 'photo-orca', subject: { species: 'orca' }, title: 'Orques en saut', commons: 'Killerwhales jumping.jpg', place: 'île d\'Unimak, Aléoutiennes orientales (Alaska)' },
+  ],
 }

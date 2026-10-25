@@ -133,6 +133,22 @@ OBIS ne distingue pas les écotypes d'orques, dont les répertoires vocaux diff�
 - ❌ « une baleine est ici maintenant » ;
 - ❌ « les zones sans observations sont vides » : elles sont surtout peu observées.
 
+## Fiche espèce
+
+Un clic ou un toucher sur un groupe ouvre sa fiche (`client/src/ui/card.ts`) ; un glissé reste à la navigation,
+un clic dans le vide ou `Échap` la ferme. La fiche contient :
+- une photo libre de droits ou sous licence CC, avec son crédit (Wikimedia Commons, licence lue sur Commons) ;
+- la **portée de ce groupe**, avec le trafic actuel et en océan sans navires [C], mise à jour en continu, avec la
+  mise en garde de `REVUE_SCIENTIFIQUE.md` §6.4 ;
+- les faits naturalistes (`data/fiches/especes.json`), chacun avec son statut et sa source en infobulle :
+  NOAA Fisheries [S] ; statut UICN et effectifs [S-r] tant qu'ils ne sont pas relus sur iucnredlist.org.
+  Quand aucun chiffre fiable n'a été trouvé, la fiche le dit au lieu d'en inventer un ;
+- les vrais enregistrements de l'espèce, avec leur spectrogramme (calculé sur l'original) et un curseur de
+  lecture. Les infrasons sont lus transposés, hauteur et durée ensemble [A], comme sur la carte.
+
+Vérification : `CHROMIUM_PATH=/chemin/chrome node scripts/verify-fiche.mjs` (vrai clic sur chaque espèce,
+lecture du son, glissé, fermeture).
+
 ## Navires
 
 - **Chevrons** orientés selon la route fond [S, AIS], de 7 px [A], avec un liseré sombre.

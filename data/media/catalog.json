@@ -401,6 +401,166 @@
    },
    "notes": "Contient aussi des appels lointains de phoques léopards (source AWI).",
    "status": "S"
+  },
+  {
+   "id": "photo-blue",
+   "kind": "photo",
+   "subject": {
+    "species": "blue"
+   },
+   "title": "Rorqual bleu en surface",
+   "files": {
+    "image": "photos/photo-blue.webp"
+   },
+   "width": 960,
+   "height": 640,
+   "origin": {
+    "source": "Wikimedia Commons, « Anim1755 - Flickr - NOAA Photo Library.jpg » (anim1755)",
+    "url": "https://commons.wikimedia.org/wiki/File:Anim1755_-_Flickr_-_NOAA_Photo_Library.jpg",
+    "author": "NOAA Photo Library",
+    "recordedAt": "2010-09-29 14:16",
+    "place": "Blue whale.",
+    "instrument": "photographie"
+   },
+   "license": "Public domain",
+   "credit": "NOAA Photo Library, Public domain, via Wikimedia Commons",
+   "transforms": [
+    {
+     "op": "vignette",
+     "detail": "960 × 640 px, WebP qualité 80",
+     "status": "E"
+    }
+   ],
+   "notes": "",
+   "status": "S"
+  },
+  {
+   "id": "photo-fin",
+   "kind": "photo",
+   "subject": {
+    "species": "fin"
+   },
+   "title": "Rorqual commun qui souffle",
+   "files": {
+    "image": "photos/photo-fin.webp"
+   },
+   "width": 960,
+   "height": 640,
+   "origin": {
+    "source": "Wikimedia Commons, « Finhval.jpg » (Flickr: Finhval)",
+    "url": "https://commons.wikimedia.org/wiki/File:Finhval.jpg",
+    "author": "Aqqa Rosing-Asvid - Visit Greenland",
+    "recordedAt": "2005-09-22 12:20:33",
+    "place": "au large du Groenland",
+    "instrument": "photographie"
+   },
+   "license": "CC BY 2.0",
+   "credit": "Aqqa Rosing-Asvid - Visit Greenland, CC BY 2.0, via Wikimedia Commons",
+   "transforms": [
+    {
+     "op": "vignette",
+     "detail": "960 × 640 px, WebP qualité 80",
+     "status": "E"
+    }
+   ],
+   "notes": "",
+   "status": "S"
+  },
+  {
+   "id": "photo-humpback",
+   "kind": "photo",
+   "subject": {
+    "species": "humpback"
+   },
+   "title": "Baleines à bosse en position de chant",
+   "files": {
+    "image": "photos/photo-humpback.webp"
+   },
+   "width": 960,
+   "height": 648,
+   "origin": {
+    "source": "Wikimedia Commons, « Humpback whales in singing position.jpg » (NOAA Photo Library: sanc0602)",
+    "url": "https://commons.wikimedia.org/wiki/File:Humpback_whales_in_singing_position.jpg",
+    "author": "Dr. Louis M. Herman.",
+    "recordedAt": "March 2005 or earlier",
+    "place": "sanctuaire marin national des baleines à bosse (Hawaï)",
+    "instrument": "photographie"
+   },
+   "license": "Public domain",
+   "credit": "Dr. Louis M. Herman., Public domain, via Wikimedia Commons",
+   "transforms": [
+    {
+     "op": "vignette",
+     "detail": "960 × 648 px, WebP qualité 80",
+     "status": "E"
+    }
+   ],
+   "notes": "",
+   "status": "S"
+  },
+  {
+   "id": "photo-sperm",
+   "kind": "photo",
+   "subject": {
+    "species": "sperm"
+   },
+   "title": "Cachalot et son petit",
+   "files": {
+    "image": "photos/photo-sperm.webp"
+   },
+   "width": 960,
+   "height": 540,
+   "origin": {
+    "source": "Wikimedia Commons, « Mother and baby sperm whale.jpg » (https://www.flickr.com/photos/barathieu/7277953560/)",
+    "url": "https://commons.wikimedia.org/wiki/File:Mother_and_baby_sperm_whale.jpg",
+    "author": "Gabriel Barathieu",
+    "recordedAt": "2013-01-26 11:58:19",
+    "place": "au large de Maurice",
+    "instrument": "photographie"
+   },
+   "license": "CC BY-SA 2.0",
+   "credit": "Gabriel Barathieu, CC BY-SA 2.0, via Wikimedia Commons",
+   "transforms": [
+    {
+     "op": "vignette",
+     "detail": "960 × 540 px, WebP qualité 80",
+     "status": "E"
+    }
+   ],
+   "notes": "",
+   "status": "S"
+  },
+  {
+   "id": "photo-orca",
+   "kind": "photo",
+   "subject": {
+    "species": "orca"
+   },
+   "title": "Orques en saut",
+   "files": {
+    "image": "photos/photo-orca.webp"
+   },
+   "width": 960,
+   "height": 638,
+   "origin": {
+    "source": "Wikimedia Commons, « Killerwhales jumping.jpg » (NOAA (http://www.afsc.noaa.gov/Quarterly/amj2005/divrptsNMML3.htm]))",
+    "url": "https://commons.wikimedia.org/wiki/File:Killerwhales_jumping.jpg",
+    "author": "Robert Pittman",
+    "recordedAt": "Uploaded December 5, 2006",
+    "place": "île d'Unimak, Aléoutiennes orientales (Alaska)",
+    "instrument": "photographie"
+   },
+   "license": "Public domain",
+   "credit": "Robert Pittman, Public domain, via Wikimedia Commons",
+   "transforms": [
+    {
+     "op": "vignette",
+     "detail": "960 × 638 px, WebP qualité 80",
+     "status": "E"
+    }
+   ],
+   "notes": "",
+   "status": "S"
   }
  ]
 }

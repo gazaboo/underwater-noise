@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import JSON5 from 'json5';
 import { describe, expect, it } from 'vitest';
-import { lieu, lieuIndex, mediaCatalog, speciesCards } from '../src/media-schema.ts';
+import { FACT_LABELS, lieu, lieuIndex, mediaCatalog, speciesCards } from '../src/media-schema.ts';
 
 const ROOT = join(import.meta.dirname, '..', '..');
 const DATA = join(ROOT, 'data');
@@ -78,6 +78,9 @@ describe('fiches espèces', () => {
     for (const c of cards.species) {
       expect(SPECIES.has(c.id), c.id).toBe(true);
       for (const ref of [...c.sounds, ...c.photos]) expect(byId.has(ref), `${c.id} : ${ref}`).toBe(true);
+      for (const key of Object.keys(c.facts)) expect(Object.keys(FACT_LABELS), `${c.id} : rubrique ${key}`).toContain(key);
+      for (const p of c.photos) expect(byId.get(p)?.kind, `${c.id} : ${p}`).toBe('photo');
     }
+    expect(cards.species.map((c) => c.id).sort()).toEqual([...SPECIES].sort());
   });
 });

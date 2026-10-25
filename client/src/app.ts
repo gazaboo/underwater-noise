@@ -20,6 +20,8 @@ import { Whales } from './whales/whales.ts';
 import { FieldReader } from './whales/field-reader.ts';
 import { AudioEngine, flatListener, globeListener } from './audio/engine.ts';
 import { cycleNoise, noiseLabel, noShips, scenarioLabel, toggleScenario } from './ui/scenario.ts';
+import { SpeciesCardPanel } from './ui/card.ts';
+import { distanceM } from './whales/agents.ts';
 import { SceneClock } from './sim/scene-clock.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
 import { FlatNavigator } from './ui/navigation.ts';
@@ -66,6 +68,7 @@ export class App {
   private readonly panel: Panel;
   private readonly science: SciencePanel;
   private readonly legend: Legend;
+  private readonly card: SpeciesCardPanel;
   /** Web autonome : sources de navires dans un worker du navigateur. */
   private local: LocalShipStream | null = null;
   private readonly nav: FlatNavigator;
@@ -132,6 +135,7 @@ export class App {
     this.flat = new FlatView(assets);
     this.science = new SciencePanel();
     this.legend = new Legend();
+    this.card = new SpeciesCardPanel();
     this.volcanoes = new VolcanoLayer(volcanoes);
     this.ornaments = ornaments ? new OrnamentLayer(ornaments.data, ornaments.atlas, ornaments.image) : null;
     // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale. Web autonome : la
@@ -156,6 +160,7 @@ export class App {
     this.nav = new FlatNavigator(canvas, () => this.cfg);
     this.globeCtl = new GlobeController(this.cfg);
     this.globeCtl.install(canvas, () => this.cfg.display.mode === 'globe');
+    this.installPicking(canvas);
     if (overrides.hud) this.hud.toggle(true);
 
     this.speciesKey = JSON.stringify(this.cfg.whales.species);
@@ -492,18 +497,48 @@ export class App {
   }
 
   private cursorGeo(): { lat: number; lon: number } | null {
-    if (!this.mouse || !this.lastView) return null;
+    return this.mouse ? this.geoAt(this.mouse.x, this.mouse.y) : null;
+  }
+
+  /** Point géographique sous un pixel du tampon (origine en bas à gauche), ou null hors du monde. */
+  private geoAt(x: number, y: number): { lat: number; lon: number } | null {
+    if (!this.lastView) return null;
     let point: [number, number] | null;
     if (this.lastGlobe) {
       const g = this.lastGlobe;
-      const p = pixelToGeo(g.mode, g.cam, g.M, this.cfg, this.mouse.x, this.mouse.y, g.w, g.h);
+      const p = pixelToGeo(g.mode, g.cam, g.M, this.cfg, x, y, g.w, g.h);
       point = p ? [p[1], p[0]] : null;
-    } else point = screenToGeo(this.lastView, this.mouse.x, this.mouse.y);
+    } else point = screenToGeo(this.lastView, x, y);
     if (!point || Math.abs(point[1]) > 90) return null;
     return { lat: point[1], lon: ((((point[0] + 180) % 360) + 360) % 360) - 180 };
   }
 
   // ------------------------------------------------------------ entrées
+
+  /**
+   * Fiche espèce au toucher : un tap (moins de 6 px et 400 ms entre l'appui et le relâchement) ouvre la fiche du
+   * groupe le plus proche, dans un rayon de 24 px à l'écran ; un tap dans le vide la ferme. Les glissés restent
+   * à la navigation.
+   */
+  private installPicking(canvas: HTMLCanvasElement): void {
+    let down: { x: number; y: number; t: number } | null = null;
+    canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+    canvas.addEventListener('pointerup', (e) => {
+      const d = down;
+      down = null;
+      if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6 || performance.now() - d.t > 400) return;
+      const ratio = canvas.width / Math.max(1, canvas.clientWidth);
+      const x = e.clientX * ratio;
+      const y = canvas.height - e.clientY * ratio;
+      const geo = this.geoAt(x, y);
+      const edge = this.geoAt(x + 24 * ratio, y);
+      const g = geo && this.cfg.whales.enabled
+        ? this.whales?.nearest(geo.lat, geo.lon, edge ? Math.max(2, distanceM(geo.lat, geo.lon, edge.lat, edge.lon) / 1000) : 300)
+        : null;
+      if (g) this.card.open(g, this.cfg);
+      else this.card.close();
+    });
+  }
 
   /** Web autonome : les touches G, V, S, J, N, M deviennent des boutons ; légende repliée sur petit écran. */
   private installToolbar(): void {
@@ -555,6 +590,7 @@ export class App {
         this.panel.refresh();
       }
       else if (k === 'd') this.hud.toggle();
+      else if (k === 'escape') this.card.close();
       else if (k === 'f') {
         if (document.fullscreenElement) void document.exitFullscreen();
         else void document.documentElement.requestFullscreen();
@@ -697,6 +733,7 @@ export class App {
       const geo = this.cursorGeo();
       const world = geo && this.science.wantsLevels && cfg.physics.enabled ? this.physics.readComponents(r, geo.lat, geo.lon, cfg) : null;
       this.science.update(geo, world, cfg, this.sourceStatus);
+      this.card.update();
       this.legend.update(cfg, scene.scale, this.sceneAgeSec, cfg.noise.warmupMinutes * Math.sign(this.warmupTotal), this.warmupLeft === 0, scene.stale);
     }
     this.hud.frame(dt, performance.now() - t0, this.gpu.lastMs, () => ({

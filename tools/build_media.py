@@ -3,7 +3,7 @@
 # dependencies = ["numpy", "pillow", "requests", "scipy", "json5"]
 # ///
 """
-Catalogue des médias (sons) de la carte : extraits de vrais enregistrements, avec leur provenance.
+Catalogue des médias de la carte : extraits de vrais enregistrements et photos, avec leur provenance.
 
 Entrée : tools/media_sources.json5, écrit à la main. Chaque entrée dit d'où vient l'extrait (source, auteur,
 date, lieu, hydrophone, licence ou accord), où le couper et comment le préparer.
@@ -21,11 +21,14 @@ Pour chaque son :
 La hauteur n'est **jamais** modifiée ici : les fichiers gardent la hauteur d'origine. La transposition des
 infrasons (`audio.whales.transpose`) se fait à la lecture et reste un choix artistique [A].
 
-Sortie : data/media/sons/<id>.ogg, .m4a, <id>.spectro.png, data/media/catalog.json (vérifié par
+Pour chaque photo (section `photos`, fichiers de Wikimedia Commons) : auteur, licence et date sont lus dans les
+métadonnées de Commons (jamais recopiés à la main), vignette de 960 px convertie en WebP.
+
+Sortie : data/media/sons/<id>.ogg, .m4a, <id>.spectro.png, data/media/photos/<id>.webp, data/media/catalog.json (vérifié par
 shared/test/media.test.ts) et docs/MEDIAS.md (table de provenance).
 
 Usage :
-  uv run tools/build_media.py            # tous les sons
+  uv run tools/build_media.py            # tous les médias
   uv run tools/build_media.py orca-s19   # un seul (les autres entrées du catalogue sont conservées)
 """
 from __future__ import annotations
@@ -50,6 +53,9 @@ SOURCES = ROOT / "tools" / "media_sources.json5"
 CACHE = ROOT / "tools" / ".cache" / "media"
 OUT = ROOT / "data" / "media"
 SOUNDS = OUT / "sons"
+PHOTOS = OUT / "photos"
+PHOTO_W = 960
+UA = {"User-Agent": "carte-du-vacarme/0.1 (projet de vulgarisation non commercial)"}
 
 SPECTRO_W, SPECTRO_H = 640, 160
 
@@ -221,11 +227,62 @@ def build(s: dict) -> dict:
     }
 
 
+def build_photo(s: dict) -> dict:
+    """Photo de Wikimedia Commons : métadonnées de licence lues sur Commons, vignette WebP."""
+    import html
+    import re
+
+    pid, name = s["id"], s["commons"]
+    r = requests.get("https://commons.wikimedia.org/w/api.php", headers=UA, timeout=60, params={
+        "action": "query", "format": "json", "prop": "imageinfo", "titles": f"File:{name}",
+        "iiprop": "url|size|extmetadata", "iiurlwidth": PHOTO_W})
+    r.raise_for_status()
+    page = next(iter(r.json()["query"]["pages"].values()))
+    info = page["imageinfo"][0]
+    meta = info["extmetadata"]
+    text = lambda k: html.unescape(re.sub(r"<[^>]+>", "", meta.get(k, {}).get("value", ""))).strip()
+    license_ = text("LicenseShortName")
+    artist = text("Artist")
+    if not license_ or not artist:
+        raise ValueError(f"{pid} : licence ou auteur absent des métadonnées de Commons")
+    cache = CACHE / f"{pid}--{Path(info['thumburl'].split('?')[0]).name}"
+    if not cache.exists():
+        img = requests.get(info["thumburl"], headers=UA, timeout=120)
+        img.raise_for_status()
+        cache.write_bytes(img.content)
+    PHOTOS.mkdir(parents=True, exist_ok=True)
+    im = Image.open(cache).convert("RGB")
+    out = PHOTOS / f"{pid}.webp"
+    im.save(out, "WEBP", quality=80, method=6)
+    return {
+        "id": pid,
+        "kind": "photo",
+        "subject": s["subject"],
+        "title": s["title"],
+        "files": {"image": f"photos/{pid}.webp"},
+        "width": im.width,
+        "height": im.height,
+        "origin": {
+            "source": f"Wikimedia Commons, « {name} »" + (f" ({text('Credit')})" if text("Credit") else ""),
+            "url": info["descriptionurl"],
+            "author": artist,
+            "recordedAt": text("DateTimeOriginal"),
+            "place": s.get("place", "") or text("ImageDescription") or "non précisé",
+            "instrument": "photographie",
+        },
+        "license": license_,
+        "credit": f"{artist}, {license_}, via Wikimedia Commons",
+        "transforms": [{"op": "vignette", "detail": f"{im.width} × {im.height} px, WebP qualité 80", "status": "E"}],
+        "notes": s.get("notes", ""),
+        "status": "S",
+    }
+
+
 def write_doc(items: list[dict]) -> None:
     """docs/MEDIAS.md : table de provenance, une ligne par fichier, régénérée avec le catalogue."""
     cell = lambda s: str(s).replace("|", "\\|").replace("\n", " ")
     lines = [
-        "# Médias : provenance des sons",
+        "# Médias : provenance des sons et des photos",
         "",
         "Fichier **généré** par `tools/build_media.py` à partir de `tools/media_sources.json5` : ne pas le modifier",
         "à la main. Chaque son est un extrait de vrai enregistrement, gardé à sa hauteur d'origine. Le spectrogramme",
@@ -236,7 +293,7 @@ def write_doc(items: list[dict]) -> None:
         "| Son | Sujet | Source | Date, lieu | Licence | Transformations | Niveau actif | Remarques |",
         "|---|---|---|---|---|---|---|---|",
     ]
-    for m in items:
+    for m in (m for m in items if m["kind"] == "son"):
         subject = m["subject"].get("species") or f"lieu `{m['subject'].get('lieu')}`"
         o = m["origin"]
         when = f"{o['recordedAt'] or 'date non précisée'}, {o['place']}"
@@ -244,12 +301,19 @@ def write_doc(items: list[dict]) -> None:
         lines.append(
             f"| `{m['id']}` : {cell(m['title'])}, {m['durationSec']} s | {cell(subject)} | [{cell(o['source'])}]({o['url']}) ; "
             f"{cell(o['instrument'])} | {cell(when)} | {cell(m['license'])} | {cell(tr)} | {m['levelDbfs']} dBFS | {cell(m.get('notes', ''))} |")
+    lines += ["", "## Photos", "", "| Photo | Sujet | Source | Auteur | Licence | Lieu |", "|---|---|---|---|---|---|"]
+    for m in (m for m in items if m["kind"] == "photo"):
+        o = m["origin"]
+        subject = m["subject"].get("species") or f"lieu `{m['subject'].get('lieu')}`"
+        lines.append(f"| `{m['id']}` : {cell(m['title'])} | {cell(subject)} | [{cell(o['source'])}]({o['url']}) | {cell(o['author'])} | "
+                     f"{cell(m['license'])} | {cell(o['place'])} |")
     lines += ["", "## Crédits", ""] + sorted({f"- {m['credit']}" for m in items}) + [""]
     (ROOT / "docs" / "MEDIAS.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def main(only: list[str]) -> None:
-    sources = json5.loads(SOURCES.read_text(encoding="utf-8"))["sons"]
+    spec = json5.loads(SOURCES.read_text(encoding="utf-8"))
+    sources = [*spec["sons"], *spec.get("photos", [])]
     CACHE.mkdir(parents=True, exist_ok=True)
     SOUNDS.mkdir(parents=True, exist_ok=True)
     path = OUT / "catalog.json"
@@ -261,7 +325,7 @@ def main(only: list[str]) -> None:
                 items.append(old[s["id"]])
             continue
         print(f"[media] {s['id']}…", flush=True)
-        items.append(build(s))
+        items.append(build_photo(s) if "commons" in s else build(s))
     catalog = {
         "generated": date.today().isoformat(),
         "about": "Extraits de vrais enregistrements ; provenance et transformations par entrée. Produit par tools/build_media.py.",
@@ -269,8 +333,8 @@ def main(only: list[str]) -> None:
     }
     path.write_text(json.dumps(catalog, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     write_doc(items)
-    total = sum(f.stat().st_size for f in SOUNDS.iterdir())
-    print(f"[media] {len(items)} son(s), {total / 1e6:.2f} Mo dans {SOUNDS.relative_to(ROOT)}")
+    total = sum(f.stat().st_size for d in (SOUNDS, PHOTOS) if d.exists() for f in d.iterdir())
+    print(f"[media] {len(items)} média(s), {total / 1e6:.2f} Mo dans {OUT.relative_to(ROOT)}")
 
 
 if __name__ == "__main__":

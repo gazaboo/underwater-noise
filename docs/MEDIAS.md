@@ -1,4 +1,4 @@
-# Médias : provenance des sons
+# Médias : provenance des sons et des photos
 
 Fichier **généré** par `tools/build_media.py` à partir de `tools/media_sources.json5` : ne pas le modifier
 à la main. Chaque son est un extrait de vrai enregistrement, gardé à sa hauteur d'origine. Le spectrogramme
@@ -16,8 +16,23 @@ est calculé sur l'extrait original, avant filtrage. Les transpositions des infr
 | `glace-palaoa` : Banquise qui frotte et craque, 30.0 s | lieu `palaoa` | [Alfred Wegener Institute, observatoire PALAOA (projet Polar Sounds)](https://audioboom.com/posts/8230903) ; hydrophone PALAOA (extrait diffusé en mp3) | date non précisée, PALAOA, sous la plate-forme d'Ekström, baie d'Atka (Antarctique) | CC-BY 4.0 | découpe (30.0 s) [S] ; passe-haut (100 Hz, ordre 4) [E] ; normalisation (crête à -3 dBFS, fondus 1500 ms) [E] ; encodage (Opus 48kbit/s (.ogg), AAC 64kbit/s (.m4a)) [E] | -27.1 dBFS |  |
 | `phoque-weddell-palaoa` : Phoque de Weddell : séquence de « chirps » descendants, 24.0 s | lieu `palaoa` | [Alfred Wegener Institute, observatoire PALAOA (projet Polar Sounds)](https://audioboom.com/posts/8230215) ; hydrophone PALAOA (extrait diffusé en mp3) | date non précisée, PALAOA, sous la plate-forme d'Ekström, baie d'Atka (Antarctique) | CC-BY 4.0 | découpe (24.0 s) [S] ; passe-haut (100 Hz, ordre 4) [E] ; normalisation (crête à -3 dBFS, fondus 1000 ms) [E] ; encodage (Opus 48kbit/s (.ogg), AAC 64kbit/s (.m4a)) [E] | -15.1 dBFS | Contient aussi des appels lointains de phoques léopards (source AWI). |
 
+## Photos
+
+| Photo | Sujet | Source | Auteur | Licence | Lieu |
+|---|---|---|---|---|---|
+| `photo-blue` : Rorqual bleu en surface | blue | [Wikimedia Commons, « Anim1755 - Flickr - NOAA Photo Library.jpg » (anim1755)](https://commons.wikimedia.org/wiki/File:Anim1755_-_Flickr_-_NOAA_Photo_Library.jpg) | NOAA Photo Library | Public domain | Blue whale. |
+| `photo-fin` : Rorqual commun qui souffle | fin | [Wikimedia Commons, « Finhval.jpg » (Flickr: Finhval)](https://commons.wikimedia.org/wiki/File:Finhval.jpg) | Aqqa Rosing-Asvid - Visit Greenland | CC BY 2.0 | au large du Groenland |
+| `photo-humpback` : Baleines à bosse en position de chant | humpback | [Wikimedia Commons, « Humpback whales in singing position.jpg » (NOAA Photo Library: sanc0602)](https://commons.wikimedia.org/wiki/File:Humpback_whales_in_singing_position.jpg) | Dr. Louis M. Herman. | Public domain | sanctuaire marin national des baleines à bosse (Hawaï) |
+| `photo-sperm` : Cachalot et son petit | sperm | [Wikimedia Commons, « Mother and baby sperm whale.jpg » (https://www.flickr.com/photos/barathieu/7277953560/)](https://commons.wikimedia.org/wiki/File:Mother_and_baby_sperm_whale.jpg) | Gabriel Barathieu | CC BY-SA 2.0 | au large de Maurice |
+| `photo-orca` : Orques en saut | orca | [Wikimedia Commons, « Killerwhales jumping.jpg » (NOAA (http://www.afsc.noaa.gov/Quarterly/amj2005/divrptsNMML3.htm]))](https://commons.wikimedia.org/wiki/File:Killerwhales_jumping.jpg) | Robert Pittman | Public domain | île d'Unimak, Aléoutiennes orientales (Alaska) |
+
 ## Crédits
 
 - Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research 2022 (CC-BY 4.0), projet Polar Sounds
+- Aqqa Rosing-Asvid - Visit Greenland, CC BY 2.0, via Wikimedia Commons
+- Dr. Louis M. Herman., Public domain, via Wikimedia Commons
+- Gabriel Barathieu, CC BY-SA 2.0, via Wikimedia Commons
+- NOAA Photo Library, Public domain, via Wikimedia Commons
 - Orcasound (orcasound.net), CC BY-NC-SA 4.0
 - Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0), consulté le 25 oct. 2026 sur registry.opendata.aws/pacific-sound
+- Robert Pittman, Public domain, via Wikimedia Commons
