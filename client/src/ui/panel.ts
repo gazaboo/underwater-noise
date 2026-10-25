@@ -157,19 +157,86 @@ export class Panel {
     au.addBinding(cfg.audio.whales, 'voices', { label: 'appels simultanés', min: 0, max: 16, step: 1 });
     on(au, 'audio');
 
+    const land = pane.addFolder({ title: 'Terres', expanded: false });
+    land.addBinding(cfg.land, 'style', { label: 'style', options: { 'monde illustré': 'illustre', gouache: 'gouache', aplat: 'flat' } });
+    const il = cfg.land.illustrated;
+    const ill = land.addFolder({ title: 'Monde illustré', expanded: false });
+    ill.addBinding(il, 'tone', { label: 'nuances (NE II)', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il, 'relief', { label: 'relief', min: 0, max: 2, step: 0.01 });
+    ill.addBinding(il.terraces, 'enabled', { label: 'paliers' });
+    ill.addBinding(il.terraces, 'shadow', { label: 'ombre des paliers', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il.terraces, 'lip', { label: 'liseré des paliers', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il.terraces, 'shadowPx', { label: 'ombre (px)', min: 0, max: 20, step: 0.1 });
+    ill.addBinding(il, 'snow', { label: 'neiges', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il, 'rock', { label: 'roche d’altitude', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il.coast, 'beachPx', { label: 'plage (px)', min: 0, max: 20, step: 0.1 });
+    ill.addBinding(il.coast, 'beach', { label: 'plage', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il.coast, 'shadowPx', { label: 'ombre des côtes (px)', min: 0, max: 30, step: 0.1 });
+    ill.addBinding(il.coast, 'shadow', { label: 'ombre des côtes', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il.coast, 'rim', { label: 'liseré des côtes', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il, 'shelf', { label: 'plateau continental', min: 0, max: 1, step: 0.01 });
+    ill.addBinding(il.ripples, 'enabled', { label: 'lignes d’eau' });
+    ill.addBinding(il.ripples, 'spacingPx', { label: 'écart des lignes (px)', min: 2, max: 40, step: 0.5 });
+    ill.addBinding(il.ripples, 'strength', { label: 'intensité des lignes', min: 0, max: 1, step: 0.01 });
+    // Palette du thème affiché (nuit ou jour, touche J) : reconstruire le panneau après un changement de thème.
+    const themePal = cfg.display.theme === 'day' ? il.day : il.night;
+    const ip = ill.addFolder({ title: `Couleurs (${cfg.display.theme === 'day' ? 'jour' : 'nuit'})`, expanded: false });
+    const names: Record<keyof typeof themePal, string> = {
+      ice: 'glace', tundra: 'toundra', boreal: 'forêt boréale', temperate: 'forêt tempérée', tropical: 'forêt tropicale',
+      grass: 'prairie', savanna: 'savane', sand: 'désert de sable', rock: 'désert de roche', mountain: 'roche d’altitude',
+      snow: 'neige', beach: 'plage', shelf: 'plateau continental', ripple: 'lignes d’eau', ornament: 'teinte des vignettes',
+    };
+    for (const k of Object.keys(names) as (keyof typeof themePal)[]) ip.addBinding(themePal, k, { label: names[k], view: 'color' });
+    land.addBinding(cfg.palette, 'landLight', { label: 'luminosité nuit', min: 0, max: 1, step: 0.01 });
+    land.addBinding(cfg.palette, 'landTint', { label: 'teinte nuit', view: 'color' });
+    land.addBinding(cfg.land, 'saturation', { min: 0, max: 3, step: 0.01 });
+    land.addBinding(cfg.land, 'steps', { label: 'paliers', min: 0, max: 12, step: 1 });
+    land.addBinding(cfg.land, 'relief', { min: 0, max: 2, step: 0.01 });
+    land.addBinding(cfg.land, 'brushScale', { label: 'pinceau (°)', min: 0.05, max: 10, step: 0.05 });
+    for (const k of ['brushWarp', 'granulation', 'wetEdge'] as const)
+      land.addBinding(cfg.land, k, { min: 0, max: 1, step: 0.01 });
+    const ornaments = land.addFolder({ title: 'Ornements', expanded: false });
+    const o = cfg.land.ornaments;
+    ornaments.addBinding(o, 'enabled', { label: 'activés' });
+    ornaments.addBinding(o, 'minZoom', { label: 'zoom minimal', min: 1, max: 40, step: 0.1 });
+    ornaments.addBinding(o, 'treeDensity', { label: 'densité des arbres', min: 0, max: 1, step: 0.01 });
+    ornaments.addBinding(o, 'volcanoes', { label: 'volcans' });
+    ornaments.addBinding(o, 'volcanoSize', { label: 'taille des volcans', min: 2, max: 80, step: 1 });
+    ornaments.addBinding(o, 'smokeSinceYear', { label: 'fumée depuis', min: -10000, max: 2100, step: 1 });
+    ornaments.addBinding(o, 'size', { label: 'taille (illustré)', min: 4, max: 200, step: 1 });
+    ornaments.addBinding(o, 'growth', { label: 'croissance au zoom', min: 0, max: 1, step: 0.01 });
+    ornaments.addBinding(o, 'density', { label: 'densité (illustré)', min: 0.1, max: 4, step: 0.05 });
+    ornaments.addBinding(o, 'vegetation', { label: 'végétation, pierres' });
+    ornaments.addBinding(o, 'mountains', { label: 'montagnes' });
+    ornaments.addBinding(o, 'smoke', { label: 'fumée' });
+    ornaments.addBinding(o.clouds, 'enabled', { label: 'nuages' });
+    ornaments.addBinding(o.clouds, 'count', { label: 'nombre de nuages', min: 0, max: 200, step: 1 });
+    ornaments.addBinding(o.clouds, 'opacity', { label: 'opacité des nuages', min: 0, max: 1, step: 0.01 });
+    ornaments.addBinding(o.clouds, 'speed', { label: 'vitesse des nuages', min: 0, max: 10, step: 0.1 });
+    const paper = land.addFolder({ title: 'Papier', expanded: false });
+    paper.addBinding(cfg.land.paper, 'enabled', { label: 'activé' });
+    paper.addBinding(cfg.land.paper, 'strength', { label: 'intensité', min: 0, max: 1, step: 0.01 });
+    paper.addBinding(cfg.land.paper, 'scale', { label: 'échelle', min: 0.2, max: 10, step: 0.1 });
+    const stars = land.addFolder({ title: 'Étoiles (globe)', expanded: false });
+    stars.addBinding(cfg.land.stars, 'enabled', { label: 'activées' });
+    for (const k of ['density', 'twinkle', 'halo'] as const)
+      stars.addBinding(cfg.land.stars, k, { min: 0, max: 1, step: 0.01 });
+    on(land, 'land');
+
     const pal = pane.addFolder({ title: 'Palette', expanded: false });
-    for (const k of ['background', 'oceanShallow', 'oceanDeep', 'land', 'coast', 'wave', 'ship'] as const) {
+    for (const k of ['background', 'oceanShallow', 'oceanDeep', 'land', 'landTint', 'coast', 'wave', 'ship'] as const) {
       pal.addBinding(cfg.palette, k, { view: 'color' });
     }
+    pal.addBinding(cfg.palette, 'landLight', { label: 'luminosité des terres', min: 0, max: 1, step: 0.01 });
     pal.addBinding(cfg.palette, 'bathyRelief', { label: 'relief du fond', min: 0, max: 1, step: 0.01 });
     pal.addBinding(cfg.palette, 'coastOpacity', { label: 'trait de côte', min: 0, max: 1, step: 0.01 });
     on(pal, 'palette');
 
     const day = pane.addFolder({ title: 'Palette de jour (J)', expanded: false });
-    for (const k of ['background', 'oceanShallow', 'oceanDeep', 'land', 'coast', 'wave', 'glow', 'fog', 'ship'] as const) {
+    for (const k of ['background', 'oceanShallow', 'oceanDeep', 'land', 'landTint', 'coast', 'wave', 'glow', 'fog', 'ship'] as const) {
       if (cfg.dayPalette[k] !== undefined) day.addBinding(cfg.dayPalette, k, { view: 'color' });
     }
-    for (const k of ['bathyRelief', 'coastOpacity', 'unknownDim'] as const) {
+    for (const k of ['landLight', 'bathyRelief', 'coastOpacity', 'unknownDim'] as const) {
       if (cfg.dayPalette[k] !== undefined) day.addBinding(cfg.dayPalette, k, { min: 0, max: 1, step: 0.01 });
     }
     on(day, 'palette');
