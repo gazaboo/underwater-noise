@@ -1,5 +1,8 @@
 # Sources de données et licences
 
+Sources candidates, non intégrées (audit pour la vulgarisation, focus régionaux) :
+[`SOURCES_CANDIDATES.md`](SOURCES_CANDIDATES.md).
+
 | Donnée | Source | Licence | Fichiers produits |
 |---|---|---|---|
 | Bathymétrie / altitude | ETOPO 2022 v1, 60″, version « bed » — NOAA NCEI, via OPeNDAP (THREDDS NOAA), pas de 0,05° | Domaine public (gouvernement des États-Unis) | `data/grid/ocean_*.png`, `data/grid/elevation_4096.png` |

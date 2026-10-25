@@ -7,6 +7,49 @@ Le bruit ajouté par les navires s'étend sur l'océan en nappe de paliers chaud
 silhouettes froides, voient leur espace de communication se réduire et leurs appels se briser sur ce bruit.
 Trois usages : installation projetée (demi-sphère), écran du portable, **page web autonome** (sans serveur).
 
+## Intention
+
+L'océan est un monde de sons. Pour beaucoup de cétacés, l'ouïe compte davantage que la vue : ils
+s'y orientent, s'y nourrissent et s'y appellent, parfois à des centaines de kilomètres. Depuis un
+siècle, nous y avons ajouté un bruit de fond nouveau : celui des hélices, des moteurs, des sonars, des
+campagnes sismiques. Ce bruit ne se voit pas et ne s'entend pas depuis la côte. Il reste donc absent
+de notre représentation de l'océan, alors qu'il réduit, jour après jour, l'espace dans lequel ces
+animaux peuvent encore s'entendre.
+
+Ce projet veut rendre cette pression **perceptible** sans la trahir. Il est né comme une œuvre. Il
+cherche à devenir un **outil de vulgarisation scientifique** : un endroit où l'on comprend, en
+quelques minutes, comment vivent les animaux marins et ce que les activités humaines changent pour eux.
+
+Principes :
+
+- **Dire ce que l'on sait, et comment on le sait.** Chaque nombre porte son statut : sourcé, ordre de
+  grandeur, choix empirique ou choix artistique. Une mesure, un modèle et une image ne se confondent pas.
+- **Montrer aussi l'incertitude.** Là où les données manquent (haute mer mal vue par l'AIS, régions peu
+  observées), la carte le dit au lieu de remplir le vide.
+- **Ne pas forcer le trait.** Les cétacés affichés sont aujourd'hui des présences plausibles, pas des
+  animaux suivis. Les portées sans navires sont des bornes hautes. Les exagérations visuelles sont
+  signalées. L'émotion doit venir des faits, pas de leur exagération.
+- **Confronter le modèle au réel.** Les niveaux calculés sont comparés à des enregistrements
+  d'hydrophones selon un protocole publié à l'avance, y compris quand le résultat est un échec.
+- **Rester lisible.** Une personne qui passe doit saisir l'essentiel. Celle qui creuse doit pouvoir
+  remonter jusqu'aux sources.
+
+Prochaines étapes ([issue #15](https://github.com/gazaboo/underwater-noise/issues/15)) :
+- mieux décrire les animaux : répartition, effectifs, taille des groupes, statut de conservation ;
+- faire entendre de vrais enregistrements de cétacés, de navires et d'hydrophones ;
+- ouvrir une fiche par espèce au clic, avec photo, informations naturalistes, sons et spectrogramme ;
+- rendre la couche de bruit facultative, pour laisser respirer l'image ;
+- placer sur le globe des lieux au paysage sonore remarquable (glace, récifs, volcans), avec de vrais
+  enregistrements ([#2](https://github.com/gazaboo/underwater-noise/issues/2)) ;
+- guider le visiteur par un parcours ou une boucle d'attraction
+  ([#4](https://github.com/gazaboo/underwater-noise/issues/4), pistes dans
+  [`docs/PARCOURS_PISTES.md`](docs/PARCOURS_PISTES.md)).
+
+Le projet relève de la **recherche et de la vulgarisation, sans but lucratif**. Il s'appuie sur des
+données publiques, toujours créditées (voir [`docs/SOURCES_DONNEES.md`](docs/SOURCES_DONNEES.md)).
+Les acousticiens, biologistes marins, médiateurs scientifiques, musées et associations qui voudraient
+relire, corriger, prêter des données ou des sons, ou accueillir l'installation sont les bienvenus.
+
 > État : **jalon J6** — navires en direct (aisstream.io), en replay ou simulés ; ondes visibles ;
 > champ de bruit calibré en dB (trois bandes) ; lueur d'accumulation ; terra incognita ; exploration (zoom) ;
 > cétacés : espace de communication rongé par le bruit, liens entre groupes ; son ; globe et demi-sphère
