@@ -258,6 +258,7 @@ export class Whales {
   /** Espaces de communication, anneaux d'appel et fils, dans la carte plate ou la texture monde. */
   draw(renderer: THREE.WebGLRenderer, view: FlatTransform, cfg: Config, opts: WhaleDrawOptions, coverage: THREE.Texture, timeSec: number, target: THREE.WebGLRenderTarget | null = null): void {
     if (!cfg.whales.enabled) return;
+    const focal = this.nearest(opts.center[0], opts.center[1], 20000);
     const groups: GroupDraw[] = this.agents.groups.map((g) => {
       const s = g.species;
       // Rayon visuel maximal : portée en océan calme (le pixel décide ensuite avec le bruit local).
@@ -275,6 +276,7 @@ export class Whales {
         radiusKm,
         color: speciesColor(cfg, s),
         sinceCall: g.callPhase * s.callIntervalSec,
+        focus: g === focal ? 1 : 0,
       };
     });
     this.renderer.setGroups(groups);

@@ -41,7 +41,7 @@ in vec2 iWhale;            // lat, lon
 in vec4 iCall;             // SL, DT, correction de bande (dB), profondeur (m)
 in vec4 iMisc;             // bande (0/1/2), absorption (dB/km), exagération visuelle, rayon visuel (km)
 in vec3 iColor;
-in vec2 iAnim;             // secondes de scène depuis le dernier appel, inutilisé
+in vec2 iAnim;             // secondes de scène depuis le dernier appel, groupe focal (0–1)
 out vec2 vWhale;
 flat out vec4 vCall;
 flat out vec4 vMisc;
@@ -174,13 +174,15 @@ void main() {
   float rp = vAnim.x / uRingSec;
   float ring = rp < 1.0 ? exp(-pow((dVis / rq - rp) / 0.02, 2.0)) * (1.0 - rp * rp) : 0.0;
   float shards = step(0.55, hash2(floor(gl_FragCoord.xy / (3.0 * uFbPerCss)) + floor(rp * 12.0)));
-  ring *= uRings * (now + 0.45 * lost * shards);
+  ring *= uRings * (now + 0.45 * lost * shards) * mix(1.0, mix(0.35, 1.0, vAnim.y), uClose);
 
   if (mask < 0.5) discard;
   float fade = smoothstep(1.0, 0.92, dVis / vMisc.w);
   float fill = mix(uFarFill, uFill, uClose) * now * (1.0 - 0.45 * clamp(dVis / rq, 0.0, 1.0));
-  float aLost = mix(0.35, 1.0, uClose) * uLost * lost * stipple * (1.0 - 0.6 * clamp(dVis / rq, 0.0, 1.0));
-  float aLine = uClose * (uContour * edge + 0.75 * ghost * dash);
+  // Vue rapprochée : la bulle complète pour le groupe focal (le plus proche du centre), discrète ailleurs.
+  float focus = mix(1.0, mix(0.12, 1.0, vAnim.y), uClose);
+  float aLost = mix(0.35, 1.0, uClose) * uLost * lost * stipple * (1.0 - 0.6 * clamp(dVis / rq, 0.0, 1.0)) * focus;
+  float aLine = uClose * (uContour * edge + 0.75 * ghost * dash * focus);
   float a = clamp(fill + aLost + aLine + ring, 0.0, 1.0) * fade;
   vec3 c = mix(vColor, uLostTint, aLost / max(a, 1e-4) * 0.55);
   outColor = vec4(c * a, a); // prémultiplié
@@ -298,6 +300,8 @@ export interface GroupDraw {
   color: THREE.Vector3;
   /** Secondes de scène depuis le dernier appel. */
   sinceCall: number;
+  /** 1 : groupe focal de la vue rapprochée. */
+  focus: number;
 }
 
 export interface LinkDraw {
@@ -327,6 +331,8 @@ export interface WhaleDrawOptions {
   /** 0–1 : anneaux d'appel visibles (masqués quand le temps est très accéléré). */
   rings: number;
   lostTint: THREE.Vector3;
+  /** Centre de la vue (lat, lon) : le groupe le plus proche devient le groupe focal. */
+  center: [number, number];
 }
 
 const premultiplied = {
@@ -442,7 +448,7 @@ export class WhaleRenderer {
       this.iCall.set([g.sl, g.dt, g.noiseCorrection, g.depth], 4 * i);
       this.iMisc.set([g.band, g.alpha, g.visualScale, g.radiusKm], 4 * i);
       this.iColor.set([g.color.x, g.color.y, g.color.z], 3 * i);
-      this.iAnim.set([g.sinceCall, 0], 2 * i);
+      this.iAnim.set([g.sinceCall, g.focus], 2 * i);
     }
     for (const name of ['iWhale', 'iCall', 'iMisc', 'iColor', 'iAnim']) (this.spaceGeo.getAttribute(name) as THREE.BufferAttribute).needsUpdate = true;
     this.spaceGeo.instanceCount = n;

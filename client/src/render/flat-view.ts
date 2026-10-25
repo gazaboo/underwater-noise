@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { naturalLevel, PHYS_POLAR_CAP_DEG, WAVE_VISIBLE_DB, WAVE_FULL_DB, type Config } from '@vacarme/shared';
 import { PAPER_GLSL } from './paper.ts';
+import { NoiseInk } from './noise-ink.ts';
 import type { WorldAssets } from '../assets.ts';
 import { FullscreenPass, hexToVec3, rawMaterial } from './fullscreen.ts';
 import type { PhysicsField } from '../sim/physics-sim.ts';
@@ -99,6 +100,7 @@ uniform int uDebugField;        // 0 : rendu ; 1 : niveau accumulé ; 2–4 : ba
 // Bruit ajouté (couche de données) : ΔL lissé, représentation choisie (docs/REPRESENTATION.md).
 uniform sampler2D uNoiseDb;     // RGB = ΔL (dB) par bande, lissé (préparé par NOISE_PREP_FRAG)
 uniform vec3 uBandSel;
+uniform sampler2D uInk;         // traînées d'encre (style 3), équirectangulaire
 uniform int uNoiseStyle;        // 0 fronts ; 1 isophones ; 2 météo ; 3 encre
 uniform vec3 uNoiseLow, uNoiseMid, uNoiseHigh;
 uniform vec3 uNoiseSteps;       // paliers (dB)
@@ -452,6 +454,7 @@ void main() {
       vec4 sheet = noiseSheet(dl, uNoiseStyle == 1 ? 0.6 : 0.0);
       if (uNoiseStyle == 3) sheet.a *= 0.45;
       noisy = mix(ocean, sheet.rgb, sheet.a);
+      if (uNoiseStyle == 3) noisy = mix(noisy, uNoiseHigh, clamp(texture(uInk, uv).r * 1.4, 0.0, 1.0) * mix(0.5, 1.0, uNoiseLines));
       if (uNoiseStyle == 1) noisy = mix(noisy, uNoiseHigh, isophones(dl, uTime) * uNoiseLines);
       // Météo : un trait fin à chaque palier, pour lire la carte sans couleur.
       if (uNoiseStyle == 2) {
@@ -547,6 +550,8 @@ void main() {
 
 export class FlatView {
   private noiseDb: THREE.WebGLRenderTarget | null = null;
+  private ink: NoiseInk | null = null;
+  private lastTime: number | null = null;
   private noiseKey = '';
   private readonly noisePass = new FullscreenPass(rawMaterial(NOISE_PREP_FRAG, {
     uExcess: { value: null }, uOcean: { value: null }, uTexel: { value: new THREE.Vector2() },
@@ -598,6 +603,7 @@ export class FlatView {
       uWaveKeep: { value: 0.35 },
       uDebugField: { value: 0 },
       uNoiseDb: { value: null },
+      uInk: { value: null },
       uBandSel: { value: new THREE.Vector3(1, 0, 0) },
       uNoiseStyle: { value: 1 },
       uNoiseLow: { value: v3() }, uNoiseMid: { value: v3() }, uNoiseHigh: { value: v3() },
@@ -746,6 +752,12 @@ export class FlatView {
       this.noiseKey = noiseKey;
     }
     u.uNoiseDb.value = this.noiseDb.texture;
+    if (n.style === 'encre') {
+      this.ink ??= new NoiseInk();
+      this.ink.update(renderer, this.noiseDb.texture, field.ocean, cfg, time, this.lastTime === null ? 0 : time - this.lastTime);
+      u.uInk.value = this.ink.texture;
+    } else u.uInk.value = this.noiseDb.texture;
+    this.lastTime = time;
     (u.uBandSel.value as THREE.Vector3).set(bandIndex === 0 ? 1 : 0, bandIndex === 1 ? 1 : 0, bandIndex === 2 ? 1 : 0);
     u.uNoiseStyle.value = { fronts: 0, isophones: 1, meteo: 2, encre: 3 }[n.style];
     hexToVec3(cfg.palette.noiseLow, u.uNoiseLow.value);

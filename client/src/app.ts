@@ -366,7 +366,7 @@ export class App {
    * Réglages de dessin des cétacés pour l'affichage courant : vue globale ou rapprochée selon les pixels
    * par degré à l'écran ; anneaux d'appel masqués quand le temps est très accéléré (ils clignoteraient).
    */
-  private whaleOptions(cfg: Config, pxPerDeg: number, fbPerCss: number, timeScale: number): WhaleDrawOptions | null {
+  private whaleOptions(cfg: Config, pxPerDeg: number, fbPerCss: number, timeScale: number, center: [number, number]): WhaleDrawOptions | null {
     const noise = this.flat.noiseTexture;
     if (!cfg.physics.enabled || !noise) return null;
     const lod = cfg.whales.lod;
@@ -378,6 +378,7 @@ export class App {
       fbPerCss,
       rings: 1 - THREE.MathUtils.smoothstep(timeScale, 3, 10),
       lostTint: hexToVec3(cfg.palette.noiseMid),
+      center,
     };
   }
 
@@ -562,7 +563,7 @@ export class App {
       // Les points grossissent un peu quand on zoome, pour rester lisibles.
       this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
       const screen = { mode: 'flat' as const, width: size.x, height: size.y, pixelRatio: r.getPixelRatio(), flat: view };
-      const opts = this.whaleOptions(cfg, displayPxPerDeg(screen, cfg), r.getPixelRatio(), scene.scale);
+      const opts = this.whaleOptions(cfg, displayPxPerDeg(screen, cfg), r.getPixelRatio(), scene.scale, [view.centerLat, view.centerLon]);
       if (opts) this.whales?.draw(r, view, cfg, opts, this.coverage, wall);
       if (cfg.physics.enabled) this.whales?.drawGlyphs(r, screen, cfg, wall);
     } else {
@@ -591,7 +592,7 @@ export class App {
       this.flat.displayPxPerDeg = OrnamentLayer.pxPerDeg(ornView, cfg);
       this.flat.render(r, this.physics, interpolation, this.coverage, world, cfg, wall, this.worldTarget);
       this.ships.draw(r, now, world, cfg, 1, this.worldTarget);
-      const opts = this.whaleOptions(cfg, this.flat.displayPxPerDeg, world.scale / this.flat.displayPxPerDeg, scene.scale);
+      const opts = this.whaleOptions(cfg, this.flat.displayPxPerDeg, world.scale / this.flat.displayPxPerDeg, scene.scale, [facingLat, this.globeCtl.facingLon]);
       if (opts) this.whales?.draw(r, world, cfg, opts, this.coverage, wall, this.worldTarget);
       this.globe.render(r, this.worldTarget.texture, gm, cam, M, cfg, size.x, size.y, wall);
       if (!this.globe.calibration) {
