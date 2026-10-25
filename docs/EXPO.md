@@ -90,6 +90,7 @@ simulation s'il n'y a pas de fichier). Toutes les données nécessaires sont loc
 | `V` | représentation du bruit : isophones → météo → encre → fronts bruts → nappe masquée |
 | `S` | scénario : trafic actuel ↔ océan sans navires (calculé) |
 | clic sur un cétacé | fiche de l'espèce : photo, portée du groupe, faits sourcés, vrais enregistrements (`Échap` ferme) |
+| clic sur un lieu (anneau ivoire) | fiche du lieu : texte, paire de contraste, vrais enregistrements ; on entend le lieu le plus proche du centre de la vue |
 
 ## 8. Performances mesurées (780M, Chromium + Vulkan)
 

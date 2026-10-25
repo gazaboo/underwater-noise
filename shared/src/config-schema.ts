@@ -211,6 +211,12 @@ export const configSchema = z.object({
    * calculé pour revenir à l'état actuel sans attente.
    */
   scenario: z.enum(['actuel', 'sans-navires']).default('actuel'),
+  /** Lieux à écouter (data/lieux) : marqueurs à taille fixe à l'écran. */
+  lieux: z.object({
+    enabled: z.boolean().default(true),
+    markerPx: z.number().min(6).max(80).default(22),
+    color: color.default('#f2e6c9'),
+  }).default({}),
   ships: z.object({
     visible: z.boolean(),
     pointSize: z.number().min(0).max(10),
@@ -495,6 +501,8 @@ export const configSchema = z.object({
       /** Durée maximale jouée par appel enregistré (s réelles), par espèce. */
       maxCallSec: z.record(z.string(), z.number().min(0.2).max(60)),
     }),
+    /** Paysage sonore du lieu le plus proche du centre de la vue (un seul à la fois). */
+    lieux: z.object({ volume: unit }).default({ volume: 0.7 }),
   }),
   server: z.object({
     port: z.number().int(),

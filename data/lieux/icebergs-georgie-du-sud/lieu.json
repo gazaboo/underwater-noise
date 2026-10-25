@@ -1,0 +1,10 @@
+{
+ "id": "icebergs-georgie-du-sud",
+ "title": "Icebergs de la mer de Scotia",
+ "center": { "lat": -54.5, "lon": -36.5 },
+ "radiusKm": 300,
+ "text": "Les icebergs grondent quand ils se fendent, se brisent ou frottent le fond. Les hydrophones de la NOAA ont suivi ainsi la dislocation de l'iceberg A53a près de la Géorgie du Sud en 2008. Ces séismes de glace s'entendent à plus de 5 000 km : c'est l'un d'eux, le « Bloop » de 1997, qui a longtemps passé pour un mystère.",
+ "status": "S",
+ "source": "NOAA PMEL, « Icequakes (Bloop) » ; position du lieu : Géorgie du Sud, approximative [S-r]",
+ "sounds": ["iceberg-tremor-georgie-du-sud", "iceberg-velage-georgie-du-sud"]
+}

@@ -54,7 +54,7 @@
     }
    ],
    "spectrogram": {
-    "file": "sons/blue-ab-mars-20171101.spectro.png",
+    "file": "sons/blue-ab-mars-20171101.spectro.webp",
     "fMinHz": 10,
     "fMaxHz": 120,
     "computedOn": "original"
@@ -114,7 +114,7 @@
     }
    ],
    "spectrogram": {
-    "file": "sons/fin-mars-20231201.spectro.png",
+    "file": "sons/fin-mars-20231201.spectro.webp",
     "fMinHz": 5,
     "fMaxHz": 60,
     "computedOn": "original"
@@ -174,7 +174,7 @@
     }
    ],
    "spectrogram": {
-    "file": "sons/humpback-mars-20151207.spectro.png",
+    "file": "sons/humpback-mars-20151207.spectro.webp",
     "fMinHz": 50,
     "fMaxHz": 3000,
     "computedOn": "original"
@@ -229,7 +229,7 @@
     }
    ],
    "spectrogram": {
-    "file": "sons/sperm-palaoa.spectro.png",
+    "file": "sons/sperm-palaoa.spectro.webp",
     "fMinHz": 500,
     "fMaxHz": 15000,
     "computedOn": "original"
@@ -284,7 +284,7 @@
     }
    ],
    "spectrogram": {
-    "file": "sons/orca-j-s01.spectro.png",
+    "file": "sons/orca-j-s01.spectro.webp",
     "fMinHz": 200,
     "fMaxHz": 8000,
     "computedOn": "original"
@@ -339,7 +339,7 @@
     }
    ],
    "spectrogram": {
-    "file": "sons/glace-palaoa.spectro.png",
+    "file": "sons/glace-palaoa.spectro.webp",
     "fMinHz": 50,
     "fMaxHz": 6000,
     "computedOn": "original"
@@ -394,13 +394,498 @@
     }
    ],
    "spectrogram": {
-    "file": "sons/phoque-weddell-palaoa.spectro.png",
+    "file": "sons/phoque-weddell-palaoa.spectro.webp",
     "fMinHz": 50,
     "fMaxHz": 6000,
     "computedOn": "original"
    },
    "notes": "Contient aussi des appels lointains de phoques léopards (source AWI).",
    "status": "S"
+  },
+  {
+   "id": "phoque-calme-glacier-bay-2020",
+   "kind": "son",
+   "subject": {
+    "lieu": "glacier-bay"
+   },
+   "title": "Phoque commun : rugissement, été 2020, sans paquebots",
+   "files": {
+    "ogg": "sons/phoque-calme-glacier-bay-2020.ogg",
+    "m4a": "sons/phoque-calme-glacier-bay-2020.m4a"
+   },
+   "durationSec": 19.81,
+   "sampleRateHz": 44100,
+   "levelDbfs": -24.5,
+   "origin": {
+    "source": "U.S. National Park Service, Glacier Bay National Park, « Sounds Recorded in Glacier Bay »",
+    "url": "https://www.nps.gov/glba/learn/nature/soundclips.htm",
+    "author": "National Park Service (C. Gabriele et al.)",
+    "recordedAt": "2020-08-07T16:31",
+    "place": "embouchure de Glacier Bay (Alaska), hydrophone ancré",
+    "instrument": "hydrophone de surveillance du bruit ambiant du NPS"
+   },
+   "license": "domaine public (gouvernement des États-Unis)",
+   "credit": "U.S. National Park Service, Glacier Bay National Park (domaine public)",
+   "transforms": [
+    {
+     "op": "découpe",
+     "detail": "19.8 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "40 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 400 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 48kbit/s (.ogg), AAC 64kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/phoque-calme-glacier-bay-2020.spectro.webp",
+    "fMinHz": 20,
+    "fMaxHz": 3000,
+    "computedOn": "original"
+   },
+   "notes": "Été 2020 : pas de paquebots dans la baie (pandémie). Les phoques mâles « rugissent » pour défendre leur territoire.",
+   "status": "S"
+  },
+  {
+   "id": "phoque-navire-glacier-bay-2005",
+   "kind": "son",
+   "subject": {
+    "lieu": "glacier-bay"
+   },
+   "title": "Phoque commun : rugissement avec bruit de navire, 2005",
+   "files": {
+    "ogg": "sons/phoque-navire-glacier-bay-2005.ogg",
+    "m4a": "sons/phoque-navire-glacier-bay-2005.m4a"
+   },
+   "durationSec": 15.78,
+   "sampleRateHz": 22050,
+   "levelDbfs": -24.0,
+   "origin": {
+    "source": "U.S. National Park Service, Glacier Bay National Park, « Sounds Recorded in Glacier Bay »",
+    "url": "https://www.nps.gov/glba/learn/nature/soundclips.htm",
+    "author": "National Park Service (C. Gabriele et al.)",
+    "recordedAt": "2005-07-21T13:23:46",
+    "place": "embouchure de Glacier Bay (Alaska), hydrophone ancré",
+    "instrument": "hydrophone de surveillance du bruit ambiant du NPS"
+   },
+   "license": "domaine public (gouvernement des États-Unis)",
+   "credit": "U.S. National Park Service, Glacier Bay National Park (domaine public)",
+   "transforms": [
+    {
+     "op": "découpe",
+     "detail": "15.8 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "40 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 400 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 48kbit/s (.ogg), AAC 64kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/phoque-navire-glacier-bay-2005.spectro.webp",
+    "fMinHz": 20,
+    "fMaxHz": 3000,
+    "computedOn": "original"
+   },
+   "notes": "Raies continues vers 1 kHz : moteur du navire. Autre jour et autre animal que l'extrait de 2020 : contraste d'ambiance, pas mesure.",
+   "status": "S"
+  },
+  {
+   "id": "bosses-phoques-calme-glacier-bay-2020",
+   "kind": "son",
+   "subject": {
+    "lieu": "glacier-bay"
+   },
+   "title": "Baleines à bosse et phoques communs dans le calme, juin 2020",
+   "files": {
+    "ogg": "sons/bosses-phoques-calme-glacier-bay-2020.ogg",
+    "m4a": "sons/bosses-phoques-calme-glacier-bay-2020.m4a"
+   },
+   "durationSec": 32.0,
+   "sampleRateHz": 44100,
+   "levelDbfs": -20.9,
+   "origin": {
+    "source": "U.S. National Park Service, Glacier Bay National Park, « Sounds Recorded in Glacier Bay »",
+    "url": "https://www.nps.gov/glba/learn/nature/soundclips.htm",
+    "author": "National Park Service (C. Gabriele et al.)",
+    "recordedAt": "2020-06-22T17:00",
+    "place": "embouchure de Glacier Bay (Alaska), hydrophone ancré",
+    "instrument": "hydrophone de surveillance du bruit ambiant du NPS"
+   },
+   "license": "domaine public (gouvernement des États-Unis)",
+   "credit": "U.S. National Park Service, Glacier Bay National Park (domaine public)",
+   "transforms": [
+    {
+     "op": "par la source",
+     "detail": "amplifié par la source (« AMPLIFIED »)",
+     "status": "A"
+    },
+    {
+     "op": "découpe",
+     "detail": "32.0 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "40 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 1500 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 48kbit/s (.ogg), AAC 64kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/bosses-phoques-calme-glacier-bay-2020.spectro.webp",
+    "fMinHz": 20,
+    "fMaxHz": 3000,
+    "computedOn": "original"
+   },
+   "notes": "",
+   "status": "S"
+  },
+  {
+   "id": "iceberg-tremor-georgie-du-sud",
+   "kind": "son",
+   "subject": {
+    "lieu": "icebergs-georgie-du-sud"
+   },
+   "title": "Iceberg : trémor harmonique",
+   "files": {
+    "ogg": "sons/iceberg-tremor-georgie-du-sud.ogg",
+    "m4a": "sons/iceberg-tremor-georgie-du-sud.m4a"
+   },
+   "durationSec": 60.0,
+   "sampleRateHz": 999,
+   "levelDbfs": -13.1,
+   "origin": {
+    "source": "NOAA PMEL, Acoustics Program, « Icequakes (Bloop) »",
+    "url": "https://pmel.noaa.gov/acoustics/sounds/bloop.html",
+    "author": "NOAA Pacific Marine Environmental Laboratory",
+    "recordedAt": "",
+    "place": "mer de Scotia (hydrophones NOAA), près de la Géorgie du Sud",
+    "instrument": "hydrophone autonome NOAA"
+   },
+   "license": "domaine public (gouvernement des États-Unis)",
+   "credit": "NOAA PMEL Acoustics Program (domaine public)",
+   "transforms": [
+    {
+     "op": "par la source",
+     "detail": "accéléré ×3 par la source",
+     "status": "A"
+    },
+    {
+     "op": "découpe",
+     "detail": "60.0 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "3 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 1500 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 16kbit/s (.ogg), AAC 24kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/iceberg-tremor-georgie-du-sud.spectro.webp",
+    "fMinHz": 1,
+    "fMaxHz": 450,
+    "computedOn": "original"
+   },
+   "notes": "Iceberg en contact avec le fond ou avec un autre iceberg : fondamentale de 40 Hz et ses harmoniques (source PMEL), entendue ×3.",
+   "status": "S"
+  },
+  {
+   "id": "iceberg-velage-georgie-du-sud",
+   "kind": "son",
+   "subject": {
+    "lieu": "icebergs-georgie-du-sud"
+   },
+   "title": "Iceberg A53a : vêlage (un pan qui se détache)",
+   "files": {
+    "ogg": "sons/iceberg-velage-georgie-du-sud.ogg",
+    "m4a": "sons/iceberg-velage-georgie-du-sud.m4a"
+   },
+   "durationSec": 42.0,
+   "sampleRateHz": 8000,
+   "levelDbfs": -18.0,
+   "origin": {
+    "source": "NOAA PMEL, Acoustics Program, « Icequakes (Bloop) »",
+    "url": "https://pmel.noaa.gov/acoustics/sounds/bloop.html",
+    "author": "NOAA Pacific Marine Environmental Laboratory",
+    "recordedAt": "2008",
+    "place": "mer de Scotia (hydrophones NOAA), près de la Géorgie du Sud",
+    "instrument": "hydrophone autonome NOAA"
+   },
+   "license": "domaine public (gouvernement des États-Unis)",
+   "credit": "NOAA PMEL Acoustics Program (domaine public)",
+   "transforms": [
+    {
+     "op": "par la source",
+     "detail": "accéléré ×3 par la source",
+     "status": "A"
+    },
+    {
+     "op": "découpe",
+     "detail": "42.0 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "3 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "passe-bas",
+     "detail": "450 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 1500 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 16kbit/s (.ogg), AAC 24kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/iceberg-velage-georgie-du-sud.spectro.webp",
+    "fMinHz": 1,
+    "fMaxHz": 450,
+    "computedOn": "original"
+   },
+   "notes": "Signal bref et large bande (1–440 Hz selon la source), entendu ×3.",
+   "status": "S"
+  },
+  {
+   "id": "volcan-sifflement-pacifique-est-1997",
+   "kind": "son",
+   "subject": {
+    "lieu": "pacifique-est-volcan"
+   },
+   "title": "Éruption sous-marine : « Whistle »",
+   "files": {
+    "ogg": "sons/volcan-sifflement-pacifique-est-1997.ogg",
+    "m4a": "sons/volcan-sifflement-pacifique-est-1997.m4a"
+   },
+   "durationSec": 51.71,
+   "sampleRateHz": 8000,
+   "levelDbfs": -15.1,
+   "origin": {
+    "source": "NOAA PMEL, Acoustics Program, « Submarine Volcanic Eruption (Whistle) »",
+    "url": "https://pmel.noaa.gov/acoustics/sounds/whistle.html",
+    "author": "NOAA Pacific Marine Environmental Laboratory",
+    "recordedAt": "1997-07-07T07:30Z",
+    "place": "hydrophone autonome du Pacifique Est, 8° N 110° O",
+    "instrument": "hydrophone autonome NOAA"
+   },
+   "license": "domaine public (gouvernement des États-Unis)",
+   "credit": "NOAA PMEL Acoustics Program (domaine public)",
+   "transforms": [
+    {
+     "op": "par la source",
+     "detail": "accéléré ×16 par la source",
+     "status": "A"
+    },
+    {
+     "op": "par la source",
+     "detail": "filtre passe-bande 8–20 Hz (avant accélération) par la source",
+     "status": "A"
+    },
+    {
+     "op": "découpe",
+     "detail": "51.7 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "20 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "passe-bas",
+     "detail": "450 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 1500 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 16kbit/s (.ogg), AAC 24kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/volcan-sifflement-pacifique-est-1997.spectro.webp",
+    "fMinHz": 1,
+    "fMaxHz": 400,
+    "computedOn": "original"
+   },
+   "notes": "Un seul hydrophone l'a enregistré : la position du volcan est inconnue, peut-être à des milliers de kilomètres.",
+   "status": "S"
+  },
+  {
+   "id": "calme-mars-20210521",
+   "kind": "son",
+   "subject": {
+    "lieu": "monterey"
+   },
+   "title": "Nuit calme : impulsions brèves, pas de grondement continu",
+   "files": {
+    "ogg": "sons/calme-mars-20210521.ogg",
+    "m4a": "sons/calme-mars-20210521.m4a"
+   },
+   "durationSec": 30.0,
+   "sampleRateHz": 2000,
+   "levelDbfs": -24.6,
+   "origin": {
+    "source": "MBARI, Pacific Ocean Sound Recordings (hydrophone de l'observatoire câblé MARS)",
+    "url": "https://registry.opendata.aws/pacific-sound/",
+    "author": "Monterey Bay Aquarium Research Institute (MBARI)",
+    "recordedAt": "2021-05-21T01:30:00Z",
+    "place": "Smooth Ridge, au large de la baie de Monterey (Californie), ≈ 900 m de fond",
+    "instrument": "hydrophone MARS, fichier décimé à 2 kHz"
+   },
+   "license": "CC-BY 4.0",
+   "credit": "Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0), consulté le 25 oct. 2026 sur registry.opendata.aws/pacific-sound",
+   "transforms": [
+    {
+     "op": "découpe",
+     "detail": "30.0 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "8 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "passe-bas",
+     "detail": "400 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 1500 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 16kbit/s (.ogg), AAC 24kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/calme-mars-20210521.spectro.webp",
+    "fMinHz": 5,
+    "fMaxHz": 300,
+    "computedOn": "original"
+   },
+   "notes": "Niveau le plus bas de la journée dans la bande de 63 Hz (−96 dBFS, non calibré).",
+   "status": "S"
+  },
+  {
+   "id": "navire-mars-20210521",
+   "kind": "son",
+   "subject": {
+    "lieu": "monterey"
+   },
+   "title": "Passage d'un navire : grondement continu sous 100 Hz",
+   "files": {
+    "ogg": "sons/navire-mars-20210521.ogg",
+    "m4a": "sons/navire-mars-20210521.m4a"
+   },
+   "durationSec": 30.0,
+   "sampleRateHz": 2000,
+   "levelDbfs": -13.7,
+   "origin": {
+    "source": "MBARI, Pacific Ocean Sound Recordings (hydrophone de l'observatoire câblé MARS)",
+    "url": "https://registry.opendata.aws/pacific-sound/",
+    "author": "Monterey Bay Aquarium Research Institute (MBARI)",
+    "recordedAt": "2021-05-21T22:27:00Z",
+    "place": "Smooth Ridge, au large de la baie de Monterey (Californie), ≈ 900 m de fond",
+    "instrument": "hydrophone MARS, fichier décimé à 2 kHz"
+   },
+   "license": "CC-BY 4.0",
+   "credit": "Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0), consulté le 25 oct. 2026 sur registry.opendata.aws/pacific-sound",
+   "transforms": [
+    {
+     "op": "découpe",
+     "detail": "30.0 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "8 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "passe-bas",
+     "detail": "400 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 1500 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 16kbit/s (.ogg), AAC 24kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/navire-mars-20210521.spectro.webp",
+    "fMinHz": 5,
+    "fMaxHz": 300,
+    "computedOn": "original"
+   },
+   "notes": "Identification [E] : la nôtre, pas celle de la source. Montée lente de ≈ 10 dB dans la bande de 63 Hz sur une demi-heure, énergie continue sous 100 Hz : signature typique d'un passage de navire. Non confirmée par l'AIS. Les niveaux des deux extraits sont normalisés : l'écart réel (≈ 4 dB en médiane sous 100 Hz sur 60 s) ne s'entend pas tel quel.",
+   "status": "E"
   },
   {
    "id": "photo-blue",

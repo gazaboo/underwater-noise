@@ -1,0 +1,16 @@
+{
+ "id": "monterey",
+ "title": "Baie de Monterey (Californie)",
+ "center": { "lat": 36.71, "lon": -122.19 },
+ "radiusKm": 120,
+ "text": "Un hydrophone câblé, posé à 900 m de fond, écoute le large de Monterey en continu depuis 2015 : rorquals bleus, baleines à bosse, et les navires qui longent la côte vers San Francisco et Los Angeles.",
+ "status": "S",
+ "source": "MBARI, Pacific Ocean Sound Recordings (hydrophone MARS, Smooth Ridge, ≈ 900 m ; position approximative [S-r])",
+ "playbackRate": 4,
+ "sounds": ["calme-mars-20210521", "navire-mars-20210521"],
+ "contrast": {
+  "quiet": "calme-mars-20210521",
+  "noisy": "navire-mars-20210521",
+  "text": "Même hydrophone, même jour : la nuit calme, puis un navire qui passe. Le grondement d'un navire est très grave : il est lu ×4 (deux octaves plus haut) pour être audible, comme les navires de la carte."
+ }
+}

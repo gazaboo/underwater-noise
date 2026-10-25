@@ -238,6 +238,10 @@
   // naturel (même équation du sonar) [C] ; navires, nappe et sons des navires disparaissent.
   scenario: 'actuel',
 
+  // Lieux à écouter (data/lieux, docs/MEDIAS.md) : marqueur ivoire [A], distinct du froid des cétacés et du chaud
+  // du bruit. On entend le lieu le plus proche du centre de la vue ; un clic ouvre sa fiche.
+  lieux: { enabled: true, markerPx: 22, color: '#f2e6c9' },
+
   ships: {
     visible: true,
     pointSize: 7, // chevron orienté selon la route (pixels CSS) [A]
@@ -453,6 +457,8 @@
       // synthétisés ; bleu : une phrase A + B entière une fois transposée (84 s / 5).
       maxCallSec: { blue: 17, fin: 7, humpback: 8, sperm: 4, orca: 2 },
     },
+    // Paysage sonore d'un lieu : masqué par le bruit des navires au même endroit (même chaîne que les appels) [A].
+    lieux: { volume: 0.7 },
   },
 
   server: {

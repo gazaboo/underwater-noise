@@ -149,6 +149,34 @@ un clic dans le vide ou `Échap` la ferme. La fiche contient :
 Vérification : `CHROMIUM_PATH=/chemin/chrome node scripts/verify-fiche.mjs` (vrai clic sur chaque espèce,
 lecture du son, glissé, fermeture).
 
+## Lieux à écouter
+
+Cinq lieux au paysage sonore remarquable (`data/lieux/`, issue #2), chacun avec de vrais enregistrements
+(provenance dans `MEDIAS.md`) :
+
+| Lieu | Ce qu'on entend | Source |
+|---|---|---|
+| Sous la plate-forme d'Ekström (PALAOA) | banquise, phoques de Weddell | AWI, CC-BY 4.0 |
+| Baie de Monterey | nuit calme / passage d'un navire, même hydrophone, même jour (**paire de contraste**) | MBARI, CC-BY 4.0 |
+| Glacier Bay | phoque commun dans le calme de 2020 / avec un navire en 2005 (**paire de contraste**) ; baleines à bosse | NPS, domaine public |
+| Icebergs de la mer de Scotia | trémor harmonique, vêlage (accélérés ×3 par la source) | NOAA PMEL, domaine public |
+| Un volcan qu'on entend sans savoir où il est | éruption sous-marine de 1997 (accélérée ×16 par la source) | NOAA PMEL, domaine public |
+
+- **Marqueur** [A] : anneau d'écoute ivoire, à taille fixe à l'écran, dans tous les modes (même projection que
+  les silhouettes des cétacés) ; ses ondes s'animent quand on entend le lieu. Un clic ouvre sa fiche (texte,
+  paire de contraste, sons et spectrogrammes).
+- **Son** : on entend le lieu le plus proche du centre de la vue, un seul à la fois, poids 1 au centre et nul
+  au-delà de 55 % du rayon de la vue [A]. Ses sons s'enchaînent en boucle.
+- **Masquage** [A] : clarté = 10^(−ΔL/20), où ΔL est le bruit ajouté par les navires au lieu, dans la bande la
+  plus proche des sons du lieu ; même chaîne que les appels (filtre, niveau, hachage sous 0,3). Mesure du
+  25 oct. 2026 : clarté 0,41 à Monterey, 0,09 au point du volcan (Pacifique Est, bande basse), 0,98 à Glacier
+  Bay, 1 aux lieux polaires ; 1 partout en océan sans navires.
+- **Transposition** : les sons de Monterey sont lus ×4 (`playbackRate` du lieu), comme les voix de navires [A].
+- La carte plate s'arrête à 62° S : PALAOA n'y figure pas ; on l'entend et on l'ouvre sur le globe.
+
+Vérification : `CHROMIUM_PATH=/chemin/chrome node scripts/verify-lieux.mjs` (marqueurs dans chaque mode, son
+au centre, fiche au clic, clarté rendue à 1 sans navires ; `RECORD_SEC=20` enregistre la sortie).
+
 ## Navires
 
 - **Chevrons** orientés selon la route fond [S, AIS], de 7 px [A], avec un liseré sombre.

@@ -21,6 +21,7 @@ import { FieldReader } from './whales/field-reader.ts';
 import { AudioEngine, flatListener, globeListener } from './audio/engine.ts';
 import { cycleNoise, noiseLabel, noShips, scenarioLabel, toggleScenario } from './ui/scenario.ts';
 import { SpeciesCardPanel } from './ui/card.ts';
+import { LieuLayer } from './lieux/lieux.ts';
 import { distanceM } from './whales/agents.ts';
 import { SceneClock } from './sim/scene-clock.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
@@ -69,6 +70,7 @@ export class App {
   private readonly science: SciencePanel;
   private readonly legend: Legend;
   private readonly card: SpeciesCardPanel;
+  private readonly lieux = new LieuLayer();
   /** Web autonome : sources de navires dans un worker du navigateur. */
   private local: LocalShipStream | null = null;
   private readonly nav: FlatNavigator;
@@ -136,6 +138,7 @@ export class App {
     this.science = new SciencePanel();
     this.legend = new Legend();
     this.card = new SpeciesCardPanel();
+    this.audio.places = this.lieux;
     this.volcanoes = new VolcanoLayer(volcanoes);
     this.ornaments = ornaments ? new OrnamentLayer(ornaments.data, ornaments.atlas, ornaments.image) : null;
     // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale. Web autonome : la
@@ -516,8 +519,8 @@ export class App {
   // ------------------------------------------------------------ entrées
 
   /**
-   * Fiche espèce au toucher : un tap (moins de 6 px et 400 ms entre l'appui et le relâchement) ouvre la fiche du
-   * groupe le plus proche, dans un rayon de 24 px à l'écran ; un tap dans le vide la ferme. Les glissés restent
+   * Fiche au toucher : un tap (moins de 6 px et 400 ms entre l'appui et le relâchement) ouvre la fiche du lieu ou
+   * du groupe le plus proche, dans un rayon de 24 px à l'écran ; un tap dans le vide la ferme. Les glissés restent
    * à la navigation.
    */
   private installPicking(canvas: HTMLCanvasElement): void {
@@ -532,10 +535,12 @@ export class App {
       const y = canvas.height - e.clientY * ratio;
       const geo = this.geoAt(x, y);
       const edge = this.geoAt(x + 24 * ratio, y);
-      const g = geo && this.cfg.whales.enabled
-        ? this.whales?.nearest(geo.lat, geo.lon, edge ? Math.max(2, distanceM(geo.lat, geo.lon, edge.lat, edge.lon) / 1000) : 300)
-        : null;
-      if (g) this.card.open(g, this.cfg);
+      const tolKm = geo && edge ? Math.max(2, distanceM(geo.lat, geo.lon, edge.lat, edge.lon) / 1000) : 300;
+      // Les lieux d'abord : leur marqueur est plus rare et ne bouge pas.
+      const lieu = geo && this.cfg.lieux.enabled ? this.lieux.nearest(geo.lat, geo.lon, tolKm) : null;
+      const g = !lieu && geo && this.cfg.whales.enabled ? this.whales?.nearest(geo.lat, geo.lon, tolKm) : null;
+      if (lieu) this.card.openLieu(lieu, this.cfg);
+      else if (g) this.card.open(g, this.cfg);
       else this.card.close();
     });
   }
@@ -688,6 +693,7 @@ export class App {
       const opts = this.whaleOptions(cfg, displayPxPerDeg(screen, cfg), r.getPixelRatio(), scene.scale, [view.centerLat, view.centerLon]);
       if (opts) this.whales?.draw(r, view, cfg, opts, this.coverage, wall);
       if (cfg.physics.enabled) this.whales?.drawGlyphs(r, screen, cfg, wall);
+      this.lieux.draw(r, screen, cfg, wall);
     } else {
       // Texture « monde » : composition complète en équirectangulaire, puis reprojection.
       const W = this.profile.worldTextureWidth;
@@ -720,6 +726,7 @@ export class App {
       if (!this.globe.calibration) {
         this.ornaments?.draw(r, ornView, cfg, wall);
         if (cfg.physics.enabled) this.whales?.drawGlyphs(r, ornView, cfg, wall);
+        this.lieux.draw(r, ornView, cfg, wall);
       }
       this.lastGlobe = { mode: gm, cam, M, w: size.x, h: size.y };
       if (gm !== 'equirect') listener = globeListener(facingLat, this.globeCtl.facingLon);

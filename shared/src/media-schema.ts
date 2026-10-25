@@ -154,9 +154,14 @@ export const lieu = z.object({
   sounds: z.array(text),
   /** Lieu de contraste (récif sain / blanchi, avec / sans navires). */
   pair: z.string().optional(),
+  /** Vitesse de lecture des sons du lieu (hauteur et durée) : transposition des basses fréquences [A]. */
+  playbackRate: z.number().min(0.25).max(16).optional(),
+  /** Paire de sons du même lieu à comparer : calme et avec navires, et ce qu'il faut en dire. */
+  contrast: z.object({ quiet: text, noisy: text, text }).optional(),
   /** Couches locales d'un focus régional (phase ultérieure). */
   layers: z.array(z.object({ id: text, file: relPath, source: text, license: text })).optional(),
 });
 export type Lieu = z.infer<typeof lieu>;
 
+/** data/lieux/liste.json */
 export const lieuIndex = z.object({ lieux: z.array(z.string()) });
