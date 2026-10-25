@@ -52,7 +52,7 @@ export class Panel {
     for (const key of ['profil', 'vent', 'propagation', 'ondes'] as const) science.addBinding(info, key, { readonly: true });
 
     const disp = pane.addFolder({ title: 'Affichage' });
-    disp.addBinding(cfg.display, 'target', { label: 'cible', options: { 'écran du portable': 'screen', projecteur: 'projector' } });
+    disp.addBinding(cfg.display, 'target', { label: 'cible', options: { 'écran du portable': 'screen', projecteur: 'projector', 'web autonome': 'web' } });
     disp.addBinding(cfg.display, 'quality', { label: 'profil', options: { expo: 'expo', léger: 'light' } });
     disp.addBinding(cfg.render, 'renderScale', { label: 'échelle de rendu', min: 0.25, max: 2, step: 0.05 });
     on(disp, 'display');
@@ -72,8 +72,21 @@ export class Panel {
     time.addBinding(timing, 'état', { readonly: true });
     on(time, 'playback');
 
-    const waves = pane.addFolder({ title: 'Ondes — augmentation du bruit' });
-    waves.addBinding(cfg.waves, 'band', { label: 'bande affichée', options: Object.fromEntries(cfg.bands.map(b => [`${b.fMin}–${b.fMax} Hz`, b.id])) });
+    const noise = pane.addFolder({ title: 'Bruit ajouté — représentation (V)' });
+    noise.addBinding(cfg.noise, 'style', { label: 'style', options: { 'isophones animées': 'isophones', 'carte météo': 'meteo', encre: 'encre', 'fronts bruts': 'fronts' } });
+    noise.addBinding(cfg.waves, 'band', { label: 'bande affichée', options: Object.fromEntries(cfg.bands.map(b => [`${b.fMin}–${b.fMax} Hz`, b.id])) });
+    noise.addBinding(cfg.noise, 'opacity', { label: 'opacité de la nappe', min: 0, max: 1, step: 0.01 });
+    noise.addBinding(cfg.noise, 'lines', { label: 'lignes / traits', min: 0, max: 1, step: 0.01 });
+    noise.addBinding(cfg.noise, 'lineStepDb', { label: 'écart des lignes (dB)', min: 1, max: 10, step: 0.5 });
+    noise.addBinding(cfg.noise, 'lineSpeed', { label: 'défilement (lignes/s)', min: 0, max: 2, step: 0.01 });
+    noise.addBinding(cfg.noise, 'smoothSec', { label: 'lissage (s de scène)', min: 1, max: 300, step: 1 });
+    noise.addBinding(cfg.noise, 'inkLifeSec', { label: 'encre : durée (s)', min: 1, max: 30, step: 0.5 });
+    noise.addBinding(cfg.palette, 'noiseLow', { label: 'palier faible', view: 'color' });
+    noise.addBinding(cfg.palette, 'noiseMid', { label: 'palier moyen', view: 'color' });
+    noise.addBinding(cfg.palette, 'noiseHigh', { label: 'palier fort', view: 'color' });
+    on(noise, 'noise');
+
+    const waves = pane.addFolder({ title: 'Fronts bruts (style « fronts »)', expanded: false });
     const waveInfo = { visibilité: '+1 → +10 dB (graphique)', portée: 'Estimation non validée' };
     waves.addBinding(waveInfo, 'visibilité', { readonly: true });
     waves.addBinding(waveInfo, 'portée', { readonly: true });
@@ -81,7 +94,7 @@ export class Panel {
     waves.addBinding(cfg.waves, 'relief', { label: 'relief / reflets', min: 0, max: 1, step: 0.01 });
     on(waves, 'waves');
 
-    const acc = pane.addFolder({ title: 'Accumulation (bruit durable)' });
+    const acc = pane.addFolder({ title: 'Lueur d\'accumulation (style « fronts »)', expanded: false });
     acc.addBinding(cfg.accumulation, 'quietDb', { label: 'seuil du noir (dB)', min: 80, max: 130, step: 0.5 });
     acc.addBinding(cfg.accumulation, 'saturationDb', { label: 'saturation (dB)', min: 90, max: 150, step: 0.5 });
     acc.addBinding(cfg.accumulation, 'gamma', { min: 0.2, max: 5, step: 0.05 });

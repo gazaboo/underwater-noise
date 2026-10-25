@@ -28,7 +28,7 @@ async function startIsolated() {
   const cfg=JSON5.parse(defaults);
   writeFileSync(join(isolatedConfig,'default.json5'),defaults);
   writeFileSync(join(isolatedConfig,'local.json5'),JSON.stringify({source:{mode:'simulation'},simulation:{shipCount:200},
-    recorder:{enabled:false},audio:{enabled:false},whales:{species:cfg.whales.species.map(s=>({...s,groups:2}))}}));
+    recorder:{enabled:false},audio:{enabled:false},noise:{style:'fronts',warmupMinutes:0},whales:{species:cfg.whales.species.map(s=>({...s,groups:2}))}}));
   const env={...process.env,PORT:String(port),VACARME_PORT:String(port),VACARME_CONFIG_DIR:isolatedConfig,AISSTREAM_API_KEY:''};
   for(const [args,cwd] of [[['--import','tsx','server/src/index.ts'],root],[[join(root,'node_modules/vite/bin/vite.js'),'--host','127.0.0.1','--port',String(viewPort),'--strictPort'],join(root,'client')]]) {
     const child=spawn(process.execPath,args,{cwd,env,stdio:['ignore','pipe','pipe']});

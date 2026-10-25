@@ -167,6 +167,28 @@ void main() {
   outColor = vec4(A, L);
 }`;
 
+/**
+ * Excès lissé pour l'affichage : rapport E_navires / E_naturel par bande, moyenné sur `noise.smoothSec`
+ * (moyenne d'énergie, pas de dB). ΔL = 10·log10(1 + rapport) se calcule à la lecture.
+ */
+const EXCESS_FRAG = /* glsl */ `
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uEnergy;
+uniform sampler2D uExcess;
+uniform sampler2D uOcean;
+uniform float uOffsetDb;
+uniform vec3 uNatural;
+uniform float uBeta;         // 1 − exp(−dt/τ) ; 1 : initialisation
+void main() {
+  vec3 e = max(texture(uEnergy, vUv).rgb, vec3(0.0));
+  vec3 ratio = e * pow(vec3(10.0), (uOffsetDb - uNatural) / 10.0);
+  vec3 s = texture(uExcess, vUv).rgb;
+  s += uBeta * (ratio - s);
+  if (texture(uOcean, vUv).r < 0.5) s = vec3(0.0);
+  outColor = vec4(s, 1.0);
+}`;
+
 function floatTarget(w: number, h: number, wrapS: THREE.Wrapping): THREE.WebGLRenderTarget {
   return new THREE.WebGLRenderTarget(w, h, {
     type: THREE.FloatType,
@@ -196,12 +218,15 @@ export class PhysicsField {
   private states: THREE.WebGLRenderTarget[];
   private energy: [THREE.WebGLRenderTarget, THREE.WebGLRenderTarget];
   private accum: [THREE.WebGLRenderTarget, THREE.WebGLRenderTarget];
+  private excess: [THREE.WebGLRenderTarget, THREE.WebGLRenderTarget];
   private readonly stepPass: FullscreenPass;
   private readonly energyPass: FullscreenPass;
   private readonly accumPass: FullscreenPass;
+  private readonly excessPass: FullscreenPass;
   private readonly su: Record<string, THREE.IUniform>;
   private readonly eu: Record<string, THREE.IUniform>;
   private readonly au: Record<string, THREE.IUniform>;
+  private readonly xu: Record<string, THREE.IUniform>;
   private initialized = false;
   private serial = 0;
   get revision(): number { return this.serial; }
@@ -218,7 +243,8 @@ export class PhysicsField {
     this.states = [0, 1, 2].map(() => floatTarget(this.width, this.height, wrap));
     this.energy = [floatTarget(this.width, this.height, wrap), floatTarget(this.width, this.height, wrap)];
     this.accum = [floatTarget(this.width, this.height, wrap), floatTarget(this.width, this.height, wrap)];
-    for (const t of this.accum) t.texture.magFilter = t.texture.minFilter = THREE.LinearFilter;
+    this.excess = [floatTarget(this.width, this.height, wrap), floatTarget(this.width, this.height, wrap)];
+    for (const t of [...this.accum, ...this.excess]) t.texture.magFilter = t.texture.minFilter = THREE.LinearFilter;
     this.sourceTarget = new THREE.WebGLRenderTarget(this.width, this.height, {
       type: THREE.HalfFloatType,
       format: THREE.RGBAFormat,
@@ -256,9 +282,18 @@ export class PhysicsField {
       uFall: { value: 0 },
       uInit: { value: 1 },
     };
+    this.xu = {
+      uEnergy: { value: null },
+      uExcess: { value: null },
+      uOcean: { value: ocean },
+      uOffsetDb: { value: L_REF },
+      uNatural: this.au.uNatural,
+      uBeta: { value: 1 },
+    };
     this.stepPass = new FullscreenPass(rawMaterial(STEP_FRAG, this.su));
     this.energyPass = new FullscreenPass(rawMaterial(ENERGY_FRAG, this.eu));
     this.accumPass = new FullscreenPass(rawMaterial(ACCUM_FRAG, this.au));
+    this.excessPass = new FullscreenPass(rawMaterial(EXCESS_FRAG, this.xu));
   }
 
   configure(cfg: Config): void {
@@ -292,7 +327,7 @@ export class PhysicsField {
   clear(renderer: THREE.WebGLRenderer): void {
     this.serial++;
     renderer.setClearColor(0x000000, 0);
-    for (const t of [...this.states, ...this.energy, ...this.accum, this.sourceTarget]) {
+    for (const t of [...this.states, ...this.energy, ...this.accum, ...this.excess, this.sourceTarget]) {
       renderer.setRenderTarget(t);
       renderer.clear(true, false, false);
     }
@@ -329,7 +364,18 @@ export class PhysicsField {
     this.au.uInit.value = this.initialized ? 0 : 1;
     this.accumPass.render(renderer, this.accum[1]);
     this.accum = [this.accum[1], this.accum[0]];
+    this.xu.uEnergy.value = this.energy[0].texture;
+    this.xu.uExcess.value = this.excess[0].texture;
+    this.xu.uOffsetDb.value = this.offsetDb;
+    this.xu.uBeta.value = this.initialized ? 1 - Math.exp(-dtSec / cfg.noise.smoothSec) : 1;
+    this.excessPass.render(renderer, this.excess[1]);
+    this.excess = [this.excess[1], this.excess[0]];
     this.initialized = true;
+  }
+
+  /** Excès lissé pour l'affichage : RGB = E_navires / E_naturel par bande (temps de scène `noise.smoothSec`). */
+  get excessTexture(): THREE.Texture {
+    return this.excess[0].texture;
   }
 
   /** R = niveau affiché accumulé (dB), G/B/A = niveaux courants par bande (dB re 1 µPa). */
@@ -377,8 +423,8 @@ export class PhysicsField {
   }
 
   dispose(): void {
-    for (const t of [...this.states, ...this.energy, ...this.accum, this.sourceTarget]) t.dispose();
-    for (const p of [this.stepPass, this.energyPass, this.accumPass]) p.material.dispose();
+    for (const t of [...this.states, ...this.energy, ...this.accum, ...this.excess, this.sourceTarget]) t.dispose();
+    for (const p of [this.stepPass, this.energyPass, this.accumPass, this.excessPass]) p.material.dispose();
   }
 }
 

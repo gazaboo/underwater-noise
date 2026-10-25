@@ -131,6 +131,7 @@ export function verifyVisibility(input: Config) {
   Object.assign(cfg.palette, { background: '#000000', oceanShallow: '#000000', oceanDeep: '#000000', land: '#000000', coast: '#000000', wave: '#ffffff', bathyRelief: 0 });
   cfg.accumulation.strength = 0; cfg.incognita.fog = 0; cfg.incognita.grain = 0;
   cfg.waves.relief = 0; cfg.waves.band = 'low';
+  cfg.noise.style = 'fronts'; // ces contrôles portent sur les fronts bruts du modèle
   const N = 64;
   const bytes = new Uint8Array(N * N * 4);
   const elevation = new Uint8Array(N * N * 4);

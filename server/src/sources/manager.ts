@@ -19,6 +19,7 @@ import { join } from 'node:path';
 import type { Config, ShipRecord, SourceStatus } from '@vacarme/shared';
 import type { RegistryOptions } from '../ais/registry.ts';
 import { COVERAGE_H, COVERAGE_W, CoverageMap } from '../coverage.ts';
+import type { CoverageMap as CoverageView } from '@vacarme/shared/ships/coverage.ts';
 import { Recorder } from '../recorder.ts';
 import { AisStreamSource } from './aisstream.ts';
 import type { EstimatedSource } from './estimated.ts';
@@ -204,13 +205,13 @@ export class SourceManager {
     return this.mixing ? [...ships, ...this.estimated!.ships()] : ships;
   }
 
-  private coverageOf(a: Active): CoverageMap {
+  private coverageOf(a: Active): CoverageView {
     if (a === 'live' && this.live) return this.live.coverage;
     if (a === 'replay') return this.replay.coverage;
     return this.simCoverage;
   }
 
-  get coverage(): CoverageMap {
+  get coverage(): CoverageView {
     if (this.shipsMode === 'estimated' || this.mixing) return this.fullCoverage;
     return this.coverageOf(this.active);
   }

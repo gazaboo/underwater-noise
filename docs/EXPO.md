@@ -87,14 +87,16 @@ simulation s'il n'y a pas de fichier). Toutes les données nécessaires sont loc
 | `G` | carte plate ↔ globe |
 | `M` | couper le son |
 | `B` | champ physique en dB (diagnostic) |
+| `V` | représentation du bruit : isophones → météo → encre → fronts bruts |
 
-## 8. Performances mesurées (780M, Chromium + Vulkan, direct ~25 000 navires suivis)
+## 8. Performances mesurées (780M, Chromium + Vulkan)
 
-| Mode | Résolution | GPU / image | Images/s |
-|---|---|---|---|
-| demi-sphère (expo) | 1920×1200 | 12,3 ms (13,7 avec la mire) | 60 |
-| globe à l'écran | 1692×1128 | 12,4 ms | 60 |
-| carte plate, écran | 1692×1128 | 12,7 ms | 60 |
+25 oct. 2026, après la refonte de la représentation, 1920×1200, 50 854 navires estimés (cas le plus chargé),
+cadence normale : **60 images/s en médiane** en demi-sphère, globe et carte, pour les quatre représentations
+du bruit ; 1 à 2 % d'images entre 35 et 58 ms (relecture du champ à chaque pas du modèle). Détail par mode et
+méthode : `docs/REPRESENTATION.md`. À vérifier sur place avec le projecteur : `node scripts/verify-representation.mjs`.
+
+Le style « encre » est le plus coûteux (traînées) ; en cas de saccades, préférer « isophones » ou « météo ».
 
 Si la machine chauffe : `?quality=light` (ou `display.quality: 'light'`).
 

@@ -8,6 +8,7 @@
 import * as THREE from 'three';
 import { naturalLevel, PHYS_POLAR_CAP_DEG, WAVE_VISIBLE_DB, WAVE_FULL_DB, type Config } from '@vacarme/shared';
 import { PAPER_GLSL } from './paper.ts';
+import { NoiseInk } from './noise-ink.ts';
 import type { WorldAssets } from '../assets.ts';
 import { FullscreenPass, hexToVec3, rawMaterial } from './fullscreen.ts';
 import type { PhysicsField } from '../sim/physics-sim.ts';
@@ -96,6 +97,14 @@ uniform vec3 uGlowColor;
 uniform vec3 uFogColor;
 uniform float uFogStrength, uFogScale, uFogDrift, uGrain, uWaveKeep;
 uniform int uDebugField;        // 0 : rendu ; 1 : niveau accumulé ; 2–4 : bandes basse, moyenne, haute
+// Bruit ajouté (couche de données) : ΔL lissé, représentation choisie (docs/REPRESENTATION.md).
+uniform sampler2D uNoiseDb;     // RGB = ΔL (dB) par bande, lissé (préparé par NOISE_PREP_FRAG)
+uniform vec3 uBandSel;
+uniform sampler2D uInk;         // traînées d'encre (style 3), équirectangulaire
+uniform int uNoiseStyle;        // 0 fronts ; 1 isophones ; 2 météo ; 3 encre
+uniform vec3 uNoiseLow, uNoiseMid, uNoiseHigh;
+uniform vec3 uNoiseSteps;       // paliers (dB)
+uniform float uLineStep, uLineSpeed, uNoiseOpacity, uNoiseLines;
 
 uniform vec2 uResolution;
 uniform vec2 uCenter;
@@ -205,6 +214,36 @@ float hash(vec2 p) {
   p = fract(p * vec2(443.897, 441.423));
   p += dot(p, p.yx + 19.19);
   return fract((p.x + p.y) * p.x);
+}
+
+// ΔL (dB) au-dessus du fond naturel dans la bande affichée, à partir du rapport d'énergies lissé.
+float excessDb(vec2 uv) {
+  return max(dot(sampleCubic(uNoiseDb, uv, uLevelsTexel).rgb, uBandSel), 0.0);
+}
+
+// Nappe en paliers [A] : un léger voile dès +1 dB, puis trois paliers francs, bords anti-crénelés.
+// Renvoie la couleur mélangée sur la mer et, dans .a, la couverture (0–1).
+vec4 noiseSheet(float dl, float soft) {
+  float aa = max(fwidth(dl), 0.05) * (0.75 + soft * 3.0) + soft;
+  float veil = smoothstep(1.0, uNoiseSteps.x, dl) * 0.3;
+  float s1 = smoothstep(uNoiseSteps.x - aa, uNoiseSteps.x + aa, dl);
+  float s2 = smoothstep(uNoiseSteps.y - aa, uNoiseSteps.y + aa, dl);
+  float s3 = smoothstep(uNoiseSteps.z - aa, uNoiseSteps.z + aa, dl);
+  vec3 c = mix(uNoiseLow, uNoiseMid, s2);
+  c = mix(c, uNoiseHigh, s3);
+  float a = max(veil, s1 * mix(0.6, 1.0, s2));
+  return vec4(c, a * uNoiseOpacity);
+}
+
+// Lignes d'égal niveau tous les uLineStep dB [C pour la forme] ; elles défilent vers les niveaux
+// faibles, donc vers l'extérieur [A : sens de propagation, pas sa vitesse].
+float isophones(float dl, float t) {
+  float x = dl / uLineStep + t * uLineSpeed;
+  float fw = fwidth(dl) / uLineStep;
+  float d = abs(fract(x + 0.5) - 0.5);
+  float line = 1.0 - smoothstep(0.6 * fw, 1.6 * fw + 0.01, d);
+  // Trop serrées (près des navires) : fondues dans la nappe plutôt qu'un moiré.
+  return line * smoothstep(1.0, 2.5, dl) * (1.0 - smoothstep(0.18, 0.4, fw));
 }
 
 ${PAPER_GLSL}
@@ -398,27 +437,47 @@ void main() {
     float lightW = uWaveBrightness * ((1.0 - uWaveRelief) * crest + uWaveRelief * glint);
     // Compression douce : les zones très actives saturent sans brûler.
     lightW = uHasLevels * visibility * (1.0 - exp(-lightW));
-    if (abs(lat) > uPolarCap) lightW = 0.0;
+    if (abs(lat) > uPolarCap || uNoiseStyle != 0) lightW = 0.0;
 
-    // --- Lueur d'accumulation : là où le bruit dure, l'océan s'illumine.
+    // --- Lueur d'accumulation (style « fronts » seulement) : là où le bruit dure, l'océan s'illumine.
     vec3 glow = vec3(0.0);
-    if (uHasLevels > 0.5) {
+    if (uHasLevels > 0.5 && uNoiseStyle == 0) {
       float A = sampleCubic(uLevels, uv, uLevelsTexel).r;
       float t = pow(smoothstep(uQuietDb, uSatDb, A), uGlowGamma);
       glow = uGlowColor * uGlowStrength * t;
     }
 
-    // --- Terra incognita : zones non observées par l'AIS. Matière propre (brouillard lent, grain,
-    // pas de relief), distincte du calme connu (noir net, relief à peine perceptible).
-    // Le son des navires connus s'y propage : les ondes y entrent, mais s'y estompent.
+    // --- Bruit ajouté : nappe en paliers, isophones, ou voile sous l'encre.
+    vec3 noisy = ocean;
+    if (uHasLevels > 0.5 && uNoiseStyle != 0) {
+      float dl = excessDb(uv) * step(abs(lat), uPolarCap);
+      vec4 sheet = noiseSheet(dl, uNoiseStyle == 1 ? 0.6 : 0.0);
+      if (uNoiseStyle == 3) sheet.a *= 0.45;
+      noisy = mix(ocean, sheet.rgb, sheet.a);
+      if (uNoiseStyle == 3) noisy = mix(noisy, uNoiseHigh, clamp(texture(uInk, uv).r * 1.4, 0.0, 1.0) * mix(0.5, 1.0, uNoiseLines));
+      if (uNoiseStyle == 1) noisy = mix(noisy, uNoiseHigh, isophones(dl, uTime) * uNoiseLines);
+      // Météo : un trait fin à chaque palier, pour lire la carte sans couleur.
+      if (uNoiseStyle == 2) {
+        float fw = max(fwidth(dl), 1e-4);
+        vec3 e = abs(vec3(dl) - uNoiseSteps) / fw;
+        float edge = 1.0 - smoothstep(0.5, 1.5, min(e.x, min(e.y, e.z)));
+        noisy = mix(noisy, uNoiseHigh, edge * 0.6 * uNoiseLines);
+      }
+    }
+
+    // --- Terra incognita : zones non observées par l'AIS (bruit sous-estimé). Hachures ancrées dans la
+    // géographie, comme les blancs des cartes anciennes, distinctes du calme connu ; brouillard lent.
     float observed = smoothstep(0.03, 0.4, texture(uCoverage, uv).r);
-    vec3 known = ocean + glow + uWaveColor * lightW;
+    vec3 known = noisy + glow + uWaveColor * lightW;
     vec2 fp = vec2(lon * cos(radians(lat)), lat) / uFogScale;
     float fog = fbm(fp + vec2(uTime * uFogDrift * 0.03, uTime * uFogDrift * 0.011));
     fog = smoothstep(0.35, 0.85, fog);
+    float hx = (lon * cos(radians(lat)) + lat) * max(uDisplayPxPerDeg, 0.05) / 7.0;
+    float hatch = 1.0 - smoothstep(0.08, 0.08 + 1.5 * fwidth(hx), abs(fract(hx) - 0.5));
     float grain = (hash(frag * 0.5 + floor(uTime * 12.0)) - 0.5) * uGrain * 0.03;
-    vec3 unknown = uOceanDeep * uUnknownDim + uFogColor * fog * uFogStrength + grain
+    vec3 unknown = mix(noisy, uOceanDeep, 1.0 - uUnknownDim) + uFogColor * fog * uFogStrength + grain
                  + glow * uUnknownDim + uWaveColor * lightW * uWaveKeep;
+    unknown = mix(unknown, uFogColor * 2.2 + 0.04, hatch * 0.5 * uFogStrength);
     vec3 sea = mix(unknown, known, observed);
 
     // --- Diagnostic : champ physique en dB (touche B).
@@ -468,7 +527,35 @@ void main() {
   outColor = vec4(clamp(previous, -4.0, 4.0), clamp(current, -4.0, 4.0), min(e * uRatioScale, 60000.0), 1.0);
 }`;
 
+// Préparation de la nappe (une fois par pas du modèle) : moyenne spatiale gaussienne des rapports
+// d'énergie sur ±4 cellules (σ = 2 cellules, ≈ 80 km), en mer seulement, puis conversion en dB.
+// Retire le grain d'interférence de la porteuse numérique (6 cellules) sans inventer de détail [E].
+const NOISE_PREP_FRAG = /* glsl */ `
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uExcess, uOcean;
+uniform vec2 uTexel;
+void main() {
+  vec3 sum = vec3(0.0);
+  float wsum = 0.0;
+  for (int j = -4; j <= 4; j++) for (int i = -4; i <= 4; i++) {
+    vec2 uv = vUv + vec2(float(i), float(j)) * uTexel;
+    float w = exp(-float(i * i + j * j) / 8.0) * step(0.5, texture(uOcean, uv).r);
+    sum += w * max(texture(uExcess, uv).rgb, vec3(0.0));
+    wsum += w;
+  }
+  vec3 ratio = wsum > 0.0 ? sum / wsum : vec3(0.0);
+  outColor = vec4(10.0 * log(1.0 + ratio) / log(10.0), 1.0);
+}`;
+
 export class FlatView {
+  private noiseDb: THREE.WebGLRenderTarget | null = null;
+  private ink: NoiseInk | null = null;
+  private lastTime: number | null = null;
+  private noiseKey = '';
+  private readonly noisePass = new FullscreenPass(rawMaterial(NOISE_PREP_FRAG, {
+    uExcess: { value: null }, uOcean: { value: null }, uTexel: { value: new THREE.Vector2() },
+  }));
   private packedWave: THREE.WebGLRenderTarget | null = null;
   private packedKey = '';
   private readonly wavePass = new FullscreenPass(rawMaterial(PACK_WAVE_FRAG, {
@@ -515,6 +602,13 @@ export class FlatView {
       uGrain: { value: 0 },
       uWaveKeep: { value: 0.35 },
       uDebugField: { value: 0 },
+      uNoiseDb: { value: null },
+      uInk: { value: null },
+      uBandSel: { value: new THREE.Vector3(1, 0, 0) },
+      uNoiseStyle: { value: 1 },
+      uNoiseLow: { value: v3() }, uNoiseMid: { value: v3() }, uNoiseHigh: { value: v3() },
+      uNoiseSteps: { value: new THREE.Vector3(3, 10, 20) },
+      uLineStep: { value: 3 }, uLineSpeed: { value: 0.35 }, uNoiseOpacity: { value: 0.8 }, uNoiseLines: { value: 0.5 },
       uUnknownDim: { value: 1 },
       uWaveTexel: { value: new THREE.Vector2() },
       uElevTexel: { value: new THREE.Vector2(1 / 4096, 1 / 2048) },
@@ -551,7 +645,7 @@ export class FlatView {
    */
   displayPxPerDeg: number | null = null;
 
-  private setIllustrated(cfg: Config, view: FlatTransform): void {
+  private setIllustrated(cfg: Config): void {
     const u = this.uniforms;
     const il = cfg.land.illustrated;
     const pal = cfg.display.theme === 'day' ? il.day : il.night;
@@ -578,7 +672,6 @@ export class FlatView {
     u.uShelf.value = il.shelf;
     u.uRippleSpacing.value = il.ripples.spacingPx;
     u.uRipple.value = il.ripples.enabled ? il.ripples.strength : 0;
-    u.uDisplayPxPerDeg.value = view.zoom > 0 || this.displayPxPerDeg === null ? view.scale / this.pixelRatio : this.displayPxPerDeg;
   }
 
   /** Rapport pixels du tampon / pixels CSS (pour exprimer les largeurs en pixels CSS). */
@@ -589,6 +682,11 @@ export class FlatView {
     this.uniforms.uLevels.value = levels;
     this.uniforms.uHasLevels.value = levels ? 1 : 0;
     (this.uniforms.uLevelsTexel.value as THREE.Vector2).set(1 / width, 1 / height);
+  }
+
+  /** ΔL lissé par bande (dB, RGB), préparé à la dernière composition ; null avant la première. */
+  get noiseTexture(): THREE.Texture | null {
+    return this.noiseDb?.texture ?? null;
   }
 
   /** 0 : rendu ; 1 : niveau accumulé ; 2–4 : bandes basse, moyenne, haute. */
@@ -608,7 +706,7 @@ export class FlatView {
     if (!u.uLevels.value) u.uLevels.value = field.levels.texture; // texture valide même sans champ physique
     const l = cfg.land;
     u.uLandStyle.value = l.style === 'illustre' ? 2 : l.style === 'gouache' ? 1 : 0;
-    if (l.style === 'illustre') this.setIllustrated(cfg, view);
+    if (l.style === 'illustre') this.setIllustrated(cfg);
     hexToVec3(cfg.palette.landTint, u.uLandTint.value);
     u.uLandLight.value = cfg.palette.landLight;
     u.uLandSat.value = l.saturation; u.uLandSteps.value = l.steps; u.uLandRelief.value = l.relief;
@@ -634,6 +732,43 @@ export class FlatView {
     u.uWaveKeep.value = inc.waveKeep;
     u.uDebugField.value = this.debugField;
     const bandIndex = { low: 0, mid: 1, high: 2 }[cfg.waves.band];
+    const n = cfg.noise;
+    if (!this.noiseDb || this.noiseDb.width !== field.width || this.noiseDb.height !== field.height) {
+      this.noiseDb?.dispose();
+      this.noiseDb = new THREE.WebGLRenderTarget(field.width, field.height, {
+        type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+        wrapS: THREE.RepeatWrapping, wrapT: THREE.ClampToEdgeWrapping, depthBuffer: false,
+      });
+      this.noiseKey = '';
+    }
+    // Préparée aussi en style « fronts » : les espaces de communication des cétacés la lisent.
+    const noiseKey = `${field.excessTexture.id}/${field.revision}`;
+    if (this.noiseKey !== noiseKey) {
+      const nu = this.noisePass.material.uniforms;
+      nu.uExcess.value = field.excessTexture;
+      nu.uOcean.value = field.ocean;
+      (nu.uTexel.value as THREE.Vector2).set(1 / field.width, 1 / field.height);
+      this.noisePass.render(renderer, this.noiseDb);
+      this.noiseKey = noiseKey;
+    }
+    u.uNoiseDb.value = this.noiseDb.texture;
+    if (n.style === 'encre') {
+      this.ink ??= new NoiseInk();
+      this.ink.update(renderer, this.noiseDb.texture, field.ocean, cfg, time, this.lastTime === null ? 0 : time - this.lastTime);
+      u.uInk.value = this.ink.texture;
+    } else u.uInk.value = this.noiseDb.texture;
+    this.lastTime = time;
+    (u.uBandSel.value as THREE.Vector3).set(bandIndex === 0 ? 1 : 0, bandIndex === 1 ? 1 : 0, bandIndex === 2 ? 1 : 0);
+    u.uNoiseStyle.value = { fronts: 0, isophones: 1, meteo: 2, encre: 3 }[n.style];
+    hexToVec3(cfg.palette.noiseLow, u.uNoiseLow.value);
+    hexToVec3(cfg.palette.noiseMid, u.uNoiseMid.value);
+    hexToVec3(cfg.palette.noiseHigh, u.uNoiseHigh.value);
+    (u.uNoiseSteps.value as THREE.Vector3).set(...n.steps);
+    u.uLineStep.value = n.lineStepDb;
+    u.uLineSpeed.value = n.lineSpeed;
+    u.uNoiseOpacity.value = n.opacity;
+    u.uNoiseLines.value = n.lines;
+    u.uDisplayPxPerDeg.value = view.zoom > 0 || this.displayPxPerDeg === null ? view.scale / this.pixelRatio : this.displayPxPerDeg;
     const naturalDb = naturalLevel(cfg.bands[bandIndex], cfg.ambient.windSpeedMs);
     if (!this.packedWave || this.packedWave.width !== field.width || this.packedWave.height !== field.height) {
       this.packedWave?.dispose();

@@ -6,6 +6,7 @@
  */
 import type { Config } from '@vacarme/shared';
 import { MAX_ZOOM, clampCenterLat, computeFlatTransform, screenToGeo, type FlatNav, type FlatTransform } from '../render/flat-view.ts';
+import { Pinch } from './pinch.ts';
 
 const wrap180 = (lon: number) => ((((lon + 180) % 360) + 360) % 360) - 180;
 
@@ -31,12 +32,19 @@ export class FlatNavigator {
   private anchor: Anchor | null = null;
   /** Désactivée hors du mode carte plate. */
   enabled = true;
+  private readonly pinch: Pinch;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly getConfig: () => Config,
   ) {
     canvas.addEventListener('wheel', (e) => this.enabled && this.onWheel(e), { passive: false });
+    this.pinch = new Pinch(canvas, (factor, x, y) => {
+      if (!this.enabled) return;
+      this.dragging = null;
+      const { h, ratio } = this.buffer();
+      this.zoomAt(factor, x * ratio, h - y * ratio);
+    });
     canvas.addEventListener('pointerdown', (e) => {
       if (!this.enabled || e.button !== 0) return;
       this.dragging = { x: e.clientX, y: e.clientY };
@@ -126,7 +134,7 @@ export class FlatNavigator {
   }
 
   private onDrag(e: PointerEvent): void {
-    if (!this.dragging) return;
+    if (!this.dragging || this.pinch.active) return;
     const t = this.ensure();
     // On part de la vue affichée : un zoom en cours s'arrête là où il en est.
     const c = this.current ?? t;

@@ -3,14 +3,16 @@
 Installation projetée qui rend visible et audible, en temps réel et à l'échelle du monde, le bruit
 sous-marin des navires — et ce qu'il fait à l'espace de communication des cétacés.
 
-Chaque navire émet des fronts d'onde qui se propagent sur l'océan, interfèrent, s'arrêtent sur les
-côtes ; là où le trafic est dense, l'océan s'illumine ; ailleurs, il reste noir.
+Le bruit ajouté par les navires s'étend sur l'océan en nappe de paliers chauds ; les cétacés, en
+silhouettes froides, voient leur espace de communication se réduire et leurs appels se briser sur ce bruit.
+Trois usages : installation projetée (demi-sphère), écran du portable, **page web autonome** (sans serveur).
 
 > État : **jalon J6** — navires en direct (aisstream.io), en replay ou simulés ; ondes visibles ;
 > champ de bruit calibré en dB (trois bandes) ; lueur d'accumulation ; terra incognita ; exploration (zoom) ;
 > cétacés : espace de communication rongé par le bruit, liens entre groupes ; son ; globe et demi-sphère
 > (un projecteur) ; mode exposition. Revue scientifique : [`docs/REVUE_SCIENTIFIQUE.md`](docs/REVUE_SCIENTIFIQUE.md).
-> Plan complet et jalons : voir la section « Feuille de route » plus bas.
+> Refonte de la représentation (bruit, cétacés, navires, légende) et mode web autonome :
+> [`docs/REPRESENTATION.md`](docs/REPRESENTATION.md). Plan complet et jalons : « Feuille de route » plus bas.
 
 ## Installation
 
@@ -35,6 +37,16 @@ npm run dev         # serveur local (port 8787) + client Vite (http://localhost:
 
 Exposition (demi-sphère, projecteur, kiosque) : `npm run expo` — voir [`docs/EXPO.md`](docs/EXPO.md).
 
+Page web autonome (statique, sans serveur Node : les navires sont calculés dans le navigateur) :
+
+```bash
+npm run build:web                                   # client/dist-web (≈ 37 Mo avec les données)
+cd client && npx vite preview --outDir dist-web     # vérification locale
+```
+
+En développement, `?standalone` donne le même fonctionnement depuis `npm run dev`. Mettre la page en ligne
+(GitHub Pages ou autre) est une publication : à décider explicitement.
+
 Production (un seul processus, le serveur sert le client compilé) :
 
 ```bash
@@ -45,7 +57,8 @@ npm run build && npm start   # http://localhost:8787
 
 | Paramètre | Valeurs | Effet |
 |---|---|---|
-| `display` | `screen` (défaut), `projector` | cible d'affichage : écran du portable ou Epson EB-990U |
+| `target` | `screen` (défaut), `projector`, `web` | cible d'affichage : écran du portable, Epson EB-990U, page web |
+| `standalone` | (présent) | web autonome : navires calculés dans le navigateur, sans `/ws` ni `/api` |
 | `quality` | `expo` (défaut), `light` | qualité du rendu (la grille physique de référence reste fixe) |
 | `hud` | (présent) | affiche le diagnostic au démarrage |
 | `scene` | `duo` | scène de test des liens (deux groupes en mer Ligure) |
@@ -58,6 +71,7 @@ npm run build && npm start   # http://localhost:8787
 |---|---|
 | `P` | panneau de réglage (caché) |
 | `D` | diagnostic : images/s, temps CPU et GPU, navires, source, calibration, niveau de bruit sous le curseur |
+| `V` | représentation du bruit : isophones → météo → encre → fronts bruts |
 | `B` | champ physique en dB (isolignes tous les 10 dB) : accumulé → basse → moyenne → haute → rendu |
 | `M` | couper / rétablir le son |
 | `G` | carte plate ↔ globe (globe : glisser = tourner, molette = zoom) |
@@ -163,18 +177,18 @@ Les contrôles et la méthode sont décrits dans [`docs/PROPAGATION.md`](docs/PR
 
 ## Ce que l'on voit
 
-- **Ondes des navires** : fronts du champ acoustique, atténués selon les pertes du modèle et leur
-  contribution au bruit naturel dans la bande affichée. La réfraction artistique a été retirée.
-- **Lueur d'accumulation** (grille physique, calibrée en dB re 1 µPa) : là où le bruit dure,
-  l'océan s'illumine lentement ; quand le trafic s'en va, la lueur s'efface plus lentement encore.
-- **Terra incognita** : les zones où l'AIS ne voit rien sont dans l'ombre, sous un brouillard lent et
-  un grain fin — distinctes des zones calculées sous le seuil graphique. Une zone sombre ne prouve pas le silence.
-- **Cétacés** (lumière chaude, pâle) : rorquals bleus et communs, baleines à bosse, cachalots, orques,
-  en groupes placés dans leurs habitats (AquaMaps) et près d'observations réelles (OBIS).
-  - **Espace de communication** : autour de chaque groupe, la zone où son appel reste audible, calculée
-    pixel par pixel avec le bruit local — rongée par les couloirs de trafic, coupée par les côtes ;
-    contour pointillé et tremblant là où l'AIS ne voit rien (bruit sous-estimé).
-  - **Liens** : fils de lumière entre groupes qui s'entendent ; les appels y circulent dans le sens de
+Détails, statut de chaque choix et captures : [`docs/REPRESENTATION.md`](docs/REPRESENTATION.md).
+
+- **Bruit ajouté par les navires** (teintes chaudes) : ΔL au-dessus du fond naturel dans une bande, en
+  paliers +10 / +20 / +30 dB (×10, ×100, ×1000 l'énergie). Quatre représentations (touche `V`) : isophones
+  animées, carte météo, encre, fronts bruts du modèle. Une légende permanente dit ce que l'on voit.
+- **Terra incognita** : hachures là où l'AIS ne voit rien (bruit sous-estimé). Une zone sombre ne prouve pas le silence.
+- **Navires** : chevrons orientés selon la route ; navires estimés en chevrons creux.
+- **Cétacés** (teintes froides, une par espèce) : silhouettes des rorquals bleus et communs, baleines à bosse,
+  cachalots, orques, en groupes placés dans leurs habitats (AquaMaps) et près d'observations réelles (OBIS).
+  - **Vue rapprochée** (groupe le plus proche du centre) : zone encore audible, portée sans navires en
+    pointillés, espace perdu en semis de points, anneau d'appel qui se brise sur le bruit.
+  - **Liens** : fils colorés entre groupes qui s'entendent ; les appels y circulent dans le sens de
     l'écoute ; un lien peut devenir asymétrique (l'un entend, l'autre non), s'effilocher, se rompre, laisser
     une trace fantôme, se retisser.
   - Scène de test : `?scene=duo` — deux groupes de rorquals communs en mer Ligure, au seuil de s'entendre.
@@ -189,21 +203,19 @@ Modèle, calibration (écart < 1 dB à la loi théorique), niveaux obtenus et li
 
 ## Performances mesurées (Radeon 780M, Chromium + Vulkan)
 
-| Cible | Résolution de rendu | GPU / image | Images/s |
-|---|---|---|---|
-| écran (profil expo) | 1692×1128 (échelle 0,75 de 2256×1504) | 9,3 ms | 60 |
-| projecteur (profil expo) | 1920×1200 | 11,6 ms | 60 |
-| écran (profil light) | 1692×1128 | 6,7 ms | 60 |
-
-Avec la grille de détail (zoom), compter 1 à 2 ms de plus.
+Projecteur 1920×1200, profil expo, 50 854 navires estimés, cadence normale (25 oct. 2026) : 60 images/s en
+médiane dans tous les modes et toutes les représentations du bruit ; 1 à 2 % d'images entre 35 et 58 ms
+(relecture du champ à chaque pas du modèle). Tableau complet et méthode : [`docs/REPRESENTATION.md`](docs/REPRESENTATION.md).
 
 ## Architecture
 
 ```
-shared/   modèle acoustique (JOMOPANS-ECHO, bandes, Thorp), protocole binaire, schéma de config
+shared/   modèle acoustique (JOMOPANS-ECHO, bandes, Thorp), protocole binaire, schéma de config,
+          sources de navires sans Node (shared/ships : simulation, estimés, AIS, couverture)
 server/   serveur local : configuration, sources (AIS direct, replay, simulation, bascule), enregistreur,
           carte de couverture, WebSocket
-client/   rendu WebGL2 (Three.js) : simulation d'ondes GPU, navires, composition, HUD, panneau
+client/   rendu WebGL2 (Three.js) : champ acoustique GPU, nappe de bruit, navires, cétacés, monde illustré,
+          légende, panneau ; web autonome (sources de navires dans un Web Worker)
 tools/    scripts Python (uv) : grilles, routes, conversion d'archives AIS
 scripts/  utilitaires (faux serveur aisstream pour les tests)
 data/     grilles terre/mer et bathymétrie, routes maritimes
@@ -226,6 +238,8 @@ docs/     sources et licences ; modèle physique (J3) ; guide d'exposition (J6)
 npm test         # vitest : modèle acoustique, protocole, classes AIS, géodésie, simulation,
                  #         messages aisstream, registre, couverture, enregistreur, replay, direct (serveur factice)
 npm run typecheck
+npm run test:propagation                           # contrôles numériques sous Chromium
+node scripts/verify-representation.mjs              # captures de la représentation et temps d'image (dev actif)
 ```
 
 ## Feuille de route

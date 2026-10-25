@@ -4,6 +4,7 @@
 # --- La carte du vacarme ---
 node_modules/
 dist/
+dist-web/
 .env
 config/local.json5
 data/recordings/

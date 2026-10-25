@@ -1,4 +1,6 @@
-import { SOUND_SPEED_M_S, acousticComponents, validationRegionAt, validationSummarySchema, type Config, type ScienceStatus, type SourceStatus, type ValidationSummary } from '@vacarme/shared';
+import { SCIENTIFIC_PROFILE_ID, acousticComponents, validationRegionAt, validationSummarySchema, type Config, type ScienceStatus, type SourceStatus, type ValidationSummary } from '@vacarme/shared';
+
+import { dataUrl, STANDALONE } from '../data-url.ts';
 
 /**
  * Panneau « Fiabilité » : niveaux calculés par le moteur mondial au curseur (navires, fond naturel,
@@ -7,7 +9,6 @@ import { SOUND_SPEED_M_S, acousticComponents, validationRegionAt, validationSumm
  */
 export class SciencePanel {
   readonly element = document.createElement('details');
-  private readonly propagation = document.createElement('div');
   private readonly summary = document.createElement('summary');
   private readonly message = document.createElement('p');
   private readonly reading = document.createElement('pre');
@@ -21,23 +22,17 @@ export class SciencePanel {
     note.textContent = 'Fronts et niveaux [C] : même champ acoustique estimé, non validé en mer. Espacement des anneaux, visibilité et lueur [A] : conventions graphiques ; aucun seuil biologique. Domaine ±79°, grille de référence ≈ 39 km. Historique acoustique initial incomplet.';
     this.element.append(this.summary, this.message, note, this.reading, this.validation);
     for (const event of ['pointerdown', 'wheel', 'keydown']) this.element.addEventListener(event, e => e.stopPropagation());
-    this.propagation.id = 'propagation';
-    this.propagation.setAttribute('aria-live', 'off');
-    document.body.append(this.element, this.propagation);
+    document.body.append(this.element);
     void this.reload();
   }
-  updatePropagation(cfg: Config, scale: number, ageSec: number, stale: boolean): void {
-    const band = cfg.bands.find(b => b.id === cfg.waves.band)!;
-    this.propagation.textContent = `${band.fMin}–${band.fMax} Hz · Temps ×${scale} · c ≈ ${(SOUND_SPEED_M_S / 1000).toLocaleString('fr-FR')} km/s${cfg.physics.enabled ? '' : ' · champ désactivé'}\nOndes des navires : augmentation estimée du bruit · visibles au-delà de +1 dB\nHistorique acoustique incomplet (${Math.floor(ageSec / 60)} min simulées)${stale ? ' · données interrompues, scène arrêtée' : ''} · sombre ≠ silence`;
-  }
-
   get wantsLevels(): boolean { return this.element.open; }
   async reload(): Promise<void> {
     const request = ++this.request;
     try {
-      const res = await fetch('/api/science');
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const result = await res.json() as { status: ScienceStatus; validation: unknown };
+      const result = STANDALONE ? await standaloneScience() : await fetch('/api/science').then(async res => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json() as { status: ScienceStatus; validation: unknown };
+      });
       if (request !== this.request) return;
       this.data = result.validation ? validationSummarySchema.parse(result.validation) : null;
       this.message.textContent = result.status.message;
@@ -59,6 +54,21 @@ export class SciencePanel {
     this.reading.textContent = `${position}\n${world ? cfg.bands.map((b, i) => `${b.fMin}–${b.fMax} Hz : ${format(world[i * 2] === -Infinity ? null : world[i * 2], world[i * 2 + 1])}`).join('\n') : 'Niveaux indisponibles (terre, hors domaine ou champ désactivé).'}\nMoyenne exponentielle τ = ${cfg.physics.energyTauSec} s (temps de la scène). Vent uniforme : ${cfg.ambient.windSpeedMs} m/s [E], scénario.\n${traffic}`;
     this.validation.textContent = 'Comparaisons historiques de la loi au point ; elles ne valident pas les fronts ni ce champ GPU.\n' + validationText(this.data, geo, cfg.science.mode, source);
   }
+}
+
+/** Web autonome : le résumé publié est copié avec les données ; même message que le serveur. */
+async function standaloneScience(): Promise<{ status: ScienceStatus; validation: unknown }> {
+  const res = await fetch(dataUrl('science/validation-summary.json')).catch(() => null);
+  const validation: unknown = res?.ok ? await res.json() : null;
+  const data = validation ? validationSummarySchema.safeParse(validation) : null;
+  const ok = !!data?.success && data.data.profileId === SCIENTIFIC_PROFILE_ID;
+  return {
+    validation: ok ? validation : null,
+    status: {
+      profileId: SCIENTIFIC_PROFILE_ID, mode: 'reference', validationAvailable: ok,
+      message: ok ? `Écarts mesurés publiés (${data!.data!.protocol}) ; hors des zones mesurées : non validé.` : 'Aucun résumé de validation publié. Niveaux non validés.',
+    },
+  };
 }
 
 function signed(x: number): string {

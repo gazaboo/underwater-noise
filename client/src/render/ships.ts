@@ -7,7 +7,8 @@
  *
  * Deux usages du même nuage :
  *  - injection des sources dans la simulation d'ondes (impulsions de fronts d'onde) ;
- *  - affichage des navires sur la carte plate (petits points lumineux).
+ *  - affichage : chevrons orientés selon la route fond (cap connu), liseré sombre lisible sur la nappe
+ *    de bruit ; navires estimés en chevrons creux, plus discrets ; navires arrêtés en simple point.
  */
 import * as THREE from 'three';
 import type { Config, ShipSnapshot } from '@vacarme/shared';
@@ -42,8 +43,11 @@ uniform float uScale;     // pixels (tampon) par degré
 uniform vec2 uResolution; // taille du tampon (pixels)
 uniform vec2 uLatRange;
 uniform float uPointSize;
+uniform float uFlipY;     // 1 : tampon de rendu (texture monde) ; −1 : écran
 out float vAlpha;
 flat out float vEstimated;
+flat out vec2 vDir;       // direction de la route (repère de gl_PointCoord)
+flat out float vMoving;
 ${DEAD_RECKON}
 void main() {
   vec2 ll = deadReckon(aLatLon, aMotion, uDt);
@@ -51,26 +55,54 @@ void main() {
   vec2 px = vec2(dLon, ll.x - uCenter.y) * uScale;
   gl_Position = vec4(px / (0.5 * uResolution), 0.0, 1.0);
   bool visible = ll.x >= uLatRange.x && ll.x <= uLatRange.y;
-  // Navires estimés : anneau un peu plus grand (sinon illisible à 2–3 pixels).
-  gl_PointSize = visible ? uPointSize * (0.7 + 0.6 * aAmp) * (1.0 + 0.8 * aEstimated) : 0.0;
-  vAlpha = 0.35 + 0.65 * aAmp;
+  gl_PointSize = visible ? uPointSize * (0.8 + 0.7 * aAmp) : 0.0;
+  vAlpha = 0.55 + 0.45 * aAmp;
   vEstimated = aEstimated;
+  float cog = radians(aMotion.y);
+  vDir = vec2(sin(cog), -cos(cog) * uFlipY); // gl_PointCoord : y vers le bas à l'écran
+  vMoving = step(0.5, aMotion.x);
 }`;
 
 const DISPLAY_FRAG = /* glsl */ `
 precision highp float;
 in float vAlpha;
 flat in float vEstimated;
-uniform vec3 uColor;
-uniform float uOpacity;
+flat in vec2 vDir;
+flat in float vMoving;
+uniform vec3 uColor, uOutline;
+uniform float uOpacity, uPx;
 out vec4 outColor;
+float sdTri(vec2 p, vec2 a, vec2 b, vec2 c) {
+  vec2 e0 = b - a, e1 = c - b, e2 = a - c;
+  vec2 v0 = p - a, v1 = p - b, v2 = p - c;
+  vec2 pq0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0);
+  vec2 pq1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0);
+  vec2 pq2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
+  float s = sign(e0.x * e2.y - e0.y * e2.x);
+  vec2 d = min(min(vec2(dot(pq0, pq0), s * (v0.x * e0.y - v0.y * e0.x)),
+                   vec2(dot(pq1, pq1), s * (v1.x * e1.y - v1.y * e1.x))),
+                   vec2(dot(pq2, pq2), s * (v2.x * e2.y - v2.y * e2.x)));
+  return -sqrt(d.x) * sign(d.y);
+}
+// Chevron (pointe vers l'avant) en distance signée, dans le repère du navire (x : avant).
+float chevron(vec2 p) {
+  float outer = sdTri(p, vec2(0.44, 0.0), vec2(-0.36, 0.3), vec2(-0.36, -0.3));
+  float notch = sdTri(p, vec2(-0.16, 0.0), vec2(-0.5, 0.4), vec2(-0.5, -0.4));
+  return max(outer, -notch);
+}
 void main() {
   vec2 d = gl_PointCoord - 0.5;
-  float r = length(d);
-  float w = smoothstep(0.5, 0.0, r);
-  // Navire estimé : anneau creux, atténué — distinct d'un navire observé par l'AIS.
-  float ring = smoothstep(0.5, 0.38, r) * smoothstep(0.18, 0.3, r) * 0.75;
-  outColor = vec4(uColor * mix(w, ring, vEstimated) * vAlpha * uOpacity, 1.0);
+  vec2 p = vec2(dot(d, vDir), dot(d, vec2(-vDir.y, vDir.x)));
+  float sd = vMoving > 0.5 ? chevron(p) : length(d) - 0.16;
+  float aa = 1.0 / max(uPx, 1.0);
+  float body = 1.0 - smoothstep(-aa, aa, sd);
+  float rim = 1.0 - smoothstep(-aa, aa, sd - 1.6 * aa);
+  // Navire estimé : contour seul, atténué — distinct d'un navire observé par l'AIS.
+  float hollow = smoothstep(-aa, aa, sd + 1.6 * aa);
+  body *= mix(1.0, hollow * 0.8, vEstimated);
+  float a = max(body, rim * 0.75) * vAlpha * uOpacity * mix(1.0, 0.7, vEstimated);
+  vec3 c = mix(uOutline, uColor, body / max(max(body, rim), 1e-4));
+  outColor = vec4(c * a, a); // prémultiplié
 }`;
 
 export interface ShipSample {
@@ -131,9 +163,16 @@ export class ShipLayer {
         uLatRange: { value: new THREE.Vector2(-90, 90) },
         uPointSize: { value: 2 },
         uColor: { value: new THREE.Vector3(1, 1, 1) },
+        uOutline: { value: new THREE.Vector3() },
         uOpacity: { value: 0.5 },
+        uPx: { value: 4 },
+        uFlipY: { value: -1 },
       },
-      blending: THREE.AdditiveBlending,
+      blending: THREE.CustomBlending,
+      blendSrc: THREE.OneFactor,
+      blendDst: THREE.OneMinusSrcAlphaFactor,
+      blendSrcAlpha: THREE.OneFactor,
+      blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
       depthTest: false,
       depthWrite: false,
       transparent: true,
@@ -272,7 +311,10 @@ export class ShipLayer {
     (u.uResolution.value as THREE.Vector2).set(view.width, view.height);
     (u.uLatRange.value as THREE.Vector2).set(view.latMin, view.latMax);
     u.uPointSize.value = cfg.ships.pointSize * pixelRatio;
+    u.uPx.value = cfg.ships.pointSize * pixelRatio;
+    u.uFlipY.value = target ? 1 : -1;
     hexToVec3(cfg.palette.ship, u.uColor.value as THREE.Vector3);
+    hexToVec3(cfg.whales.glyphs.outline, u.uOutline.value as THREE.Vector3);
     u.uOpacity.value = cfg.ships.opacity;
     renderer.setRenderTarget(target);
     renderer.render(this.displayScene, this.camera);
