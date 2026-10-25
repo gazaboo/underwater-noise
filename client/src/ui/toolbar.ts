@@ -1,10 +1,11 @@
 /**
  * Barre d'outils tactile du mode web autonome (pas de clavier ni de panneau P sur un téléphone) :
- * mêmes actions que les touches G, V, J, N, M et l'affichage de la légende.
+ * mêmes actions que les touches G, V, S, J, N, M et l'affichage de la légende.
  */
 export interface ToolbarActions {
   view(): string;
   noise(): string;
+  scenario(): string;
   theme(): string;
   ships(): string;
   sound(): string;

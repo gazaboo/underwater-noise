@@ -74,6 +74,8 @@ export class Panel {
 
     const noise = pane.addFolder({ title: 'Bruit ajouté — représentation (V)' });
     noise.addBinding(cfg.noise, 'style', { label: 'style', options: { 'isophones animées': 'isophones', 'carte météo': 'meteo', encre: 'encre', 'fronts bruts': 'fronts' } });
+    noise.addBinding(cfg.noise, 'visible', { label: 'nappe affichée' });
+    noise.addBinding(cfg, 'scenario', { label: 'scénario', options: { actuel: 'actuel', 'océan sans navires': 'sans-navires' } });
     noise.addBinding(cfg.waves, 'band', { label: 'bande affichée', options: Object.fromEntries(cfg.bands.map(b => [`${b.fMin}–${b.fMax} Hz`, b.id])) });
     noise.addBinding(cfg.noise, 'opacity', { label: 'opacité de la nappe', min: 0, max: 1, step: 0.01 });
     noise.addBinding(cfg.noise, 'lines', { label: 'lignes / traits', min: 0, max: 1, step: 0.01 });

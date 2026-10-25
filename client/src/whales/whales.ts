@@ -122,11 +122,13 @@ export class Whales {
 
     // Bruit local et rayon d'écoute de chaque groupe (lissé : le rayon « respire »).
     const k = 1 - Math.exp(-dtSec / 1.5);
+    // Océan sans navires : même équation du sonar avec le seul fond naturel [C] (portées et liens).
+    const quietOcean = cfg.scenario === 'sans-navires';
     for (const g of groups) {
       g.coverage = this.coverageAt(g.lat, g.lon);
-      if (!this.reader?.ready) continue;
+      if (!quietOcean && !this.reader?.ready) continue;
       const band = BAND_INDEX[g.species.band] + 1;
-      const nl = this.reader.sample(g.lat, g.lon, band);
+      const nl = quietOcean ? naturalOf(cfg, g.species) : this.reader!.sample(g.lat, g.lon, band);
       if (!Number.isFinite(nl)) continue;
       g.noiseCall = nl - noiseCorrection(cfg, g.species);
       const target = communicationRange(g.species, g.noiseCall, g.depth, lossRateOf(cfg, g.species, g.depth));

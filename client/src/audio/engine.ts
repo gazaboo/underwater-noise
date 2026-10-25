@@ -180,7 +180,9 @@ export class AudioEngine {
     // venu au-delà des (voix + actives) premiers : c'est équivalent à tout lui passer, sans allouer un objet
     // par navire (des dizaines de milliers avec les navires estimés).
     type Cand = { id: number; score: number; i: number; sog: number; classIndex: number; lengthM: number };
-    const n = a.enabled ? a.ships.voices : 0;
+    // Océan sans navires : ni voix de navires ni nappe.
+    const quietOcean = cfg.scenario === 'sans-navires';
+    const n = a.enabled && !quietOcean ? a.ships.voices : 0;
     const k = 2 * Math.max(1, n);
     const top: Cand[] = []; // décroissant, au plus k
     const kept: Cand[] = [];
@@ -244,11 +246,11 @@ export class AudioEngine {
       const acc = cfg.accumulation;
       this.bedIntensity = Math.max(0, Math.min(1, (mean - acc.quietDb) / (acc.saturationDb - acc.quietDb)));
     }
-    this.bed?.set(this.bedIntensity, a.enabled ? a.bed.volume : 0);
+    this.bed?.set(this.bedIntensity, a.enabled && !quietOcean ? a.bed.volume : 0);
 
     const peak = this.output.peakDb();
     this.status = this.muted
       ? 'son : coupé (M)'
-      : `son : ${this.active.size} navires · ${this.playingCalls.length} appels en cours (${a.whales.source === 'recorded' ? this.bank.status : 'synthèse'}) · nappe ${(100 * this.bedIntensity).toFixed(0)} % · crête ${Number.isFinite(peak) ? peak.toFixed(1) : '−∞'} dBFS · limiteur ${this.output.reductionDb.toFixed(1)} dB`;
+      : `son : ${this.active.size} navires · ${this.playingCalls.length} appels en cours (${a.whales.source === 'recorded' ? this.bank.status : 'synthèse'}) · nappe ${quietOcean ? 'coupée (sans navires)' : `${(100 * this.bedIntensity).toFixed(0)} %`} · crête ${Number.isFinite(peak) ? peak.toFixed(1) : '−∞'} dBFS · limiteur ${this.output.reductionDb.toFixed(1)} dB`;
   }
 }

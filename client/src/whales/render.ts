@@ -75,6 +75,7 @@ uniform float uScale;
 uniform vec2 uResolution;
 uniform sampler2D uNoiseDb;  // ΔL lissé par bande (dB, RGB) : même champ que la nappe
 uniform vec3 uNatural;       // fond naturel par bande (dB)
+uniform float uShips;        // 0 : océan sans navires (seul le fond naturel compte)
 uniform sampler2D uElevL;
 uniform sampler2D uOcean;   // grille océan (G profondeur log, B fraction de terre), mipmappée
 uniform float uOceanPerDeg; // texels de uOcean par degré
@@ -147,7 +148,7 @@ void main() {
   float rt = max(vCall.w, 10.0);
   float tl = (r <= rt ? 20.0 * log(r) : 20.0 * log(rt) + 10.0 * log(r / rt)) / log(10.0) + (vMisc.y + rate) * r / 1000.0;
   vec3 ex = sampleCubic(uNoiseDb, uv).rgb;
-  float excess = max(band < 0.5 ? ex.r : band < 1.5 ? ex.g : ex.b, 0.0);
+  float excess = uShips * max(band < 0.5 ? ex.r : band < 1.5 ? ex.g : ex.b, 0.0);
   float nlQuiet = (band < 0.5 ? uNatural.x : band < 1.5 ? uNatural.y : uNatural.z) - vCall.z;
   float seQuiet = vCall.x - tl - nlQuiet - vCall.y;
   float se = seQuiet - excess;
@@ -324,6 +325,8 @@ export interface WhaleDrawOptions {
   /** ΔL lissé par bande (dB, RGB) et fond naturel par bande (dB). */
   noise: THREE.Texture;
   natural: [number, number, number];
+  /** 1 : bruit actuel ; 0 : océan sans navires. */
+  ships: number;
   /** 0 : vue globale ; 1 : vue rapprochée. */
   close: number;
   /** Pixels du tampon par pixel CSS de l'affichage final. */
@@ -386,6 +389,7 @@ export class WhaleRenderer {
         ...flatUniforms(),
         uNoiseDb: { value: null },
         uNatural: { value: new THREE.Vector3(84, 88, 93) },
+        uShips: { value: 1 },
         uElevL: { value: elevLinear },
         uOcean: { value: ocean },
         uOceanPerDeg: { value: (ocean.image as { width: number }).width / 360 },
@@ -528,6 +532,7 @@ export class WhaleRenderer {
     (su.uBandFreq.value as THREE.Vector3).set(lo, mi, hi);
     su.uNoiseDb.value = opts.noise;
     (su.uNatural.value as THREE.Vector3).set(...opts.natural);
+    su.uShips.value = opts.ships;
     su.uCoverage.value = coverage;
     su.uFill.value = w.space.fill;
     su.uFarFill.value = w.space.farFill;
