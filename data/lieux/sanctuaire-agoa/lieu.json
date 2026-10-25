@@ -1,0 +1,10 @@
+{
+ "id": "sanctuaire-agoa",
+ "title": "Sanctuaire Agoa (Antilles françaises)",
+ "center": { "lat": 16.0, "lon": -62.0 },
+ "radiusKm": 250,
+ "text": "Chaque hiver, des baleines à bosse viennent se reproduire dans les eaux chaudes des Antilles, et les mâles y chantent. Depuis 2010, toute la zone économique des Antilles françaises, environ 143 000 km², est un sanctuaire pour les mammifères marins.",
+ "status": "S",
+ "source": "Sanctuaire Agoa (annoncé le 5 octobre 2010, reconnu aire spécialement protégée du protocole SPAW en 2012 ; ≈ 143 000 km², ZEE de Martinique, Guadeloupe, Saint-Martin et Saint-Barthélemy ; plan de gestion 2023–2037, migration reproductrice des baleines à bosse) ; position approximative [S-r]",
+ "sounds": []
+}

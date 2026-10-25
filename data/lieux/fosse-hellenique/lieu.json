@@ -1,0 +1,10 @@
+{
+ "id": "fosse-hellenique",
+ "title": "Fosse hellénique (Grèce)",
+ "center": { "lat": 36.0, "lon": 22.0 },
+ "radiusKm": 250,
+ "text": "Deux à trois cents cachalots vivent le long de cette fosse, là où passent les grandes routes maritimes de Méditerranée orientale. Les collisions y tuent plus que la population ne peut supporter. Décaler les routes vers le large réduirait le risque d'environ 70 % (modèle) ; des armateurs ont commencé à se détourner.",
+ "status": "S",
+ "source": "Frantzis et al. 2019, PLoS ONE 14(2): e0212016 (sous-population de 200 à 300 individus ; risque de collision −70 % si les routes passent au large, pour 5 à 11 milles nautiques de plus) ; IFAW 2023 (la compagnie DFDS change de route et ralentit) ; position : centre approximatif de la zone d'étude [S-r]",
+ "sounds": []
+}

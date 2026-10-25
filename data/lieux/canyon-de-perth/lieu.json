@@ -1,0 +1,10 @@
+{
+ "id": "canyon-de-perth",
+ "title": "Canyon de Perth (Australie)",
+ "center": { "lat": -31.95, "lon": 115.0 },
+ "radiusKm": 80,
+ "text": "De janvier à mai surtout, des rorquals bleus pygmées se nourrissent dans ce canyon au large de Perth. Des hydrophones posés vers 450 m de fond y ont enregistré leurs chants de 2000 à 2018. Plus au sud, la station du cap Leeuwin, qui surveille les essais nucléaires, les entend jusqu'à 200 km.",
+ "status": "S",
+ "source": "IMOS, Passive Acoustic Observatory at Perth Canyon (PAPCA, hydrophones à 400–490 m ; présence surtout de janvier à mai) ; DOSITS 2022 (enregistrements 2000–2018) ; station hydroacoustique du cap Leeuwin (TICE), 9 ans de données 2002–2010, portée de détection ≈ 50 à 200 km (2013) ; position approximative [S-r]",
+ "sounds": []
+}

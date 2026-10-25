@@ -1,0 +1,10 @@
+{
+ "id": "detroit-de-gibraltar",
+ "title": "Détroit de Gibraltar : les orques ibériques",
+ "center": { "lat": 35.95, "lon": -5.6 },
+ "radiusKm": 80,
+ "text": "Une petite population d'orques, environ 37 individus en 2023, chasse le thon rouge entre le golfe de Cadix et le détroit, l'un des passages maritimes les plus fréquentés du monde. Depuis 2020, quelques-unes poussent et mordent les gouvernails des voiliers : un comportement nouveau, encore mal compris.",
+ "status": "S-r",
+ "source": "UICN : sous-population ibérique en danger critique (2019) ; OceanCare (moins de 50 animaux, proie principale le thon rouge) ; photo-identification 2023 (≈ 37 individus) [S-r] ; étude espagnole (CEDEX) : 673 interactions de juillet 2020 à décembre 2023, à 91 % avec des voiliers [S-r]",
+ "sounds": []
+}

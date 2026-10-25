@@ -1,0 +1,10 @@
+{
+ "id": "antares-toulon",
+ "title": "ANTARES : un télescope qui entend les cachalots",
+ "center": { "lat": 42.8, "lon": 6.167 },
+ "radiusKm": 40,
+ "text": "À 40 km au large de Toulon et 2 500 m de fond, le télescope à neutrinos ANTARES portait aussi des hydrophones. Deux ans d'écoute continue ont révélé, jour après jour, les clics d'écholocation des cachalots de la mer Ligure profonde, entendus de loin.",
+ "status": "S",
+ "source": "André et al. 2017, Scientific Reports 7, 45517 (« Sperm whale long-range echolocation sounds revealed by ANTARES », données 2011–2012 traitées en temps réel par le logiciel LIDO) ; site ANTARES 42°48′ N, 6°10′ E",
+ "sounds": []
+}

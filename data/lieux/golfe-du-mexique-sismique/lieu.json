@@ -1,0 +1,10 @@
+{
+ "id": "golfe-du-mexique-sismique",
+ "title": "Golfe du Mexique : les canons à air",
+ "center": { "lat": 28.0, "lon": -89.5 },
+ "radiusKm": 250,
+ "text": "Pour chercher du pétrole sous le fond, des navires tirent des canons à air comprimé toutes les dix secondes environ, des semaines durant. Ces impulsions comptent parmi les bruits humains les plus forts en mer. Ici, les cachalots exposés ne s'enfuyaient pas, mais certains chassaient moins pendant les tirs.",
+ "status": "S",
+ "source": "Sperm Whale Seismic Study, 2002–2004 (MMS, aujourd'hui BOEM ; Miller et al. 2009, Deep-Sea Research I : pas d'évitement horizontal, recherche de proies réduite pendant l'exposition) ; tirs toutes les 8 à 10 s par réseau et niveaux de source de l'ordre de 240 à 255 dB re 1 µPa à 1 m crête à crête (documents d'autorisation BOEM) [S-r] ; position : talus du nord du golfe, approximative [S-r]",
+ "sounds": []
+}

@@ -1,0 +1,10 @@
+{
+ "id": "west-mata",
+ "title": "West Mata (Tonga) : une éruption filmée",
+ "center": { "lat": -15.1, "lon": -173.75 },
+ "radiusKm": 50,
+ "text": "En mai 2009, un robot sous-marin a filmé ce volcan en pleine éruption, à 1 200 m de fond : la plus profonde éruption jamais filmée à l'époque. On y voyait la lave rougeoyer et des bulles de gaz éclater ; la NOAA l'a aussi écouté à l'hydrophone.",
+ "status": "S",
+ "source": "Resing et al. 2011, Nature Geoscience (laves de boninite) ; NOAA Ocean Explorer et Université de Washington, 2009 (ROV Jason, WHOI) ; Smithsonian GVP (bouche Hades, 1 208 m) ; enregistrements hydrophone : NOAA PMEL, Dziak et al. 2015 [S-r] ; position approximative [S-r]",
+ "sounds": []
+}

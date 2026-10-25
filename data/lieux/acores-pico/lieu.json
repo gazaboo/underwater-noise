@@ -1,0 +1,10 @@
+{
+ "id": "acores-pico",
+ "title": "Açores : des chasseurs aux observateurs",
+ "center": { "lat": 38.3, "lon": -28.3 },
+ "radiusKm": 60,
+ "text": "Au large de Pico, on a chassé le cachalot depuis des barques jusqu'en 1987. Les vigies blanches d'où l'on guettait les souffles servent aujourd'hui à guider les bateaux d'observation des baleines.",
+ "status": "S-r",
+ "source": "Histoire de la chasse baleinière aux Açores (dernière chasse en 1987 à Lajes do Pico ; vigies reconverties pour l'observation, premières sorties vers 1989–1990) : musées baleiniers de Lajes et São Roque do Pico, Espaço Talassa [S-r]",
+ "sounds": []
+}

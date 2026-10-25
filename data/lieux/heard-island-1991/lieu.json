@@ -1,0 +1,10 @@
+{
+ "id": "heard-island-1991",
+ "title": "Heard, 1991 : un son entendu à l'autre bout du monde",
+ "center": { "lat": -53.5, "lon": 74.2 },
+ "radiusKm": 150,
+ "text": "En janvier 1991, un navire a émis ici un son grave (57 Hz), porté au loin par le canal sonore profond. Des hydrophones l'ont capté dans tous les grands bassins océaniques, jusqu'aux Bermudes, à 16 000 km, près de trois heures plus tard. Le but : suivre le réchauffement de l'océan par la vitesse du son.",
+ "status": "S",
+ "source": "Munk, Spindel, Baggeroer et Birdsall 1994, Journal of the Acoustical Society of America 96(4) (Heard Island Feasibility Test, 16 sites d'écoute) ; B. Dushaw (Université de Washington), pages Heard Island (Bermudes : 16 000 km, 2,95 h ; Ascension : 9 200 km) ; source à 50 km au sud-est de l'île, position approximative [S-r]",
+ "sounds": []
+}

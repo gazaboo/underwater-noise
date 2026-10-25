@@ -1,0 +1,10 @@
+{
+ "id": "lizard-island",
+ "title": "Récif de Lizard Island (Grande Barrière)",
+ "center": { "lat": -14.68, "lon": 145.47 },
+ "radiusKm": 30,
+ "text": "Un récif en bonne santé crépite : crevettes, poissons, oursins. Après deux cyclones et le blanchissement de 2016, celui-ci est devenu 15 dB plus silencieux, et les jeunes poissons, qui se guident à l'oreille, s'y installent 40 % moins. Diffuser le son d'un récif sain sur un récif abîmé y double le nombre de poissons.",
+ "status": "S",
+ "source": "Gordon et al. 2018, PNAS 115(20) (−15 dB en moyenne entre 2012 et 2016 ; 40 % d'installation en moins lors de diffusions) ; Gordon et al. 2019, Nature Communications 10: 5414 (enrichissement acoustique : abondance doublée, richesse +50 %)",
+ "sounds": []
+}

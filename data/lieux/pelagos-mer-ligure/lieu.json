@@ -1,0 +1,10 @@
+{
+ "id": "pelagos-mer-ligure",
+ "title": "Sanctuaire Pelagos (mer Ligure)",
+ "center": { "lat": 43.4, "lon": 8.2 },
+ "radiusKm": 150,
+ "text": "Chaque été, des rorquals communs viennent se nourrir entre la Provence, la Corse et la Toscane. La France, l'Italie et Monaco y ont créé en 1999 un sanctuaire de 87 500 km² pour les mammifères marins. Mais les ferries rapides le traversent : les rorquals y risquent la collision.",
+ "status": "S",
+ "source": "Accord Pelagos (Rome, 25 novembre 1999, en vigueur le 21 février 2002 ; 87 500 km² ; Parc national de Port-Cros) ; ISPRA 2022, collisions et quasi-collisions de rorquals communs sur les principales lignes de ferries de Pelagos en été ; position : centre approximatif du sanctuaire [S-r]",
+ "sounds": []
+}

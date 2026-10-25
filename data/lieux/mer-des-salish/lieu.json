@@ -1,0 +1,10 @@
+{
+ "id": "mer-des-salish",
+ "title": "Mer des Salish (détroit de Haro)",
+ "center": { "lat": 48.55, "lon": -123.2 },
+ "radiusKm": 80,
+ "text": "Les orques résidentes du Sud, en danger, chassent le saumon dans ces détroits, sur la route des navires du port de Vancouver. Depuis 2017, les navires sont invités à ralentir en été : l'intensité du bruit sous-marin baisse jusqu'à 55 % dans leurs zones de chasse. Des hydrophones Orcasound diffusent ce lieu en direct.",
+ "status": "S",
+ "source": "Port de Vancouver, programme ECHO (ralentissement volontaire depuis 2017 dans le détroit de Haro, étendu à Boundary Pass en 2019 ; intensité sonore réduite jusqu'à 55 % dans des zones de chasse clés) ; Orcasound (hydrophones en direct, mer des Salish) ; position approximative [S-r]",
+ "sounds": []
+}

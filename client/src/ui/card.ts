@@ -101,7 +101,9 @@ export class SpeciesCardPanel {
       <button type="button" class="fc-close" aria-label="Fermer la fiche">×</button>
       <h2>${esc(lieu.title)} <small>${Math.abs(lieu.center.lat).toFixed(1)}° ${lieu.center.lat >= 0 ? 'N' : 'S'}, ${Math.abs(lieu.center.lon).toFixed(1)}° ${lieu.center.lon >= 0 ? 'E' : 'O'}</small></h2>
       <p>${esc(lieu.text)} ${badge(lieu.status, lieu.source)}</p>
-      <p class="fc-note">On entend ce lieu en approchant le centre de la vue ; le bruit des navires au même endroit l'étouffe ou le hache ${badge('A', 'même métaphore que pour les appels des cétacés (docs/REVUE_SCIENTIFIQUE.md §8)')}</p>
+      ${sounds.length
+        ? `<p class="fc-note">On entend ce lieu en approchant le centre de la vue ; le bruit des navires au même endroit l'étouffe ou le hache ${badge('A', 'même métaphore que pour les appels des cétacés (docs/REVUE_SCIENTIFIQUE.md §8)')}</p>`
+        : `<p class="fc-note">Pas encore d'enregistrement diffusable pour ce lieu : le texte s'appuie sur les études citées.</p>`}
       ${lieu.contrast ? `<section class="fc-contrast"><h3>Écouter la différence</h3><p class="fc-note">${esc(lieu.contrast.text)}</p></section>` : ''}
       ${soundsHtml(sounds, lieu.playbackRate ?? 1)}
       <details class="fc-credits"><summary>Sources et crédits</summary>
