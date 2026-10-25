@@ -1,0 +1,13 @@
+{
+  "passed": true,
+  "profileId": "north-sea-reference-v1",
+  "station": "anholt",
+  "measured": true,
+  "outside": true,
+  "estimatedBlocked": true,
+  "experimentalBlocked": true,
+  "sourceStatusIsUiFixture": true,
+  "errors": [],
+  "method": "Navigateur local Brave/Playwright ; données historiques réelles de /api/science, coordonnées et statut de source injectés ; niveaux GPU non affichés. Aucun test acoustique supplémentaire.",
+  "summarySha256": "345afd467a9446d1fab219620989430443c9f86045f15b75323f3f395d1a9083"
+}

@@ -7,14 +7,15 @@
  *
  * Deux usages du même nuage :
  *  - injection des sources dans la simulation d'ondes (impulsions de fronts d'onde) ;
- *  - affichage des navires sur la carte plate (petits points lumineux).
+ *  - affichage : chevrons orientés selon la route fond (cap connu), liseré sombre lisible sur la nappe
+ *    de bruit ; navires estimés en chevrons creux, plus discrets ; navires arrêtés en simple point.
  */
 import * as THREE from 'three';
 import type { Config, ShipSnapshot } from '@vacarme/shared';
 import { FLAG_ESTIMATED, HEADER_BYTES, SHIP_STRIDE } from '@vacarme/shared';
 import { hexToVec3 } from './fullscreen.ts';
 import type { FlatTransform } from './flat-view.ts';
-import type { Domain } from '../sim/wave-sim.ts';
+import type { PhysicsDomain } from '../sim/physics-sim.ts';
 import { physicsInjectMaterial } from '../sim/physics-sim.ts';
 
 const MAX_SHIPS = 70000;
@@ -27,51 +28,6 @@ vec2 deadReckon(vec2 latLon, vec2 motion, float dtSec) {
   float lat = latLon.x + degrees(dist * cos(cog) / 6371000.0);
   float lon = latLon.y + degrees(dist * sin(cog) / (6371000.0 * max(cos(radians(latLon.x)), 0.05)));
   return vec2(clamp(lat, -89.9, 89.9), lon);
-}`;
-
-const INJECT_VERT = /* glsl */ `
-precision highp float;
-in vec3 position;   // inutilisé (attribut obligatoire pour three.js)
-in vec2 aLatLon;
-in vec2 aMotion;    // sog (nœuds), cog (degrés)
-in float aAmp;      // amplitude 0..1
-in float aSeed;     // 0..1
-uniform float uDt;          // secondes simulées depuis l'instantané
-uniform float uClock;       // compteur de pas
-uniform float uPeriodSteps; // pas entre deux impulsions, pour un navire de référence
-uniform float uCarrier;     // période de la porteuse (pas)
-uniform float uCycles;
-uniform float uGain;
-uniform float uSplat;       // taille du point (cellules)
-uniform vec4 uDomain;       // emprise de la grille : centre lon, bord nord, étendue lon, étendue lat (degrés)
-out float vSignal;
-${DEAD_RECKON}
-const float PI = 3.141592653589793;
-void main() {
-  vec2 ll = deadReckon(aLatLon, aMotion, uDt);
-  float dLon = mod(ll.y - uDomain.x + 180.0, 360.0) - 180.0;
-  float x = dLon / (0.5 * uDomain.z);
-  float v = (uDomain.y - ll.x) / uDomain.w;
-  gl_Position = vec4(x, v * 2.0 - 1.0, 0.0, 1.0);
-  gl_PointSize = uSplat;
-
-  // Navires rapides : impulsions plus fréquentes ; dispersion individuelle par la graine.
-  float speedFactor = clamp(sqrt(max(aMotion.x, 0.5) / 12.0), 0.4, 1.8);
-  float period = uPeriodSteps / (speedFactor * (0.75 + 0.5 * aSeed));
-  float ph = mod(uClock + aSeed * period * 13.0, period);
-  float dur = uCycles * uCarrier;
-  float env = ph < dur ? pow(sin(PI * ph / dur), 2.0) : 0.0;
-  vSignal = uGain * aAmp * env * sin(2.0 * PI * ph / uCarrier);
-}`;
-
-const INJECT_FRAG = /* glsl */ `
-precision highp float;
-in float vSignal;
-out vec4 outColor;
-void main() {
-  vec2 d = gl_PointCoord - 0.5;
-  float w = exp(-dot(d, d) * 12.0);
-  outColor = vec4(vSignal * w, 0.0, 0.0, 1.0);
 }`;
 
 const DISPLAY_VERT = /* glsl */ `
@@ -87,8 +43,11 @@ uniform float uScale;     // pixels (tampon) par degré
 uniform vec2 uResolution; // taille du tampon (pixels)
 uniform vec2 uLatRange;
 uniform float uPointSize;
+uniform float uFlipY;     // 1 : tampon de rendu (texture monde) ; −1 : écran
 out float vAlpha;
 flat out float vEstimated;
+flat out vec2 vDir;       // direction de la route (repère de gl_PointCoord)
+flat out float vMoving;
 ${DEAD_RECKON}
 void main() {
   vec2 ll = deadReckon(aLatLon, aMotion, uDt);
@@ -96,26 +55,54 @@ void main() {
   vec2 px = vec2(dLon, ll.x - uCenter.y) * uScale;
   gl_Position = vec4(px / (0.5 * uResolution), 0.0, 1.0);
   bool visible = ll.x >= uLatRange.x && ll.x <= uLatRange.y;
-  // Navires estimés : anneau un peu plus grand (sinon illisible à 2–3 pixels).
-  gl_PointSize = visible ? uPointSize * (0.7 + 0.6 * aAmp) * (1.0 + 0.8 * aEstimated) : 0.0;
-  vAlpha = 0.35 + 0.65 * aAmp;
+  gl_PointSize = visible ? uPointSize * (0.8 + 0.7 * aAmp) : 0.0;
+  vAlpha = 0.55 + 0.45 * aAmp;
   vEstimated = aEstimated;
+  float cog = radians(aMotion.y);
+  vDir = vec2(sin(cog), -cos(cog) * uFlipY); // gl_PointCoord : y vers le bas à l'écran
+  vMoving = step(0.5, aMotion.x);
 }`;
 
 const DISPLAY_FRAG = /* glsl */ `
 precision highp float;
 in float vAlpha;
 flat in float vEstimated;
-uniform vec3 uColor;
-uniform float uOpacity;
+flat in vec2 vDir;
+flat in float vMoving;
+uniform vec3 uColor, uOutline;
+uniform float uOpacity, uPx;
 out vec4 outColor;
+float sdTri(vec2 p, vec2 a, vec2 b, vec2 c) {
+  vec2 e0 = b - a, e1 = c - b, e2 = a - c;
+  vec2 v0 = p - a, v1 = p - b, v2 = p - c;
+  vec2 pq0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0);
+  vec2 pq1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0);
+  vec2 pq2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
+  float s = sign(e0.x * e2.y - e0.y * e2.x);
+  vec2 d = min(min(vec2(dot(pq0, pq0), s * (v0.x * e0.y - v0.y * e0.x)),
+                   vec2(dot(pq1, pq1), s * (v1.x * e1.y - v1.y * e1.x))),
+                   vec2(dot(pq2, pq2), s * (v2.x * e2.y - v2.y * e2.x)));
+  return -sqrt(d.x) * sign(d.y);
+}
+// Chevron (pointe vers l'avant) en distance signée, dans le repère du navire (x : avant).
+float chevron(vec2 p) {
+  float outer = sdTri(p, vec2(0.44, 0.0), vec2(-0.36, 0.3), vec2(-0.36, -0.3));
+  float notch = sdTri(p, vec2(-0.16, 0.0), vec2(-0.5, 0.4), vec2(-0.5, -0.4));
+  return max(outer, -notch);
+}
 void main() {
   vec2 d = gl_PointCoord - 0.5;
-  float r = length(d);
-  float w = smoothstep(0.5, 0.0, r);
-  // Navire estimé : anneau creux, atténué — distinct d'un navire observé par l'AIS.
-  float ring = smoothstep(0.5, 0.38, r) * smoothstep(0.18, 0.3, r) * 0.75;
-  outColor = vec4(uColor * mix(w, ring, vEstimated) * vAlpha * uOpacity, 1.0);
+  vec2 p = vec2(dot(d, vDir), dot(d, vec2(-vDir.y, vDir.x)));
+  float sd = vMoving > 0.5 ? chevron(p) : length(d) - 0.16;
+  float aa = 1.0 / max(uPx, 1.0);
+  float body = 1.0 - smoothstep(-aa, aa, sd);
+  float rim = 1.0 - smoothstep(-aa, aa, sd - 1.6 * aa);
+  // Navire estimé : contour seul, atténué — distinct d'un navire observé par l'AIS.
+  float hollow = smoothstep(-aa, aa, sd + 1.6 * aa);
+  body *= mix(1.0, hollow * 0.8, vEstimated);
+  float a = max(body, rim * 0.75) * vAlpha * uOpacity * mix(1.0, 0.7, vEstimated);
+  vec3 c = mix(uOutline, uColor, body / max(max(body, rim), 1e-4));
+  outColor = vec4(c * a, a); // prémultiplié
 }`;
 
 export interface ShipSample {
@@ -143,9 +130,7 @@ export class ShipLayer {
   private readonly slBands = new Float32Array(MAX_SHIPS * 3);
   private count = 0;
 
-  private readonly injectMaterial: THREE.RawShaderMaterial;
   private readonly displayMaterial: THREE.RawShaderMaterial;
-  private readonly injectScene = new THREE.Scene();
   private readonly physicsScene = new THREE.Scene();
   private readonly physicsMaterial: THREE.RawShaderMaterial;
   private readonly displayScene = new THREE.Scene();
@@ -166,24 +151,6 @@ export class ShipLayer {
     this.geometry.setAttribute('aEstimated', new THREE.BufferAttribute(this.estimated, 1).setUsage(THREE.DynamicDrawUsage));
     this.geometry.setDrawRange(0, 0);
 
-    this.injectMaterial = new THREE.RawShaderMaterial({
-      glslVersion: THREE.GLSL3,
-      vertexShader: INJECT_VERT,
-      fragmentShader: INJECT_FRAG,
-      uniforms: {
-        uDt: { value: 0 },
-        uClock: { value: 0 },
-        uPeriodSteps: { value: 400 },
-        uCarrier: { value: 15 },
-        uCycles: { value: 1.5 },
-        uGain: { value: 1 },
-        uSplat: { value: 3 },
-        uDomain: { value: new THREE.Vector4(0, 90, 360, 180) },
-      },
-      blending: THREE.AdditiveBlending,
-      depthTest: false,
-      depthWrite: false,
-    });
     this.displayMaterial = new THREE.RawShaderMaterial({
       glslVersion: THREE.GLSL3,
       vertexShader: DISPLAY_VERT,
@@ -196,16 +163,22 @@ export class ShipLayer {
         uLatRange: { value: new THREE.Vector2(-90, 90) },
         uPointSize: { value: 2 },
         uColor: { value: new THREE.Vector3(1, 1, 1) },
+        uOutline: { value: new THREE.Vector3() },
         uOpacity: { value: 0.5 },
+        uPx: { value: 4 },
+        uFlipY: { value: -1 },
       },
-      blending: THREE.AdditiveBlending,
+      blending: THREE.CustomBlending,
+      blendSrc: THREE.OneFactor,
+      blendDst: THREE.OneMinusSrcAlphaFactor,
+      blendSrcAlpha: THREE.OneFactor,
+      blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
       depthTest: false,
       depthWrite: false,
       transparent: true,
     });
     this.physicsMaterial = physicsInjectMaterial(DEAD_RECKON, 'deadReckon(aLatLon, aMotion, uDt)');
     for (const [scene, mat] of [
-      [this.injectScene, this.injectMaterial],
       [this.displayScene, this.displayMaterial],
       [this.physicsScene, this.physicsMaterial],
     ] as const) {
@@ -292,7 +265,8 @@ export class ShipLayer {
 
   /** Niveau source large bande → amplitude visuelle (paramètres artistiques). */
   recomputeAmplitudes(cfg: Config): void {
-    const { slMin, slMax, gamma } = cfg.waves.amplitude;
+    // Marker size only: this mapping never controls acoustic injection or wave visibility.
+    const slMin = 166, slMax = 192, gamma = 1.7;
     for (let i = 0; i < this.count; i++) {
       const t = Math.min(1, Math.max(0, (this.slBroad[i] - slMin) / (slMax - slMin)));
       const moored = this.motion[2 * i] < 0.5 ? 0.1 : 1;
@@ -301,36 +275,21 @@ export class ShipLayer {
     (this.geometry.getAttribute('aAmp') as THREE.BufferAttribute).needsUpdate = true;
   }
 
+  private sceneTimeMs: number | null = null;
+  setTime(timeMs: number): void { this.sceneTimeMs = timeMs; }
+
   /** Secondes simulées écoulées depuis l'instantané (pour l'extrapolation). */
   dtSim(now: number): number {
-    return ((now - this.receivedAt) * this.timeScale) / 1000;
+    return this.sceneTimeMs === null ? (Math.min(5000, Math.max(0, now - this.receivedAt)) * this.timeScale) / 1000 : (this.sceneTimeMs - this.snapTimeMs) / 1000;
   }
 
   /** Temps simulé courant (ms). */
   simTimeMs(now: number): number {
-    return this.snapTimeMs + (now - this.receivedAt) * this.timeScale;
-  }
-
-  /** Injecte les sources du pas courant dans la cible de la simulation. */
-  inject(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget, domain: Domain, splatCells: number, now: number, clock: number, cfg: Config, courant: number, stepsPerSecond: number): void {
-    const u = this.injectMaterial.uniforms;
-    const p = cfg.waves.pulse;
-    u.uDt.value = this.dtSim(now);
-    u.uClock.value = clock;
-    u.uCarrier.value = p.wavelengthCells / courant;
-    u.uCycles.value = p.cycles;
-    u.uPeriodSteps.value = stepsPerSecond / p.rate;
-    u.uGain.value = p.gain;
-    u.uSplat.value = splatCells;
-    (u.uDomain.value as THREE.Vector4).set(domain.lonCenter, domain.latTop, domain.lonSpan, domain.latSpan);
-    renderer.setRenderTarget(target);
-    renderer.setClearColor(0x000000, 0);
-    renderer.clear(true, false, false);
-    renderer.render(this.injectScene, this.camera);
+    return this.sceneTimeMs ?? this.snapTimeMs + Math.min(5000, Math.max(0, now - this.receivedAt)) * this.timeScale;
   }
 
   /** Injecte les sources acoustiques (trois bandes) dans la grille physique. */
-  injectPhysics(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget, domain: Domain, ocean: THREE.Texture, now: number, clock: number): void {
+  injectPhysics(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget, domain: PhysicsDomain, ocean: THREE.Texture, now: number, clock: number): void {
     const u = this.physicsMaterial.uniforms;
     u.uDt.value = this.dtSim(now);
     u.uClock.value = clock;
@@ -344,7 +303,7 @@ export class ShipLayer {
 
   /** Dessine les navires sur la carte plate. */
   draw(renderer: THREE.WebGLRenderer, now: number, view: FlatTransform, cfg: Config, pixelRatio: number, target: THREE.WebGLRenderTarget | null = null): void {
-    if (!cfg.ships.visible) return;
+    if (!cfg.ships.visible || cfg.scenario === 'sans-navires') return;
     const u = this.displayMaterial.uniforms;
     u.uDt.value = this.dtSim(now);
     (u.uCenter.value as THREE.Vector2).set(view.centerLon, view.centerLat);
@@ -352,7 +311,10 @@ export class ShipLayer {
     (u.uResolution.value as THREE.Vector2).set(view.width, view.height);
     (u.uLatRange.value as THREE.Vector2).set(view.latMin, view.latMax);
     u.uPointSize.value = cfg.ships.pointSize * pixelRatio;
+    u.uPx.value = cfg.ships.pointSize * pixelRatio;
+    u.uFlipY.value = target ? 1 : -1;
     hexToVec3(cfg.palette.ship, u.uColor.value as THREE.Vector3);
+    hexToVec3(cfg.whales.glyphs.outline, u.uOutline.value as THREE.Vector3);
     u.uOpacity.value = cfg.ships.opacity;
     renderer.setRenderTarget(target);
     renderer.render(this.displayScene, this.camera);

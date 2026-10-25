@@ -50,6 +50,8 @@ export class ReplaySource extends AisSourceBase {
     this.initialCoverage.copyFrom(coverage);
   }
 
+  get revision(): number { return this.generation; }
+
   get available(): boolean {
     return this.files.length > 0;
   }

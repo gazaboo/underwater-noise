@@ -1,7 +1,9 @@
 {
   "sources": {
     "etopo": "ETOPO 2022 v1 60s bed (NOAA NCEI), domaine public, via OPeNDAP, pas 0,05°",
-    "land": "Natural Earth 1:10m land, domaine public"
+    "land": "Natural Earth 1:10m land, domaine public",
+    "landcover": "Natural Earth II 1:10m (NE2_HR_LC), Tom Patterson, domaine public",
+    "volcanoes": "Smithsonian GVP, Volcanoes of the World (volcans holocènes, WFS), extrait le 2026-10-15"
   },
   "ocean": {
     "768": "ocean_768.png",
@@ -13,5 +15,18 @@
     "file": "elevation_4096.png",
     "encoding": "R*256+G - 11000 = altitude (m) ; B = fraction de terre"
   },
-  "depthEncoding": "G/255 = log10(profondeur/10 m)/log10(1100)"
+  "depthEncoding": "G/255 = log10(profondeur/10 m)/log10(1100)",
+  "landcover": {
+    "file": "landcover_4096.png",
+    "encoding": "RGB = couleur NE II (prolongée sur la mer côtière) ; A = indice de forêt (artistique)"
+  },
+  "volcanoes": {
+    "file": "volcanoes.json",
+    "encoding": "[lon, lat, altitude m, année de la dernière éruption ou null], volcans émergés"
+  },
+  "illustrated": {
+    "biome": "land_biome_4096.png — R/16 = milieu illustré (interprétation artistique de NE II), G = ton, B = forêt",
+    "shape": "land_shape_4096.png — R = distance signée à la côte (±2°), G = altitude lissée (racine), B = lumière précalculée",
+    "ornaments": "ornaments.json — placements en bruit bleu ; volcans du GVP, sommets d'ETOPO"
+  }
 }

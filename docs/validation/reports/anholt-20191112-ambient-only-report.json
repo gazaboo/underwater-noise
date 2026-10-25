@@ -1,0 +1,24 @@
+{
+  "model": "ambient-only",
+  "profileId": "north-sea-reference-v1",
+  "station": "anholt",
+  "split": "holdout",
+  "qcStatus": "reviewed",
+  "physicsSource": "profil de référence (non calé)",
+  "status": "no-compatible-observations",
+  "results": [],
+  "skipped": {
+    "qc-excluded-period": 709
+  },
+  "dominanceThresholdDb": 3,
+  "limits": "Écarts sur les seuls sites, périodes et bandes évalués ; aucune précision hors de ces conditions ni conséquence biologique validée.",
+  "variant": "ambient-only",
+  "inputHashes": {
+    "anholt-20191112-ambient-only.json": "22c07a2213f35807c93b3d7ec95aa2fcde63fb248be774e8a810c79fc6a40ec0",
+    "anholt-20191112-observations.csv": "30c76556be57cc5bfd671e0ce89bacf7b7b9804bda9900e246f8bf6121b2fcd1",
+    "anholt-20191112-station.json": "d46f6151537020cd1705256f6feaf3fe918906f907ba9366044d7bf2d97a3c1f",
+    "anholt-2019-11-12.csv": "30c76556be57cc5bfd671e0ce89bacf7b7b9804bda9900e246f8bf6121b2fcd1",
+    "dma-2019-11-12.replay.ndjson.gz": "8173c3e4d3abc642607f28c163a9f72c4bbc1f20dc7593813b2097704cb32f9a",
+    "wind-anholt-20191112-20191113.json": "f2d4d685107f0d119cea80013f8d3010a6da656541c8d199b277b7f0ceb42d4a"
+  }
+}

@@ -1,5 +1,8 @@
 # Sources de données et licences
 
+Sources candidates, non intégrées (audit pour la vulgarisation, focus régionaux) :
+[`SOURCES_CANDIDATES.md`](SOURCES_CANDIDATES.md).
+
 | Donnée | Source | Licence | Fichiers produits |
 |---|---|---|---|
 | Bathymétrie / altitude | ETOPO 2022 v1, 60″, version « bed » — NOAA NCEI, via OPeNDAP (THREDDS NOAA), pas de 0,05° | Domaine public (gouvernement des États-Unis) | `data/grid/ocean_*.png`, `data/grid/elevation_4096.png` |
@@ -13,6 +16,10 @@
 
 | Habitats des cétacés | AquaMaps (Kaschner et al.), cartes « native range » 0,5°, base publiée pour le paquet R aquamapsdata (archive.org/details/aquamapsdb) | **CC-BY-NC 3.0** : usage non commercial, attribution obligatoire | `data/habitats/<espèce>.png` |
 | Observations de cétacés | OBIS (Ocean Biodiversity Information System), occurrences depuis 2015 | selon les jeux de données (CC0, CC-BY, CC-BY-SA, CC-BY-NC) ; liste et licences dans `data/habitats/sightings.json` | `data/habitats/sightings.json` |
+| Sons de cétacés et de lieux | extraits de vrais enregistrements : MBARI *Pacific Ocean Sound Recordings* (hydrophone MARS, Monterey) ; Alfred Wegener Institute, observatoire PALAOA (projet *Polar Sounds*) ; Orcasound ; U.S. National Park Service (Glacier Bay) ; NOAA PMEL Acoustics Program. Provenance extrait par extrait dans [`MEDIAS.md`](MEDIAS.md) | MBARI CC-BY 4.0 ; AWI CC-BY 4.0 ; Orcasound CC BY-NC-SA 4.0 (extrait dérivé diffusé sous la même licence) ; NPS et NOAA : domaine public | `data/media/` (via `tools/build_media.py`) |
+| Lieux sonores | position et description des lieux, avec leur source | voir chaque `lieu.json` | `data/lieux/` |
+| Photos des fiches | Wikimedia Commons : NOAA Photo Library (domaine public) ; A. Rosing-Asvid, Visit Greenland (CC BY 2.0) ; G. Barathieu (CC BY-SA 2.0). Détail dans [`MEDIAS.md`](MEDIAS.md) | selon la photo, lue sur Commons | `data/media/photos/` |
+| Faits des fiches espèces | NOAA Fisheries, Species Directory (domaine public) ; statuts UICN via Wikidata (CC0) ; effectifs Cooke 2018 (Liste rouge UICN), cités par des sources secondaires, **à confirmer** | valeurs citées, avec leur source | `data/fiches/especes.json` |
 
 ## Crédits à reproduire sur le cartel
 
@@ -20,3 +27,23 @@
 > Niveaux sources des navires : modèle JOMOPANS-ECHO (MacGillivray & de Jong, 2021).
 > Habitats des cétacés : AquaMaps (www.aquamaps.org), cartes de répartition calculées, CC-BY-NC 3.0.
 > Observations : OBIS (obis.org) et les jeux de données qui y contribuent.
+> Sons : Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0) ; Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research, projet Polar Sounds (CC-BY 4.0) ; Orcasound (orcasound.net, CC BY-NC-SA 4.0) ; U.S. National Park Service, Glacier Bay ; NOAA PMEL Acoustics Program. Rorquals bleu et commun, et sons de Monterey, transposés pour être audibles.
+> Photos : NOAA Photo Library ; Aqqa Rosing-Asvid, Visit Greenland (CC BY 2.0) ; Gabriel Barathieu (CC BY-SA 2.0) ; via Wikimedia Commons. Fiches : NOAA Fisheries ; Liste rouge UICN.
+
+## Terres peintes et volcans
+
+- **Natural Earth II**, Tom Patterson, domaine public : [variante 1:10m sans relief ombré ni eau](https://www.naturalearthdata.com/downloads/10m-raster-data/10m-natural-earth-2/), archive `NE2_HR_LC.zip`. Couleurs de milieux idéalisés, sans prétention de représenter la couverture actuelle du sol. Réduction en RGBA 4096×2048 par `tools/build_landcover.py` ; RGB prolongé de 8 pixels sur la mer pour le filtrage côtier. Alpha : indice artistique dérivé de l'excès de vert, sans valeur de mesure forestière.
+- **Global Volcanism Program (2026)**, *Volcanoes of the World*, v. 5.4.0 (7 août 2026), E. Venzke (comp.), Smithsonian Institution. [DOI : 10.5479/si.GVP.VOTW5-2026.5.4](https://doi.org/10.5479/si.GVP.VOTW5-2026.5.4). Export WFS des volcans holocènes émergés du **15 octobre 2026**, date consignée dans `data/grid/meta.json`. Fichier `volcanoes.json` : `[longitude, latitude, altitude en m, année de dernière éruption ou null]`, 1 099 positions. Le panache indique seulement une dernière éruption depuis l'année configurée : **il ne décrit pas une activité en direct**.
+
+Les paliers, pinceaux, granulation, couleurs d'éclairage, tailles, densités, seuil de fumée, étoiles et papier sont des choix **artistiques**. Le relief provient de l'altitude ETOPO déjà utilisée par la carte.
+
+## Monde illustré
+
+- Cartes `land_biome_4096.png`, `land_shape_4096.png` et placements `ornaments.json` : **dérivés** des sources
+  ci-dessus (ETOPO 2022, Natural Earth, Natural Earth II, Smithsonian GVP) par `tools/build_illustrated.py`.
+  La classification en milieux illustrés est une interprétation artistique des couleurs NE II.
+- **Quaternius**, *Ultimate Stylized Nature* (mai 2022), [quaternius.com](https://quaternius.com),
+  **CC0 1.0** (domaine public, aucune attribution exigée ; citée par courtoisie). Arbres, buissons, fleurs et
+  rochers des vignettes `data/ornaments/atlas.png`. Le pack lui-même n'est pas versionné.
+- Montagnes, plateaux de grès, volcans, fumées et nuages des vignettes : modèles procéduraux créés pour le
+  projet (`tools/ornaments/render_cells.py`).

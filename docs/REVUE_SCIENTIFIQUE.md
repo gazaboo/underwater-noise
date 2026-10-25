@@ -1,5 +1,10 @@
 # La carte du vacarme — dossier de revue scientifique
 
+> Mise à jour : le profil physique de référence est désormais fixe, et la confrontation du moteur mondial
+> aux mesures d’hydrophones suit un protocole pré-enregistré ([VALIDATION_PROTOCOLE.md](VALIDATION_PROTOCOLE.md)) ;
+> chaîne et outils : [ACOUSTIQUE_SCIENTIFIQUE.md](ACOUSTIQUE_SCIENTIFIQUE.md). Résultats, exclusions et
+> limites de la confrontation indépendante : [VALIDATION.md](VALIDATION.md).
+
 Ce document recense **tout** ce que l'œuvre calcule, affiche ou fait entendre, et pour chaque élément
 **d'où il vient**. Il est écrit pour une relecture critique avant un usage de vulgarisation : il doit
 permettre de distinguer, sans ambiguïté, ce qui est mesuré ou publié de ce qui est approximé, réglé à
@@ -21,7 +26,8 @@ Chaque paramètre, équation ou affirmation porte un statut :
 | **[S] Sourcé** | équation ou valeur reprise d'une source primaire **que j'ai lue** (ou d'un jeu de données officiel) ; la référence est donnée |
 | **[S-r] Sourcé (résumé)** | valeur vérifiée sur le résumé ou une notice de l'article (via une recherche), **article complet non lu** : à confirmer sur le texte |
 | **[L] Littérature générale** | relation ou ordre de grandeur classique d'acoustique sous-marine, cité de mémoire, **non revérifié** sur la source pour ce projet |
-| **[C] Calculé / mesuré** | valeur produite par le projet lui-même (calibration, test, relevé), reproductible |
+| **[C] Calculé / relevé** | valeur produite par le projet lui-même, reproductible ; ce statut ne prouve pas son exactitude en mer |
+| **[C-calé] Calculé par calage** | paramètre ajusté sur les seules stations de calage du protocole, puis testé indépendamment |
 | **[E] Empirique** | réglage choisi par moi pour obtenir un comportement ou un ordre de grandeur jugé plausible, **sans source** |
 | **[A] Artistique** | choix esthétique ou de mise en scène, **sans prétention scientifique** |
 | **[!] Non vérifié / douteux** | affirmation que je n'ai pas pu confirmer, ou dont je sais qu'elle est fragile |
@@ -55,9 +61,11 @@ Règle de lecture : seul ce qui est **[S]** ou **[C]** peut être présenté au 
 ### Ce qu'il ne faut pas dire (ou seulement avec la mise en garde)
 
 - « Ce sont les vraies ondes sonores » : **non.** Les cercles lumineux sont une **image** (grille
-  visuelle, §7.1) ; leur vitesse, leur longueur d'onde et leur persistance sont artistiques. **[A]**
-- « Voici le niveau de bruit mesuré ici » : **non.** Ce sont des **estimations de modèle** ; elles
-  n'ont pas été confrontées à des mesures (§4.6). Ordre d'incertitude probable : ±10 dB ou plus.
+  visuelle, §7.1) ; leur espacement reste numérique ; leur vitesse et leur atténuation suivent désormais le modèle (§7.1), sans validation des portées en mer.
+- « Voici le niveau de bruit mesuré ici » : **non.** Ce sont des **estimations de modèle** ;
+  leur écart aux hydrophones est publié dans [VALIDATION.md](VALIDATION.md), pour les seuls sites, jours
+  et bandes du protocole [C]. Cela évalue la loi au point exact, pas entièrement le rendu GPU (§4.4).
+  Hors de ces conditions, les niveaux restent **non validés** ; le trafic synthétique n’est pas couvert.
 - « Ces baleines sont là, maintenant » : **non.** Les groupes sont des **présences simulées plausibles**,
   placées dans des habitats réels et près d'observations réelles, mais ce ne sont pas des animaux suivis
   (§6.7). Leur déplacement est accéléré ×30. **[A]**
@@ -73,13 +81,17 @@ Règle de lecture : seul ce qui est **[S]** ou **[C]** peut être présenté au 
   « terra incognita » (§7.3), mais il faut le dire.
 - Le **son** est une traduction musicale (§8), pas une écoute d'hydrophone. **[A]**
 
-### Ordre de grandeur de l'incertitude totale (estimation, non quantifiée formellement)
+### Incertitude et portée des chiffres
 
-Niveau source ±6 dB **[S]** + propagation (loi simplifiée, grille de 39 km, pas de profil de célérité,
-fond calé sur une règle d'usage) ±5–10 dB **[!]** + couverture AIS (navires manquants : biais vers le bas,
-non borné) **[!]** + bruit naturel : modèle empirique publié, mais vent fixé (5 m/s) alors qu'il varie
-(±5 dB en bandes moyenne et haute entre 3 et 10 m/s) **[C]**. Il serait trompeur d'afficher plus d'un chiffre
-significatif à la dizaine de décibels près.
+Le niveau source J-E a une dispersion résiduelle publiée de ±6 dB par navire **[S]** ; ce n’est
+pas une incertitude globale de la carte. La propagation simplifiée, la grille, l’AIS incomplet et le
+vent de scénario ajoutent des erreurs qui ne disposent pas d’un budget formel combiné. Aucun
+intervalle global de précision n’est donc déduit en additionnant ces contributions.
+
+Les écarts observés dans le protocole **[C]** sont publiés sans retirer les mauvais résultats.
+Ils ne donnent pas d’incertitude validée pour un autre lieu ou une autre date. Les décimales des
+rapports servent la reproduction des calculs ; elles ne signifient pas une exactitude équivalente
+des niveaux réels. Les choix de bruit, de trafic et de milieu restent explicités dans le rapport.
 
 ---
 
@@ -180,6 +192,11 @@ Fréquence représentative pour l'absorption : moyenne géométrique des bornes 
 
 ### 4.4 Propagation (`client/src/sim/physics-sim.ts`, `shared/src/acoustics/propagation.ts`)
 
+> **État historique de la campagne du 15 octobre 2026.** Les valeurs numériques de ce tableau
+> (pas, cohérence, calibration, fluctuations) précèdent la correction des fronts du 16 octobre.
+> Le profil de sources et pertes v1 reste actif ; les contrôles du nouveau solveur figurent au §7.1
+> et dans [PROPAGATION.md](PROPAGATION.md). Les résultats de campagne restent figés.
+
 **Loi visée** : TL(r) = 20·log10(r_t) + 10·log10(r/r_t) + α·r (sphérique jusqu'à r_t, puis
 cylindrique). **[L]** (approximation classique de manuel, p. ex. Urick, *Principles of Underwater
 Sound* ; non revérifiée pour ce projet).
@@ -203,6 +220,12 @@ Sound* ; non revérifiée pour ce projet).
 | Côtes | cellules de terre à zéro ; amortissement 0,3 × fraction de terre | [E] | côtes absorbantes ; pas de réflexion réaliste |
 | Pôles | au-delà de ±79° : mur (« banquise ») | [A] / contrainte numérique | la grille équirectangulaire devient instable vers les pôles |
 | Non modélisé | profil de célérité, chenal SOFAR, zones de convergence et d'ombre, saisons, nature du fond, directivité des navires, profondeur des sources (sauf via r_t) | **[!]** | |
+
+**Limite de la confrontation aux hydrophones** : le protocole évalue la loi mondiale au point
+exact, avec son masque de terre et sa grille bathymétrique. L’écart supplémentaire entre ce calcul
+et la lecture du champ GPU n’a pas été quantifié aux stations. Les contrôles numériques ci-dessus
+sur sources idéalisées ne ferment pas cet écart. La confrontation publiée ne suffit donc pas à
+qualifier de « validé » chaque niveau de la carte rendue. [C, périmètre des vérifications]
 
 ### 4.5 Bruit naturel — [S] modèle, [E] vent — **corrigé le 15/10**
 
@@ -228,7 +251,7 @@ Anciennes valeurs (de mémoire, **retirées**) : 88 / 88 / 92 dB — la bande ba
 Limites : les courbes de Wenz sont indicatives (5–10 dB) et valables en eau profonde **[S-r]** (via une
 source secondaire) ; pas de pluie, pas de glace, pas de bruits biologiques ; vent identique partout.
 
-### 4.6 Niveaux obtenus — [C], non validés
+### 4.6 Relevés d’affichage et confrontation aux hydrophones — [C]
 
 Relevé du 15/10/2026 à 08:13 UTC, **après les corrections du 15/10** (bruit naturel du modèle, pas de
 perte supplémentaire, pertes au fond calées), direct aisstream, 16 120 navires suivis (registre en cours
@@ -251,13 +274,22 @@ Le cas de Malacca illustre le nouveau modèle : par 25–50 m de fond, la bande 
 modale et ne se propage pas ; la bande moyenne perd ~24 dB sur 150 km par réflexions sur le fond. Le
 bruit des mers peu profondes reste local — qualitativement attendu, quantitativement non vérifié.
 
-**Ces niveaux n'ont été comparés à aucune mesure.** Ils dépendent fortement de la couverture AIS (le
+**Ces relevés de direct ne sont pas des mesures d’hydrophones.** Ils dépendent fortement de la couverture AIS (le
 Pacifique Nord et l'océan Indien ne « voient » presque aucun navire) et de l'heure. Attention : nos
 bandes sont larges (somme de 6 à 10 décidécades), donc **plus élevées de ~8–10 dB** qu'un niveau en
 une seule décidécade (63 ou 125 Hz) tel qu'en publient les cartes européennes.
 
-Comparaisons suggérées : cartes JOMOPANS (mer du Nord, décidécades 63 et 125 Hz), NOAA SoundMap,
-ShipNoiseView ; mesures d'hydrophones de la Manche ou de mer Ligure.
+La confrontation indépendante de la loi mondiale est publiée dans [VALIDATION.md](VALIDATION.md) :
+profils de référence et calé, vent ERA5 et vent de scénario, fond seul, mesures ICES et NOAA NRS11,
+contrôle qualité sur mesures seules, validation croisée et test indépendant. Toutes les métriques
+sont [C] ; les valeurs optimisées du profil proposé sont [C-calé]. Le profil effectivement affiché
+et le résultat du critère pré-enregistré y sont indiqués. Les relevés du tableau ci-dessus restent
+un instantané historique distinct de ce test.
+
+Le panneau « Fiabilité » publie des écarts historiques uniquement près des repères des hydrophones,
+avec les jours effectivement évalués. Les petites emprises de repérage sont [A], sans portée de
+validité spatiale démontrée. Profil expérimental, trafic synthétique ou mixte, autres lieux :
+**non validé**. Le résultat d’un test de niveaux n’est jamais transféré aux portées des cétacés.
 
 ### 4.7 Accumulation (ce que l'on voit briller) — [A]
 
@@ -415,18 +447,23 @@ ne met pas 3 s à parcourir des centaines de kilomètres (~1 500 m/s : ~10 min p
 
 ## 7. Couche visuelle
 
-### 7.1 Ondes visibles (grille visuelle) — **[A] intégralement**
+### 7.1 Fronts du champ acoustique — correction du 16 octobre 2026
 
-Équation des ondes sur une grille de 2048×1024 (≈ 20 km), même méthode numérique que le champ physique,
-mais **paramètres purement artistiques** : vitesse (0,45 cellule/pas, soit environ une traversée de
-l'Atlantique en quelques secondes), longueur d'onde (7 cellules ≈ 140 km), impulsions (0,35 par
-seconde), amortissement (persistance), amplitude selon le niveau source large bande (166–192 dB → 0–1,
-compression ^1,7). L'interférence est une vraie interférence **entre ces ondes fictives**. La
-« réfraction » sur les plateaux (vitesse réduite à 60 % en eau peu profonde) est une **analogie
-visuelle** (elle ressemble à la réfraction des vagues, pas du son). **Rien de cette couche n'est un son
-réel.**
+L’ancienne grille visuelle artistique et sa grille de détail ont été retirées. Les fronts utilisent
+le même champ à trois bandes que les niveaux : célérité de référence 1 500 m/s [E, approximation],
+horloge physique commune [C], sources et pertes du profil v1 conservées. Le pas de Courant vaut
+0,14 [C, stabilité sur ±79°] ; différences d’ordre 4 en mer, d’ordre 2 près de la terre pour empêcher
+le franchissement d’une barrière d’une cellule. Calibration K recalculée au démarrage.
 
-Grille de détail au zoom (≈ 6 km par cellule à ×7) : même statut.
+Le niveau choisi est comparé au fond naturel modélisé. Visibilité nulle jusqu’à +1 dB, pleine à
++10 dB [A, conventions graphiques sans sens biologique]. Luminosité, couleur, relief et espacement des
+anneaux restent [A]. Le rendu n’est ni une image des vraies oscillations ni une mesure de dommage.
+
+**Le tableau numérique du §4.4 décrit l’état utilisé lors de la campagne historique.** Les anciennes
+valeurs de Courant, durée de cohérence et écarts de calibration qu’il contient ne décrivent pas le
+solveur corrigé. Les mesures et résultats de validation ne sont pas réécrits. Les contrôles nouveaux,
+leurs conditions et les limites figurent dans [PROPAGATION.md](PROPAGATION.md). Ils ne valident pas
+les niveaux absolus, les portées en mer ou le trafic synthétique.
 
 ### 7.2 Lueur d'accumulation — mapping [A] d'un champ [C]
 
@@ -444,16 +481,36 @@ résulte du calcul §6.3.
 
 ---
 
-## 8. Son — [A] intégralement
+## 8. Son — traduction sensible : enregistrements [S], tout le reste [A]
 
 Traduction sensible, pas une auralisation :
 - **navires** : 12 voix au plus, attribuées aux plus forts de la vue (niveau source − 18 dB entre centre
   et bord de la vue) ; timbre par classe inventé (fondamental ≈ 20 + 2 000 / longueur Hz, pulsation
   « d'hélice », cavitation, génératrice), transposé de 2 octaves ;
 - **nappe** : bruit brun dont le niveau suit le niveau de la bande basse dans la vue ;
-- **cétacés** : appels **synthétisés** d'après les plages de fréquences réelles (rorquals transposés ×5) ;
-  formes et rythmes inventés ; le « masquage » (filtrage, hachage) est une métaphore de la réduction de
-  portée, pas une simulation psychoacoustique.
+- **cétacés** (depuis octobre 2026) : **vrais enregistrements** [S], un extrait par espèce pour commencer
+  (MBARI, AWI, Orcasound). Provenance, date, lieu, licence et filtres de chaque fichier :
+  [`MEDIAS.md`](MEDIAS.md). Les appels **synthétisés** d'après les plages de fréquences réelles restent en
+  repli (fichier absent, `audio.whales.source: 'synth'`) ; leurs formes et rythmes sont inventés [A].
+
+Ce qui reste un choix, pour les enregistrements :
+- **transposition** des rorquals bleu et commun ×5 [A] : vitesse de lecture, donc hauteur **et** durée.
+  Un B de rorqual bleu de ≈ 20 s dure ≈ 4 s ;
+- **fenêtre** tirée au hasard dans l'extrait à chaque appel, plafonnée par espèce (`audio.whales.maxCallSec`)
+  [A] : la cadence des appels vient du modèle, pas de l'enregistrement ;
+- **égalisation** des espèces vers un même niveau actif (90e centile des trames de 100 ms, ±15 dB au plus)
+  [E] : les niveaux entendus ne comparent pas les niveaux sources réels (§6) ;
+- **filtres** de préparation (passe-haut, passe-bas) [E], détaillés par fichier ;
+- chaque enregistrement contient déjà le bruit de son océan d'origine : un appel « propre » n'existe pas.
+  On a choisi des extraits où l'appel domine nettement.
+
+- **lieux à écouter** (`data/lieux`) : vrais enregistrements [S] ; leur clarté vaut 10^(−ΔL/20), ΔL étant le
+  bruit ajouté au lieu [A] (image d'une portée qui diminue en propagation sphérique, pas une mesure) ; les
+  accélérations faites par les sources (×3, ×16) et la transposition des sons de Monterey (×4) sont [A].
+
+Le « masquage » (filtrage, baisse de niveau, hachage sous une clarté de 0,3) reste une **métaphore** de la
+réduction de portée [A], appliquée de la même façon aux appels enregistrés et synthétisés. Ce n'est pas une
+simulation psychoacoustique.
 
 Niveaux de sortie mesurés [C] : −18,5 dBFS RMS en vue mondiale, aucun écrêtage, aucun clic.
 
@@ -474,9 +531,10 @@ Niveaux de sortie mesurés [C] : −18,5 dBFS RMS en vue mondiale, aucun écrêt
 
 | Vérification | Prouve | Ne prouve pas |
 |---|---|---|
-| 71 tests automatiques (`npm test`) | implémentation conforme aux équations (J-E ±3 dB / figure 7, Thorp, TL, sonar, liens, AIS, géométrie) | que les équations sont adaptées |
+| 89 tests TypeScript (`npm test`) et 26 tests Python, dont un benchmark lent non exécuté dans la suite courante [C] | implémentation conforme aux équations (J-E ±3 dB / figure 7, Thorp, TL, sonar, liens, AIS, géométrie) | que les équations sont adaptées |
 | Calibration (0,88 dB) | la grille reproduit 10·log r au loin | la validité de 10·log r en mer réelle |
-| Relevés de niveaux (§4.6) | ordre de grandeur des sorties | leur exactitude (aucune comparaison à des mesures) |
+| Relevés de niveaux (§4.6) | ordre de grandeur des sorties | leur exactitude dans le direct |
+| Confrontation indépendante ([VALIDATION.md](VALIDATION.md)) [C] | écarts aux mesures retenues, pour chaque variante, station, jour et bande | autres lieux, autres périodes, trafic synthétique, écart propre au rendu GPU et conséquences biologiques |
 | Vérification des niveaux d'appel (§6.1) | valeurs dans les plages publiées | articles complets non lus |
 | Scène `?scene=duo` | la dynamique des liens (asymétrie, rupture, fantôme) fonctionne sur du trafic réel | — |
 | Enregistrement audio | absence d'écrêtage et de clics | — |
@@ -493,7 +551,7 @@ Niveaux de sortie mesurés [C] : −18,5 dBFS RMS en vue mondiale, aucun écrêt
    champ et les cétacés, intégré le long du trajet ; pertes au fond **calées** sur l'étalement pratique
    15·log r (la règle de référence elle-même reste une approximation d'usage).
 4. **Seuils DT et largeurs de bande des appels (§6.2)** non sourcés.
-5. **Niveaux calculés jamais confrontés à des mesures (§4.6).**
+5. **Confrontation au point réalisée (§4.6 et [VALIDATION.md](VALIDATION.md))** : les écarts doivent rester visibles, même défavorables. L’écart propre au champ GPU aux stations reste non quantifié ; aucune validation mondiale ni biologique n’est acquise.
 6. **Couverture AIS** : biais non quantifié vers le bas en haute mer.
 7. **Champ proche** sous-estimé de 2–3 dB à moins de ~250 km d'une source (§4.4).
 8. Borne de vitesse à 3 × V_C (§4.2) : raisonnable mais arbitraire.
@@ -527,3 +585,28 @@ Niveaux de sortie mesurés [C] : −18,5 dBFS RMS en vue mondiale, aucun écrêt
 Références citées dans des versions antérieures du code ou des commentaires et **retirées** car je ne les
 avais pas consultées pour les valeurs en question : Richardson et al. 1995 (*Marine Mammals and Noise*),
 comme source des niveaux d'appel.
+
+## Terres « gouache » : données et interprétation artistique
+
+La palette Natural Earth II représente des milieux **idéalisés**, et non une observation actuelle. Les couleurs finales, leur quantification, le relief chaud/froid et la matière sont **artistiques**. L'alpha de `landcover_4096.png` est un indice de vert de cette palette : les arbres et leur densité sont **artistiques**, sans valeur de mesure de couverture forestière.
+
+Les positions et les années de dernière éruption des volcans holocènes émergés sont **sourcées** (Smithsonian GVP ; citation et extraction dans `SOURCES_DONNEES.md`). Les cônes, tailles et fumées sont **artistiques**. Le seuil `smokeSinceYear` ne constitue ni un indicateur de danger ni un état d'activité en temps réel ; une année inconnue ne produit pas de fumée.
+
+`land.style: 'flat'` restitue les terres en aplat et retire les ornements. Papier et étoiles restent indépendamment désactivables ; les désactiver également permet de retrouver le rendu d'origine. Les ornements n'apparaissent qu'en carte plate zoomée. Les étoiles et le halo sont réservés au mode globe ; le papier respecte le masque des projections.
+
+## Monde illustré : ce qui est donnée, ce qui est dessin
+
+Le style `illustre` (par défaut) ne modifie aucun calcul acoustique : il ne touche qu'au dessin des terres, du
+liseré côtier et des ornements. Détails et tableau de traçabilité complet : `MONDE_ILLUSTRE.md`.
+
+- **Sourcé** : altitude et bathymétrie (ETOPO 2022), trait de côte (Natural Earth), positions et années de
+  dernière éruption des volcans (Smithsonian GVP), sommets portant une montagne (maxima locaux d'ETOPO lissé).
+- **Ordre de grandeur** : limite des neiges éternelles en fonction de la latitude (≈ 5 500 m sous les
+  tropiques, niveau de la mer vers 72°), utilisée pour blanchir les sommets.
+- **Artistique** : les neuf milieux (lecture des couleurs Natural Earth II, qui sont elles-mêmes idéalisées),
+  l'exagération du relief, le soleil, les paliers, plages, ombres et lignes d'eau, ainsi que toutes les
+  vignettes (tailles hors d'échelle, densités, compositions), la fumée (dernière éruption depuis 2010 : ce
+  n'est pas une activité en direct) et les nuages (sans lien avec la météo).
+
+Les lignes d'eau le long des côtes sont **fixes**, fines et peu nombreuses, pour ne pas être confondues avec
+les ondes sonores, qui bougent.

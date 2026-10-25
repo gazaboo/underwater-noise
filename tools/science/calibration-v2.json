@@ -1,0 +1,798 @@
+{
+  "label": "north-sea-reference-v2",
+  "protocol": "docs/VALIDATION_PROTOCOLE.md v1 §6 et §8",
+  "completed": true,
+  "generated": "2026-10-15T16:00:58.295080+00:00",
+  "physics": {
+    "bottomBounceLossDb": 0.46415888336127775,
+    "sedimentSoundSpeed": 1666.6666666666667,
+    "cutoffLossDbPerKm": 1.0
+  },
+  "transitionFactor": 2.0,
+  "objective": {
+    "reference": 25469.73673068815,
+    "calibrated": 2912.4351143491926,
+    "bands": [
+      "d125",
+      "mid",
+      "high"
+    ]
+  },
+  "cases": [
+    "hjelm 2019-02-20",
+    "hjelm 2019-04-16",
+    "hjelm 2019-06-05",
+    "stevns 2019-02-20",
+    "stevns 2019-04-16",
+    "stevns 2019-06-05",
+    "arkona 2019-02-20",
+    "arkona 2019-04-16",
+    "arkona 2019-11-12",
+    "hornsrev3 2019-04-16",
+    "hornsrev3 2019-06-05",
+    "hornsrev3 2019-11-12"
+  ],
+  "residualsCalibrated": [
+    {
+      "station": "hjelm",
+      "day": "2019-02-20",
+      "band": "d125",
+      "diffL50Db": -10.124037240188798,
+      "diffL10Db": -0.2802524657781049
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-02-20",
+      "band": "mid",
+      "diffL50Db": -15.45542287643137,
+      "diffL10Db": -3.739976453172005
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-02-20",
+      "band": "high",
+      "diffL50Db": -9.23770591338969,
+      "diffL10Db": -4.386930721602042
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-04-16",
+      "band": "d125",
+      "diffL50Db": -4.778314038469247,
+      "diffL10Db": 2.0161157247529644
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-04-16",
+      "band": "mid",
+      "diffL50Db": -10.757028090336675,
+      "diffL10Db": -0.5935745175112146
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-04-16",
+      "band": "high",
+      "diffL50Db": -7.384118673630212,
+      "diffL10Db": -1.7218584100874352
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-06-05",
+      "band": "d125",
+      "diffL50Db": 2.61635478464045,
+      "diffL10Db": 6.973035356772016
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-06-05",
+      "band": "mid",
+      "diffL50Db": -1.1642669781807484,
+      "diffL10Db": 5.794488871521182
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-06-05",
+      "band": "high",
+      "diffL50Db": -0.4716176125372442,
+      "diffL10Db": 0.9371114149193147
+    },
+    {
+      "station": "stevns",
+      "day": "2019-04-16",
+      "band": "d125",
+      "diffL50Db": -10.612253187002196,
+      "diffL10Db": -12.871671831829048
+    },
+    {
+      "station": "stevns",
+      "day": "2019-04-16",
+      "band": "mid",
+      "diffL50Db": -9.794454974784443,
+      "diffL10Db": -11.366600746127958
+    },
+    {
+      "station": "stevns",
+      "day": "2019-04-16",
+      "band": "high",
+      "diffL50Db": -6.384090288332885,
+      "diffL10Db": -7.4463720259847435
+    },
+    {
+      "station": "stevns",
+      "day": "2019-06-05",
+      "band": "d125",
+      "diffL50Db": -1.7686526449807758,
+      "diffL10Db": -7.261251325955001
+    },
+    {
+      "station": "stevns",
+      "day": "2019-06-05",
+      "band": "mid",
+      "diffL50Db": -6.132759520538315,
+      "diffL10Db": -7.81365475895052
+    },
+    {
+      "station": "stevns",
+      "day": "2019-06-05",
+      "band": "high",
+      "diffL50Db": -2.4144003061982318,
+      "diffL10Db": -3.6662241187522255
+    },
+    {
+      "station": "arkona",
+      "day": "2019-02-20",
+      "band": "d125",
+      "diffL50Db": -6.186113679234808,
+      "diffL10Db": 1.5777007849628433
+    },
+    {
+      "station": "arkona",
+      "day": "2019-02-20",
+      "band": "mid",
+      "diffL50Db": -3.765061677338963,
+      "diffL10Db": 4.800708188216021
+    },
+    {
+      "station": "arkona",
+      "day": "2019-02-20",
+      "band": "high",
+      "diffL50Db": -3.1324084163724564,
+      "diffL10Db": 4.554923395832418
+    },
+    {
+      "station": "arkona",
+      "day": "2019-04-16",
+      "band": "d125",
+      "diffL50Db": -2.351966158500801,
+      "diffL10Db": 0.4154252864580741
+    },
+    {
+      "station": "arkona",
+      "day": "2019-04-16",
+      "band": "mid",
+      "diffL50Db": -0.51022048157553,
+      "diffL10Db": 3.1546677968517685
+    },
+    {
+      "station": "arkona",
+      "day": "2019-04-16",
+      "band": "high",
+      "diffL50Db": -5.011462037526371,
+      "diffL10Db": 0.7534518885311883
+    },
+    {
+      "station": "arkona",
+      "day": "2019-11-12",
+      "band": "d125",
+      "diffL50Db": -2.799797112563539,
+      "diffL10Db": 1.6073223034440502
+    },
+    {
+      "station": "arkona",
+      "day": "2019-11-12",
+      "band": "mid",
+      "diffL50Db": -0.3902614613797084,
+      "diffL10Db": 4.799592069653315
+    },
+    {
+      "station": "arkona",
+      "day": "2019-11-12",
+      "band": "high",
+      "diffL50Db": -4.08646507404012,
+      "diffL10Db": 2.036702562876684
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-04-16",
+      "band": "d125",
+      "diffL50Db": -12.610047451580854,
+      "diffL10Db": 5.995161605381341
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-04-16",
+      "band": "mid",
+      "diffL50Db": -11.969746675321034,
+      "diffL10Db": 6.439293361733391
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-04-16",
+      "band": "high",
+      "diffL50Db": -5.346524937564951,
+      "diffL10Db": 0.5716583150882144
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-06-05",
+      "band": "d125",
+      "diffL50Db": 2.139899936815411,
+      "diffL10Db": 16.11497786985477
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-06-05",
+      "band": "mid",
+      "diffL50Db": 2.969970640783586,
+      "diffL10Db": 14.756368176801956
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-06-05",
+      "band": "high",
+      "diffL50Db": 2.6558234962154756,
+      "diffL10Db": 1.3166519257281948
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-11-12",
+      "band": "d125",
+      "diffL50Db": -7.285517862062932,
+      "diffL10Db": -11.28217230908615
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-11-12",
+      "band": "mid",
+      "diffL50Db": -3.368106203581391,
+      "diffL10Db": -7.407831465920523
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-11-12",
+      "band": "high",
+      "diffL50Db": -1.9390576309280192,
+      "diffL10Db": -4.885260348064477
+    }
+  ],
+  "residualsReference": [
+    {
+      "station": "hjelm",
+      "day": "2019-02-20",
+      "band": "d125",
+      "diffL50Db": 28.09117339714021,
+      "diffL10Db": 26.732784876548266
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-02-20",
+      "band": "mid",
+      "diffL50Db": 18.6629998377107,
+      "diffL10Db": 23.277882214623844
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-02-20",
+      "band": "high",
+      "diffL50Db": 10.95523621413858,
+      "diffL10Db": 21.99706405119619
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-04-16",
+      "band": "d125",
+      "diffL50Db": 32.82545397736982,
+      "diffL10Db": 31.72525346919774
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-04-16",
+      "band": "mid",
+      "diffL50Db": 26.460310286483605,
+      "diffL10Db": 28.795978926937224
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-04-16",
+      "band": "high",
+      "diffL50Db": 17.4680178291312,
+      "diffL10Db": 26.865736056556486
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-06-05",
+      "band": "d125",
+      "diffL50Db": 40.854573244069485,
+      "diffL10Db": 36.459997040216194
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-06-05",
+      "band": "mid",
+      "diffL50Db": 36.44550154555493,
+      "diffL10Db": 35.470379314812575
+    },
+    {
+      "station": "hjelm",
+      "day": "2019-06-05",
+      "band": "high",
+      "diffL50Db": 25.255980725723802,
+      "diffL10Db": 30.172343620475004
+    },
+    {
+      "station": "stevns",
+      "day": "2019-04-16",
+      "band": "d125",
+      "diffL50Db": -10.612253187002196,
+      "diffL10Db": -12.871671831829048
+    },
+    {
+      "station": "stevns",
+      "day": "2019-04-16",
+      "band": "mid",
+      "diffL50Db": -9.794454974784443,
+      "diffL10Db": -11.366600746127958
+    },
+    {
+      "station": "stevns",
+      "day": "2019-04-16",
+      "band": "high",
+      "diffL50Db": -6.384090288332885,
+      "diffL10Db": -7.4463720259847435
+    },
+    {
+      "station": "stevns",
+      "day": "2019-06-05",
+      "band": "d125",
+      "diffL50Db": -1.7686526449807758,
+      "diffL10Db": -7.261251325955001
+    },
+    {
+      "station": "stevns",
+      "day": "2019-06-05",
+      "band": "mid",
+      "diffL50Db": -6.132759520538315,
+      "diffL10Db": -7.81365475895052
+    },
+    {
+      "station": "stevns",
+      "day": "2019-06-05",
+      "band": "high",
+      "diffL50Db": -2.4144003061982318,
+      "diffL10Db": -3.6662241187522255
+    },
+    {
+      "station": "arkona",
+      "day": "2019-02-20",
+      "band": "d125",
+      "diffL50Db": 13.709939897059755,
+      "diffL10Db": 13.68671090325681
+    },
+    {
+      "station": "arkona",
+      "day": "2019-02-20",
+      "band": "mid",
+      "diffL50Db": 16.07731342173679,
+      "diffL10Db": 16.837052992404935
+    },
+    {
+      "station": "arkona",
+      "day": "2019-02-20",
+      "band": "high",
+      "diffL50Db": 11.067959643763743,
+      "diffL10Db": 15.374313246100414
+    },
+    {
+      "station": "arkona",
+      "day": "2019-04-16",
+      "band": "d125",
+      "diffL50Db": 15.262616473487569,
+      "diffL10Db": 13.63860794506948
+    },
+    {
+      "station": "arkona",
+      "day": "2019-04-16",
+      "band": "mid",
+      "diffL50Db": 17.77419171056674,
+      "diffL10Db": 16.293733012739466
+    },
+    {
+      "station": "arkona",
+      "day": "2019-04-16",
+      "band": "high",
+      "diffL50Db": 7.5123450558638325,
+      "diffL10Db": 12.179605820981408
+    },
+    {
+      "station": "arkona",
+      "day": "2019-11-12",
+      "band": "d125",
+      "diffL50Db": 16.94331249639629,
+      "diffL10Db": 15.630490750746901
+    },
+    {
+      "station": "arkona",
+      "day": "2019-11-12",
+      "band": "mid",
+      "diffL50Db": 19.68458313177429,
+      "diffL10Db": 19.076890542771764
+    },
+    {
+      "station": "arkona",
+      "day": "2019-11-12",
+      "band": "high",
+      "diffL50Db": 9.092631700377297,
+      "diffL10Db": 14.120677002569195
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-04-16",
+      "band": "d125",
+      "diffL50Db": 14.661103398080556,
+      "diffL10Db": 20.08299909549821
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-04-16",
+      "band": "mid",
+      "diffL50Db": 13.416056749245058,
+      "diffL10Db": 20.500730242089674
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-04-16",
+      "band": "high",
+      "diffL50Db": 6.331966530083378,
+      "diffL10Db": 14.098728875329229
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-06-05",
+      "band": "d125",
+      "diffL50Db": 28.251841034475476,
+      "diffL10Db": 32.11666857137044
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-06-05",
+      "band": "mid",
+      "diffL50Db": 26.896275546648596,
+      "diffL10Db": 30.78603022629649
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-06-05",
+      "band": "high",
+      "diffL50Db": 13.135820619914782,
+      "diffL10Db": 16.878655916700822
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-11-12",
+      "band": "d125",
+      "diffL50Db": 10.784773089124485,
+      "diffL10Db": 11.695473148975665
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-11-12",
+      "band": "mid",
+      "diffL50Db": 9.727185755429886,
+      "diffL10Db": 10.406615023881656
+    },
+    {
+      "station": "hornsrev3",
+      "day": "2019-11-12",
+      "band": "high",
+      "diffL50Db": -1.0448076722539525,
+      "diffL10Db": -2.4960553151295244
+    }
+  ],
+  "crossValidation": [
+    {
+      "leftOutStation": "arkona",
+      "trainingObjective": 2707.839064595934,
+      "physics": {
+        "bottomBounceLossDb": 0.46415888336127775,
+        "sedimentSoundSpeed": 1666.6666666666667,
+        "cutoffLossDbPerKm": 1.0
+      },
+      "transitionFactor": 2.0,
+      "residuals": [
+        {
+          "station": "arkona",
+          "day": "2019-02-20",
+          "band": "d125",
+          "diffL50Db": -6.186113679234808,
+          "diffL10Db": 1.5777007849628433
+        },
+        {
+          "station": "arkona",
+          "day": "2019-02-20",
+          "band": "mid",
+          "diffL50Db": -3.765061677338963,
+          "diffL10Db": 4.800708188216021
+        },
+        {
+          "station": "arkona",
+          "day": "2019-02-20",
+          "band": "high",
+          "diffL50Db": -3.1324084163724564,
+          "diffL10Db": 4.554923395832418
+        },
+        {
+          "station": "arkona",
+          "day": "2019-04-16",
+          "band": "d125",
+          "diffL50Db": -2.351966158500801,
+          "diffL10Db": 0.4154252864580741
+        },
+        {
+          "station": "arkona",
+          "day": "2019-04-16",
+          "band": "mid",
+          "diffL50Db": -0.51022048157553,
+          "diffL10Db": 3.1546677968517685
+        },
+        {
+          "station": "arkona",
+          "day": "2019-04-16",
+          "band": "high",
+          "diffL50Db": -5.011462037526371,
+          "diffL10Db": 0.7534518885311883
+        },
+        {
+          "station": "arkona",
+          "day": "2019-11-12",
+          "band": "d125",
+          "diffL50Db": -2.799797112563539,
+          "diffL10Db": 1.6073223034440502
+        },
+        {
+          "station": "arkona",
+          "day": "2019-11-12",
+          "band": "mid",
+          "diffL50Db": -0.3902614613797084,
+          "diffL10Db": 4.799592069653315
+        },
+        {
+          "station": "arkona",
+          "day": "2019-11-12",
+          "band": "high",
+          "diffL50Db": -4.08646507404012,
+          "diffL10Db": 2.036702562876684
+        }
+      ]
+    },
+    {
+      "leftOutStation": "hjelm",
+      "trainingObjective": 2140.006946205305,
+      "physics": {
+        "bottomBounceLossDb": 0.5108969774506926,
+        "sedimentSoundSpeed": 1666.6666666666667,
+        "cutoffLossDbPerKm": 1.0
+      },
+      "transitionFactor": 2.0,
+      "residuals": [
+        {
+          "station": "hjelm",
+          "day": "2019-02-20",
+          "band": "d125",
+          "diffL50Db": -10.312891152089051,
+          "diffL10Db": -2.8898039521028807
+        },
+        {
+          "station": "hjelm",
+          "day": "2019-02-20",
+          "band": "mid",
+          "diffL50Db": -15.697174242129492,
+          "diffL10Db": -6.36021769941992
+        },
+        {
+          "station": "hjelm",
+          "day": "2019-02-20",
+          "band": "high",
+          "diffL50Db": -9.752525417460191,
+          "diffL10Db": -6.726728631652378
+        },
+        {
+          "station": "hjelm",
+          "day": "2019-04-16",
+          "band": "d125",
+          "diffL50Db": -7.248187505728353,
+          "diffL10Db": -0.7921840495195056
+        },
+        {
+          "station": "hjelm",
+          "day": "2019-04-16",
+          "band": "mid",
+          "diffL50Db": -12.715708490893874,
+          "diffL10Db": -3.5855908652921613
+        },
+        {
+          "station": "hjelm",
+          "day": "2019-04-16",
+          "band": "high",
+          "diffL50Db": -7.69249417307168,
+          "diffL10Db": -4.206052613516945
+        },
+        {
+          "station": "hjelm",
+          "day": "2019-06-05",
+          "band": "d125",
+          "diffL50Db": 0.5852895406355145,
+          "diffL10Db": 4.304402374227379
+        },
+        {
+          "station": "hjelm",
+          "day": "2019-06-05",
+          "band": "mid",
+          "diffL50Db": -2.570240075186618,
+          "diffL10Db": 3.1394706161967036
+        },
+        {
+          "station": "hjelm",
+          "day": "2019-06-05",
+          "band": "high",
+          "diffL50Db": -0.6498012524643002,
+          "diffL10Db": -1.293213300303421
+        }
+      ]
+    },
+    {
+      "leftOutStation": "hornsrev3",
+      "trainingObjective": 1706.179032838373,
+      "physics": {
+        "bottomBounceLossDb": 0.4424185553847916,
+        "sedimentSoundSpeed": 1666.6666666666667,
+        "cutoffLossDbPerKm": 1.0
+      },
+      "transitionFactor": 2.0,
+      "residuals": [
+        {
+          "station": "hornsrev3",
+          "day": "2019-04-16",
+          "band": "d125",
+          "diffL50Db": -11.791011754092835,
+          "diffL10Db": 6.592437091705165
+        },
+        {
+          "station": "hornsrev3",
+          "day": "2019-04-16",
+          "band": "mid",
+          "diffL50Db": -11.496846634337103,
+          "diffL10Db": 7.0325346411605665
+        },
+        {
+          "station": "hornsrev3",
+          "day": "2019-04-16",
+          "band": "high",
+          "diffL50Db": -5.330130882923115,
+          "diffL10Db": 1.1928574809478505
+        },
+        {
+          "station": "hornsrev3",
+          "day": "2019-06-05",
+          "band": "d125",
+          "diffL50Db": 2.2044841023723194,
+          "diffL10Db": 16.70207171549582
+        },
+        {
+          "station": "hornsrev3",
+          "day": "2019-06-05",
+          "band": "mid",
+          "diffL50Db": 3.363501356343434,
+          "diffL10Db": 15.48525106904134
+        },
+        {
+          "station": "hornsrev3",
+          "day": "2019-06-05",
+          "band": "high",
+          "diffL50Db": 2.8378922695610527,
+          "diffL10Db": 2.0282150338635034
+        },
+        {
+          "station": "hornsrev3",
+          "day": "2019-11-12",
+          "band": "d125",
+          "diffL50Db": -7.184747653561203,
+          "diffL10Db": -11.162841039747036
+        },
+        {
+          "station": "hornsrev3",
+          "day": "2019-11-12",
+          "band": "mid",
+          "diffL50Db": -3.358126983939286,
+          "diffL10Db": -7.331187397713791
+        },
+        {
+          "station": "hornsrev3",
+          "day": "2019-11-12",
+          "band": "high",
+          "diffL50Db": -1.9388783109762926,
+          "diffL10Db": -4.8852070049471195
+        }
+      ]
+    },
+    {
+      "leftOutStation": "stevns",
+      "trainingObjective": 2139.0108638103475,
+      "physics": {
+        "bottomBounceLossDb": 0.46415888336127775,
+        "sedimentSoundSpeed": 1666.6666666666667,
+        "cutoffLossDbPerKm": 1.0
+      },
+      "transitionFactor": 2.0,
+      "residuals": [
+        {
+          "station": "stevns",
+          "day": "2019-04-16",
+          "band": "d125",
+          "diffL50Db": -10.612253187002196,
+          "diffL10Db": -12.871671831829048
+        },
+        {
+          "station": "stevns",
+          "day": "2019-04-16",
+          "band": "mid",
+          "diffL50Db": -9.794454974784443,
+          "diffL10Db": -11.366600746127958
+        },
+        {
+          "station": "stevns",
+          "day": "2019-04-16",
+          "band": "high",
+          "diffL50Db": -6.384090288332885,
+          "diffL10Db": -7.4463720259847435
+        },
+        {
+          "station": "stevns",
+          "day": "2019-06-05",
+          "band": "d125",
+          "diffL50Db": -1.7686526449807758,
+          "diffL10Db": -7.261251325955001
+        },
+        {
+          "station": "stevns",
+          "day": "2019-06-05",
+          "band": "mid",
+          "diffL50Db": -6.132759520538315,
+          "diffL10Db": -7.81365475895052
+        },
+        {
+          "station": "stevns",
+          "day": "2019-06-05",
+          "band": "high",
+          "diffL50Db": -2.4144003061982318,
+          "diffL10Db": -3.6662241187522255
+        }
+      ]
+    }
+  ],
+  "inputHashes": {
+    "protocol-v1.json": "cee87fb5f55d50b7944ccbb1f7d7f3a58c389f067dbd575816bd07f18608e201",
+    "hjelm.json": "715dfb580b0c1c881f20d73a31cc0a4e096464af26e22a7905a8d66bffbe9646",
+    "anholt.json": "6e22ad08d39f22ccbb34ad0a5b62b75b5e72a140889a04a5a0e876ca7f471182",
+    "lillebaelt.json": "4fe706bf33e9920fb77c14c9f96a165815a5130ab3e1809354f9ca859efc64e3",
+    "stevns.json": "6dd3f2c1ce3d8b699af317c2dcac5d240d14d142a27a506ae1f726b93a64e807",
+    "fehmarn.json": "9abea5d0d5efc771bdfd1a71d18499014cbaa49837edfd2fd87475b0bad99f38",
+    "arkona.json": "828725e188d9d7a23a4aee5af9db3acda76569e9953ab60ef46d2706cd4a7442",
+    "hornsrev3.json": "4dac4c46375ec1083126a91c99d7d00a89c4813ac76ae2eb5600916735122fe8",
+    "nrs11.json": "7305431c683ecfca6e519f664e572433e88e98b4411c8b388817542076b551f3"
+  },
+  "maxReferenceIdentityErrorDb": 9.808852388104583e-06,
+  "gridCount": 7,
+  "windModel": "Wenz/Coates, inchangé ; aucun modèle alternatif exploré faute de formule sourcée lue",
+  "elapsedSec": 554.7504742000019,
+  "note": "Valeurs [C-calé] : ajustées sur les seules stations de calage ; jugées ensuite une seule fois sur les stations de test. Validation croisée : même recherche en retirant chaque station, sans accès aux stations de test. Le facteur de transition k ≠ 1 exige la même modification dans le moteur (r_t = k × profondeur)."
+}

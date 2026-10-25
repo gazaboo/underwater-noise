@@ -1,10 +1,13 @@
 /**
- * Rendu des cétacés sur la carte plate :
- *  - espace de communication : pour chaque pixel autour d'un groupe, marge de l'équation du sonar
- *    avec le bruit local (champ physique) → la forme est rongée par les couloirs de trafic,
- *    découpée par les côtes ; contour tremblé là où l'AIS ne voit rien (bruit sous-estimé) ;
- *  - groupes : points chauds qui s'illuminent au rythme des appels ;
- *  - liens : fils de lumière le long des orthodromies, impulsions dans le sens de l'écoute,
+ * Rendu des cétacés dans la carte plate ou la texture monde (les glyphes sont dans glyphs.ts) :
+ *  - espace de communication : pour chaque pixel autour d'un groupe, marge de l'équation du sonar avec
+ *    le bruit local lissé (même champ que la nappe) et avec le seul fond naturel. On voit ainsi ce qui
+ *    reste audible (zone pleine), la portée sans navires (pointillés) et l'espace perdu (hachures) ;
+ *    la forme est rongée par les couloirs de trafic, découpée par les côtes ; contour tremblé là où
+ *    l'AIS ne voit rien (bruit sous-estimé). Vue globale : un voile léger ; vue rapprochée : tout.
+ *  - appels : un anneau part du groupe, s'étend jusqu'à la portée sans navires et se brise dans
+ *    l'espace perdu [A : vitesse et largeur] ;
+ *  - liens : fils colorés le long des orthodromies, impulsions dans le sens de l'écoute,
  *    effilochage à la rupture, trace fantôme.
  */
 import * as THREE from 'three';
@@ -38,9 +41,11 @@ in vec2 iWhale;            // lat, lon
 in vec4 iCall;             // SL, DT, correction de bande (dB), profondeur (m)
 in vec4 iMisc;             // bande (0/1/2), absorption (dB/km), exagération visuelle, rayon visuel (km)
 in vec3 iColor;
+in vec2 iAnim;             // secondes de scène depuis le dernier appel, groupe focal (0–1)
 out vec2 vWhale;
 flat out vec4 vCall;
 flat out vec4 vMisc;
+flat out vec2 vAnim;
 out vec3 vColor;
 ${FLAT_GLSL}
 void main() {
@@ -53,6 +58,7 @@ void main() {
   vWhale = iWhale;
   vCall = iCall;
   vMisc = iMisc;
+  vAnim = iAnim;
   vColor = iColor;
 }`;
 
@@ -61,17 +67,24 @@ precision highp float;
 in vec2 vWhale;
 flat in vec4 vCall;
 flat in vec4 vMisc;
+flat in vec2 vAnim;
 in vec3 vColor;
 out vec4 outColor;
 uniform vec2 uCenter;
 uniform float uScale;
 uniform vec2 uResolution;
-uniform sampler2D uLevels;
+uniform sampler2D uNoiseDb;  // ΔL lissé par bande (dB, RGB) : même champ que la nappe
+uniform vec3 uNatural;       // fond naturel par bande (dB)
+uniform float uShips;        // 0 : océan sans navires (seul le fond naturel compte)
 uniform sampler2D uElevL;
 uniform sampler2D uOcean;   // grille océan (G profondeur log, B fraction de terre), mipmappée
 uniform float uOceanPerDeg; // texels de uOcean par degré
 uniform sampler2D uCoverage;
-uniform float uFill, uContour, uSoftness, uTime;
+uniform float uFill, uFarFill, uContour, uLost, uTime;
+uniform float uClose;       // 0 : vue globale ; 1 : vue rapprochée
+uniform float uFbPerCss;    // pixels du tampon par pixel CSS de l'affichage final
+uniform float uRingSec, uRings;
+uniform vec3 uLostTint;
 uniform vec3 uBandFreq;
 ${LOSS_UNIFORMS_GLSL}
 
@@ -99,6 +112,7 @@ vec4 sampleCubic(sampler2D tex, vec2 uv) {
        + (texture(tex, vec2(t0.x, t12.y)) * w0.x + texture(tex, vec2(t12.x, t12.y)) * w12.x + texture(tex, vec2(t3.x, t12.y)) * w3.x) * w12.y
        + (texture(tex, vec2(t0.x, t3.y)) * w0.x + texture(tex, vec2(t12.x, t3.y)) * w12.x + texture(tex, vec2(t3.x, t3.y)) * w3.x) * w3.y;
 }
+float hash2(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
 
 void main() {
   vec2 d = (gl_FragCoord.xy - 0.5 * uResolution) / uScale;
@@ -128,58 +142,51 @@ void main() {
     rate += bottomLossRate(h) + cutoffLossRate(h, vec3(fBand)).x;
   }
   rate /= float(N + 1);
-  // Équation du sonar au point : SE = SL − TL(d) − NL_appel(x) − DT.
+  // Équation du sonar au point : SE = SL − TL(d) − NL_appel(x) − DT, avec le bruit actuel (navires + fond)
+  // et avec le seul fond naturel (océan sans navires).
   float r = max(dVis * 1000.0 / vMisc.z, 1.0); // distance vraie (m)
   float rt = max(vCall.w, 10.0);
   float tl = (r <= rt ? 20.0 * log(r) : 20.0 * log(rt) + 10.0 * log(r / rt)) / log(10.0) + (vMisc.y + rate) * r / 1000.0;
-  vec4 lv = sampleCubic(uLevels, uv);
-  float nl = (band < 0.5 ? lv.g : band < 1.5 ? lv.b : lv.a) - vCall.z;
-  float se = vCall.x - tl - nl - vCall.y;
+  vec3 ex = sampleCubic(uNoiseDb, uv).rgb;
+  float excess = uShips * max(band < 0.5 ? ex.r : band < 1.5 ? ex.g : ex.b, 0.0);
+  float nlQuiet = (band < 0.5 ? uNatural.x : band < 1.5 ? uNatural.y : uNatural.z) - vCall.z;
+  float seQuiet = vCall.x - tl - nlQuiet - vCall.y;
+  float se = seQuiet - excess;
   float w = fwidth(se) * 1.2 + 1e-4;
-  // Remplissage (plus dense près du groupe) et contour au seuil.
-  // (fondu au bord du quad : pas de disque à bord net quand l'espace atteint le rayon maximal)
-  float inside = smoothstep(0.0, uSoftness, se) * (1.0 - 0.55 * clamp(dVis / vMisc.w, 0.0, 1.0)) * smoothstep(1.0, 0.85, dVis / vMisc.w);
-  float edge = 1.0 - smoothstep(0.0, w, abs(se));
-  // Terra incognita : le bruit y est sous-estimé ; contour pointillé et tremblant.
-  float cov = smoothstep(0.03, 0.4, texture(uCoverage, uv).r);
+  float wq = fwidth(seQuiet) * 1.2 + 1e-4;
+  float now = smoothstep(-0.5 * w, 0.5 * w, se) * shadow;          // audible malgré les navires
+  float quiet = smoothstep(-0.5 * wq, 0.5 * wq, seQuiet) * shadow;  // audible sans navires
+  float lost = quiet * (1.0 - now);
+  float edge = (1.0 - smoothstep(0.0, 1.5 * w, abs(se))) * shadow;
+  float ghost = (1.0 - smoothstep(0.0, 1.5 * wq, abs(seQuiet))) * shadow;
+  float rq = vMisc.w / 1.05; // portée sans navires à l'écran (km)
+  // Motifs en pixels de l'affichage final : pointillés le long du cercle, hachures obliques.
   float ang = atan(dl.x, dl.y);
-  // Tirets selon l'angle ET la distance au groupe : un contour radial est découpé lui aussi
-  // (selon l'angle seul, il restait plein ou se réduisait à une colonne de points).
-  float dash = step(0.45, fract(ang * 9.0 + dVis * 9.0 / vMisc.w + uTime * 0.3));
-  edge *= mix(dash * (0.7 + 0.3 * sin(uTime * 7.0 + ang * 31.0)), 1.0, cov);
+  float arcPx = ang * dVis / 111.195 * uScale / uFbPerCss;
+  float dash = step(0.5, fract(arcPx / 10.0));
+  // Espace perdu : semis de points (distinct des hachures de la terra incognita), plus dense près du groupe.
+  vec2 cell = gl_FragCoord.xy / (6.0 * uFbPerCss);
+  vec2 cell2 = vec2(cell.x + 0.5 * mod(floor(cell.y), 2.0), cell.y);
+  float stipple = 1.0 - smoothstep(0.16, 0.26, length(fract(cell2) - 0.5));
+  // Terra incognita : le bruit y est sous-estimé ; contour actuel pointillé et tremblant.
+  float cov = smoothstep(0.03, 0.4, texture(uCoverage, uv).r);
+  edge *= mix(step(0.45, fract(arcPx / 6.0 + uTime * 0.3)) * (0.7 + 0.3 * sin(uTime * 7.0 + ang * 31.0)), 1.0, cov);
+  // Anneau d'appel : vif dans la zone audible, en éclats dans l'espace perdu, absent au-delà.
+  float rp = vAnim.x / uRingSec;
+  float ring = rp < 1.0 ? exp(-pow((dVis / rq - rp) / 0.02, 2.0)) * (1.0 - rp * rp) : 0.0;
+  float shards = step(0.55, hash2(floor(gl_FragCoord.xy / (3.0 * uFbPerCss)) + floor(rp * 12.0)));
+  ring *= uRings * (now + 0.45 * lost * shards) * mix(1.0, mix(0.35, 1.0, vAnim.y), uClose);
+
   if (mask < 0.5) discard;
-  vec3 c = vColor * (uFill * inside + uContour * edge) * shadow;
-  outColor = vec4(c, 1.0);
-}`;
-
-// ------------------------------------------------------------------ groupes
-
-const MARK_VERT = /* glsl */ `
-precision highp float;
-in vec3 position;
-in vec2 aWhale;
-in float aPulse;
-in vec3 aColor;
-uniform float uSize;
-out float vPulse;
-out vec3 vColor;
-${FLAT_GLSL}
-void main() {
-  gl_Position = flatProject(aWhale.x, aWhale.y);
-  gl_PointSize = uSize * (1.0 + 0.8 * aPulse);
-  vPulse = aPulse;
-  vColor = aColor;
-}`;
-
-const MARK_FRAG = /* glsl */ `
-precision highp float;
-in float vPulse;
-in vec3 vColor;
-out vec4 outColor;
-void main() {
-  float r = length(gl_PointCoord - 0.5) * 2.0;
-  float core = smoothstep(1.0, 0.0, r);
-  outColor = vec4(vColor * core * (0.55 + 0.9 * vPulse), 1.0);
+  float fade = smoothstep(1.0, 0.92, dVis / vMisc.w);
+  float fill = mix(uFarFill, uFill, uClose) * now * (1.0 - 0.45 * clamp(dVis / rq, 0.0, 1.0));
+  // Vue rapprochée : la bulle complète pour le groupe focal (le plus proche du centre), discrète ailleurs.
+  float focus = mix(1.0, mix(0.12, 1.0, vAnim.y), uClose);
+  float aLost = mix(0.35, 1.0, uClose) * uLost * lost * stipple * (1.0 - 0.6 * clamp(dVis / rq, 0.0, 1.0)) * focus;
+  float aLine = uClose * (uContour * edge + 0.75 * ghost * dash) * focus;
+  float a = clamp(fill + aLost + aLine + ring, 0.0, 1.0) * fade;
+  vec3 c = mix(vColor, uLostTint, aLost / max(a, 1e-4) * 0.55);
+  outColor = vec4(c * a, a); // prémultiplié
 }`;
 
 // ------------------------------------------------------------------ liens
@@ -188,21 +195,33 @@ const LINK_VERT = /* glsl */ `
 precision highp float;
 in vec3 position;
 in vec2 aLatLon;     // point de l'arc (longitude dépliée)
+in vec2 aOther;      // autre extrémité du segment (direction)
+in float aSide;      // −1 / +1 : bord du ruban
+in float aSgn;       // +1 au début du segment, −1 à la fin
 in float aLon0;      // longitude du premier point (pour le repli d'antiméridien)
 in float aT;         // 0 en A, 1 en B
 in float aLink;      // indice du lien
+in vec3 aColor;
 uniform sampler2D uState; // par lien : force A←B, force B←A, effilochage, fantôme
 uniform sampler2D uMeta;  // par lien : marge max (dB), graine, temps depuis le dernier appel de A (s), idem pour B
+uniform float uWidth;     // épaisseur (pixels du tampon)
 out float vT;
+out float vSide;
+out vec3 vColor;
 flat out vec4 vState;
 flat out vec4 vMeta;
 ${FLAT_GLSL}
 void main() {
   float dl0 = mod(aLon0 - uCenter.x + 180.0, 360.0) - 180.0 + uShift;
-  float lon = uCenter.x + dl0 + (aLatLon.y - aLon0);
-  vec2 px = vec2(lon - uCenter.x, aLatLon.x - uCenter.y) * uScale;
+  vec2 px = vec2(dl0 + (aLatLon.y - aLon0), aLatLon.x - uCenter.y) * uScale;
+  vec2 po = vec2(dl0 + (aOther.y - aLon0), aOther.x - uCenter.y) * uScale;
+  vec2 dir = po - px;
+  dir = length(dir) > 1e-6 ? normalize(dir) * aSgn : vec2(1.0, 0.0);
+  px += vec2(-dir.y, dir.x) * aSide * (0.5 * uWidth + 1.0);
   gl_Position = vec4(px / (0.5 * uResolution), 0.0, 1.0);
   vT = aT;
+  vSide = aSide;
+  vColor = aColor;
   ivec2 c = ivec2(int(aLink) % ${MAX_LINKS}, 0);
   vState = texelFetch(uState, c, 0);
   vMeta = texelFetch(uMeta, c, 0);
@@ -211,11 +230,12 @@ void main() {
 const LINK_FRAG = /* glsl */ `
 precision highp float;
 in float vT;
+in float vSide;
+in vec3 vColor;
 flat in vec4 vState;
 flat in vec4 vMeta;
 out vec4 outColor;
-uniform vec3 uColor;
-uniform float uIntensity, uGhost, uTime, uPulseSpeed, uHyst;
+uniform float uIntensity, uGhost, uTime, uPulseSpeed, uHyst, uWidth;
 float hash(float p) { p = fract(p * 0.1031); p *= p + 33.33; p *= p + p; return fract(p); }
 void main() {
   float sAB = vState.x; // A entend B : le signal va de B vers A
@@ -230,7 +250,7 @@ void main() {
   // Fil : plus tendu (net) quand la marge est grande ; tremble près du seuil.
   float tension = smoothstep(0.0, 20.0, margin);
   float tremble = exp(-pow(margin / max(uHyst * 2.0, 0.5), 2.0)) * (0.5 + 0.5 * sin(uTime * 23.0 + seed * 50.0 + vT * 40.0));
-  float base = strength * (0.35 + 0.45 * tension) * (1.0 - 0.6 * tremble);
+  float base = strength * (0.45 + 0.4 * tension) * (1.0 - 0.6 * tremble);
   // Effilochage : des segments disparaissent, de plus en plus nombreux.
   float seg = hash(floor(vT * 60.0) + seed * 1000.0);
   base *= step(fray * 0.95, seg);
@@ -242,9 +262,13 @@ void main() {
   float pBA = step(phA, 1.0) * exp(-pow((vT - phA) / 0.025, 2.0)) * mix(0.25 * (1.0 - phA), 1.0, sBA);       // de A vers B
   float pAB = step(phB, 1.0) * exp(-pow((vT - (1.0 - phB)) / 0.025, 2.0)) * mix(0.25 * (1.0 - phB), 1.0, sAB); // de B vers A
   float light = uIntensity * (base + 1.6 * (pAB + pBA)) + uGhost * ghost * (1.0 - strength);
-  // Extrémités adoucies.
+  // Extrémités adoucies ; bords du ruban anti-crénelés (impulsions un peu plus épaisses).
   light *= smoothstep(0.0, 0.03, vT) * smoothstep(1.0, 0.97, vT);
-  outColor = vec4(uColor * light, 1.0);
+  float half_ = 0.5 * uWidth * (1.0 + 0.8 * min(pAB + pBA, 1.0));
+  float dist = abs(vSide) * (0.5 * uWidth + 1.0);
+  float a = clamp(min(light, 1.0) * clamp(half_ + 0.5 - dist, 0.0, 1.0), 0.0, 1.0);
+  vec3 c = vColor * (1.0 + 0.6 * max(light - 1.0, 0.0));
+  outColor = vec4(c * a, a); // prémultiplié
 }`;
 
 function flatUniforms() {
@@ -275,12 +299,16 @@ export interface GroupDraw {
   /** Rayon visuel maximal du quad (km). */
   radiusKm: number;
   color: THREE.Vector3;
-  pulse: number;
+  /** Secondes de scène depuis le dernier appel. */
+  sinceCall: number;
+  /** 1 : groupe focal de la vue rapprochée. */
+  focus: number;
 }
 
 export interface LinkDraw {
   /** Points de l'arc (lat, lon dépliée), de A vers B. */
   arc: [number, number][];
+  color: THREE.Vector3;
   sAB: number;
   sBA: number;
   fray: number;
@@ -292,6 +320,35 @@ export interface LinkDraw {
   sinceB: number;
 }
 
+/** Réglages de dessin calculés par l'appelant (dépendent de l'affichage final). */
+export interface WhaleDrawOptions {
+  /** ΔL lissé par bande (dB, RGB) et fond naturel par bande (dB). */
+  noise: THREE.Texture;
+  natural: [number, number, number];
+  /** 1 : bruit actuel ; 0 : océan sans navires. */
+  ships: number;
+  /** 0 : vue globale ; 1 : vue rapprochée. */
+  close: number;
+  /** Pixels du tampon par pixel CSS de l'affichage final. */
+  fbPerCss: number;
+  /** 0–1 : anneaux d'appel visibles (masqués quand le temps est très accéléré). */
+  rings: number;
+  lostTint: THREE.Vector3;
+  /** Centre de la vue (lat, lon) : le groupe le plus proche devient le groupe focal. */
+  center: [number, number];
+}
+
+const premultiplied = {
+  blending: THREE.CustomBlending,
+  blendSrc: THREE.OneFactor,
+  blendDst: THREE.OneMinusSrcAlphaFactor,
+  blendSrcAlpha: THREE.OneFactor,
+  blendDstAlpha: THREE.OneMinusSrcAlphaFactor,
+  depthTest: false,
+  depthWrite: false,
+  transparent: true,
+} as const;
+
 export class WhaleRenderer {
   private readonly scene = new THREE.Scene();
   private readonly camera = new THREE.Camera();
@@ -301,23 +358,17 @@ export class WhaleRenderer {
   private readonly iCall = new Float32Array(MAX_GROUPS * 4);
   private readonly iMisc = new Float32Array(MAX_GROUPS * 4);
   private readonly iColor = new Float32Array(MAX_GROUPS * 3);
+  private readonly iAnim = new Float32Array(MAX_GROUPS * 2);
   private readonly spaceMat: THREE.RawShaderMaterial;
-  // groupes
-  private readonly markGeo = new THREE.BufferGeometry();
-  private readonly mWhale = new Float32Array(MAX_GROUPS * 2);
-  private readonly mPulse = new Float32Array(MAX_GROUPS);
-  private readonly mColor = new Float32Array(MAX_GROUPS * 3);
-  private readonly markMat: THREE.RawShaderMaterial;
   // liens
   private linkGeo = new THREE.BufferGeometry();
   private readonly linkMat: THREE.RawShaderMaterial;
-  private readonly linkMesh: THREE.LineSegments;
+  private readonly linkMesh: THREE.Mesh;
   private readonly stateTex: THREE.DataTexture;
   private readonly metaTex: THREE.DataTexture;
   private readonly stateData = new Float32Array(MAX_LINKS * 4);
   private readonly metaData = new Float32Array(MAX_LINKS * 4);
   private linkCount = 0;
-  private marks!: THREE.Points;
 
   constructor(elevLinear: THREE.Texture, ocean: THREE.Texture) {
     // Espace de communication : quads instanciés.
@@ -328,6 +379,7 @@ export class WhaleRenderer {
     this.spaceGeo.setAttribute('iCall', new THREE.InstancedBufferAttribute(this.iCall, 4).setUsage(THREE.DynamicDrawUsage));
     this.spaceGeo.setAttribute('iMisc', new THREE.InstancedBufferAttribute(this.iMisc, 4).setUsage(THREE.DynamicDrawUsage));
     this.spaceGeo.setAttribute('iColor', new THREE.InstancedBufferAttribute(this.iColor, 3).setUsage(THREE.DynamicDrawUsage));
+    this.spaceGeo.setAttribute('iAnim', new THREE.InstancedBufferAttribute(this.iAnim, 2).setUsage(THREE.DynamicDrawUsage));
     this.spaceGeo.instanceCount = 0;
     this.spaceMat = new THREE.RawShaderMaterial({
       glslVersion: THREE.GLSL3,
@@ -335,7 +387,9 @@ export class WhaleRenderer {
       fragmentShader: SPACE_FRAG,
       uniforms: {
         ...flatUniforms(),
-        uLevels: { value: null },
+        uNoiseDb: { value: null },
+        uNatural: { value: new THREE.Vector3(84, 88, 93) },
+        uShips: { value: 1 },
         uElevL: { value: elevLinear },
         uOcean: { value: ocean },
         uOceanPerDeg: { value: (ocean.image as { width: number }).width / 360 },
@@ -343,38 +397,22 @@ export class WhaleRenderer {
         ...lossUniforms(),
         uCoverage: { value: null },
         uFill: { value: 0.16 },
+        uFarFill: { value: 0.06 },
         uContour: { value: 0.75 },
-        uSoftness: { value: 10 },
+        uLost: { value: 0.4 },
+        uClose: { value: 0 },
+        uFbPerCss: { value: 1 },
+        uRingSec: { value: 3 },
+        uRings: { value: 1 },
+        uLostTint: { value: new THREE.Vector3(0.9, 0.5, 0.2) },
         uTime: { value: 0 },
       },
-      blending: THREE.AdditiveBlending,
-      depthTest: false,
-      depthWrite: false,
-      transparent: true,
+      ...premultiplied,
     });
     const space = new THREE.Mesh(this.spaceGeo, this.spaceMat);
     space.frustumCulled = false;
 
-    // Groupes : points.
-    this.markGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(MAX_GROUPS * 3), 3));
-    this.markGeo.setAttribute('aWhale', new THREE.BufferAttribute(this.mWhale, 2).setUsage(THREE.DynamicDrawUsage));
-    this.markGeo.setAttribute('aPulse', new THREE.BufferAttribute(this.mPulse, 1).setUsage(THREE.DynamicDrawUsage));
-    this.markGeo.setAttribute('aColor', new THREE.BufferAttribute(this.mColor, 3).setUsage(THREE.DynamicDrawUsage));
-    this.markMat = new THREE.RawShaderMaterial({
-      glslVersion: THREE.GLSL3,
-      vertexShader: MARK_VERT,
-      fragmentShader: MARK_FRAG,
-      uniforms: { ...flatUniforms(), uSize: { value: 4 } },
-      blending: THREE.AdditiveBlending,
-      depthTest: false,
-      depthWrite: false,
-      transparent: true,
-    });
-    const marks = new THREE.Points(this.markGeo, this.markMat);
-    marks.frustumCulled = false;
-    this.marks = marks;
-
-    // Liens : segments, état par lien dans deux petites textures.
+    // Liens : rubans, état par lien dans deux petites textures.
     const tex = (data: Float32Array<ArrayBuffer>) => {
       const t = new THREE.DataTexture(data, MAX_LINKS, 1, THREE.RGBAFormat, THREE.FloatType);
       t.magFilter = t.minFilter = THREE.NearestFilter;
@@ -391,22 +429,19 @@ export class WhaleRenderer {
         ...flatUniforms(),
         uState: { value: this.stateTex },
         uMeta: { value: this.metaTex },
-        uColor: { value: new THREE.Vector3(1, 0.9, 0.8) },
         uIntensity: { value: 1 },
         uGhost: { value: 0.12 },
         uTime: { value: 0 },
         uPulseSpeed: { value: 0.3 },
         uHyst: { value: 2 },
+        uWidth: { value: 2 },
       },
-      blending: THREE.AdditiveBlending,
-      depthTest: false,
-      depthWrite: false,
-      transparent: true,
+      ...premultiplied,
     });
-    this.linkMesh = new THREE.LineSegments(this.linkGeo, this.linkMat);
+    this.linkMesh = new THREE.Mesh(this.linkGeo, this.linkMat);
     this.linkMesh.frustumCulled = false;
 
-    this.scene.add(space, this.linkMesh, marks);
+    this.scene.add(space, this.linkMesh);
   }
 
   setGroups(groups: GroupDraw[]): void {
@@ -417,46 +452,60 @@ export class WhaleRenderer {
       this.iCall.set([g.sl, g.dt, g.noiseCorrection, g.depth], 4 * i);
       this.iMisc.set([g.band, g.alpha, g.visualScale, g.radiusKm], 4 * i);
       this.iColor.set([g.color.x, g.color.y, g.color.z], 3 * i);
-      this.mWhale.set([g.lat, g.lon], 2 * i);
-      this.mPulse[i] = g.pulse;
-      this.mColor.set([g.color.x, g.color.y, g.color.z], 3 * i);
+      this.iAnim.set([g.sinceCall, g.focus], 2 * i);
     }
-    for (const name of ['iWhale', 'iCall', 'iMisc', 'iColor']) (this.spaceGeo.getAttribute(name) as THREE.BufferAttribute).needsUpdate = true;
-    for (const name of ['aWhale', 'aPulse', 'aColor']) (this.markGeo.getAttribute(name) as THREE.BufferAttribute).needsUpdate = true;
+    for (const name of ['iWhale', 'iCall', 'iMisc', 'iColor', 'iAnim']) (this.spaceGeo.getAttribute(name) as THREE.BufferAttribute).needsUpdate = true;
     this.spaceGeo.instanceCount = n;
-    this.markGeo.setDrawRange(0, n);
   }
 
   /** Reconstruit la géométrie des arcs (quand les groupes ont bougé ou que les liens changent). */
   setLinkGeometry(links: LinkDraw[]): void {
     const n = Math.min(links.length, MAX_LINKS);
-    const segs = n * (ARC_POINTS - 1) * 2;
-    const pos = new Float32Array(segs * 3);
-    const ll = new Float32Array(segs * 2);
-    const lon0 = new Float32Array(segs);
-    const t = new Float32Array(segs);
-    const idx = new Float32Array(segs);
+    const quads = n * (ARC_POINTS - 1);
+    const verts = quads * 4;
+    const pos = new Float32Array(verts * 3);
+    const ll = new Float32Array(verts * 2);
+    const other = new Float32Array(verts * 2);
+    const side = new Float32Array(verts);
+    const sgn = new Float32Array(verts);
+    const lon0 = new Float32Array(verts);
+    const t = new Float32Array(verts);
+    const idx = new Float32Array(verts);
+    const color = new Float32Array(verts * 3);
+    const index: number[] = [];
     let v = 0;
     for (let k = 0; k < n; k++) {
-      const arc = links[k].arc;
+      const { arc, color: c } = links[k];
       for (let i = 0; i < arc.length - 1; i++) {
-        for (const j of [i, i + 1]) {
-          ll[2 * v] = arc[j][0];
-          ll[2 * v + 1] = arc[j][1];
-          lon0[v] = arc[0][1];
-          t[v] = j / (arc.length - 1);
-          idx[v] = k;
-          v++;
+        const base = v;
+        for (const [j, o, sg] of [[i, i + 1, 1], [i + 1, i, -1]] as const) {
+          for (const sd of [-1, 1]) {
+            ll.set(arc[j], 2 * v);
+            other.set(arc[o], 2 * v);
+            side[v] = sd;
+            sgn[v] = sg;
+            lon0[v] = arc[0][1];
+            t[v] = j / (arc.length - 1);
+            idx[v] = k;
+            color.set([c.x, c.y, c.z], 3 * v);
+            v++;
+          }
         }
+        index.push(base, base + 1, base + 3, base, base + 3, base + 2);
       }
     }
     this.linkGeo.dispose();
     this.linkGeo = new THREE.BufferGeometry();
     this.linkGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     this.linkGeo.setAttribute('aLatLon', new THREE.BufferAttribute(ll, 2));
+    this.linkGeo.setAttribute('aOther', new THREE.BufferAttribute(other, 2));
+    this.linkGeo.setAttribute('aSide', new THREE.BufferAttribute(side, 1));
+    this.linkGeo.setAttribute('aSgn', new THREE.BufferAttribute(sgn, 1));
     this.linkGeo.setAttribute('aLon0', new THREE.BufferAttribute(lon0, 1));
     this.linkGeo.setAttribute('aT', new THREE.BufferAttribute(t, 1));
     this.linkGeo.setAttribute('aLink', new THREE.BufferAttribute(idx, 1));
+    this.linkGeo.setAttribute('aColor', new THREE.BufferAttribute(color, 3));
+    this.linkGeo.setIndex(index);
     this.linkMesh.geometry = this.linkGeo;
     this.linkCount = n;
   }
@@ -474,36 +523,41 @@ export class WhaleRenderer {
     this.metaTex.needsUpdate = true;
   }
 
-  draw(renderer: THREE.WebGLRenderer, view: FlatTransform, cfg: Config, levels: THREE.Texture, coverage: THREE.Texture, timeSec: number, pixelRatio: number, target: THREE.WebGLRenderTarget | null = null): void {
+  draw(renderer: THREE.WebGLRenderer, view: FlatTransform, cfg: Config, opts: WhaleDrawOptions, coverage: THREE.Texture, timeSec: number, target: THREE.WebGLRenderTarget | null = null): void {
     const w = cfg.whales;
-    for (const mat of [this.spaceMat, this.markMat, this.linkMat]) setFlat(mat.uniforms, view);
+    for (const mat of [this.spaceMat, this.linkMat]) setFlat(mat.uniforms, view);
     const su = this.spaceMat.uniforms;
     setLossUniforms(su, cfg);
     const [lo, mi, hi] = cfg.bands.map(bandCenter);
     (su.uBandFreq.value as THREE.Vector3).set(lo, mi, hi);
-    su.uLevels.value = levels;
+    su.uNoiseDb.value = opts.noise;
+    (su.uNatural.value as THREE.Vector3).set(...opts.natural);
+    su.uShips.value = opts.ships;
     su.uCoverage.value = coverage;
     su.uFill.value = w.space.fill;
+    su.uFarFill.value = w.space.farFill;
     su.uContour.value = w.space.contour;
-    su.uSoftness.value = w.space.softnessDb;
+    su.uLost.value = w.space.lost;
+    su.uClose.value = opts.close;
+    su.uFbPerCss.value = opts.fbPerCss;
+    su.uRingSec.value = w.calls.ringSec;
+    su.uRings.value = opts.rings;
+    (su.uLostTint.value as THREE.Vector3).copy(opts.lostTint);
     su.uTime.value = timeSec;
-    this.markMat.uniforms.uSize.value = w.space.markerSize * pixelRatio;
     const lu = this.linkMat.uniforms;
-    hexToVec3(w.color, lu.uColor.value as THREE.Vector3);
     lu.uIntensity.value = w.links.enabled ? w.links.intensity : 0;
     lu.uGhost.value = w.links.enabled ? w.links.ghost : 0;
     lu.uTime.value = timeSec;
     lu.uPulseSpeed.value = w.links.pulseSpeed;
     lu.uHyst.value = w.links.hysteresisDb;
+    lu.uWidth.value = w.links.widthPx * opts.fbPerCss;
     renderer.setRenderTarget(target);
     // Trois passes décalées de −360°, 0, +360° : les espaces et les fils à cheval sur l'antiméridien
-    // de la carte apparaissent des deux côtés (les points des groupes ne sont dessinés qu'une fois).
+    // de la carte apparaissent des deux côtés.
     for (const shift of [-360, 0, 360]) {
       for (const mat of [this.spaceMat, this.linkMat]) mat.uniforms.uShift.value = shift;
-      this.marks.visible = shift === 0;
       renderer.render(this.scene, this.camera);
     }
-    this.marks.visible = true;
   }
 }
 

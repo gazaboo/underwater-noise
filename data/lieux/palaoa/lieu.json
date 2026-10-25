@@ -1,0 +1,10 @@
+{
+ "id": "palaoa",
+ "title": "Sous la plate-forme d'Ekström (Antarctique)",
+ "center": { "lat": -70.517, "lon": -8.217 },
+ "radiusKm": 150,
+ "text": "Sous 100 m de glace, des hydrophones écoutent l'océan austral toute l'année : la banquise qui frotte et craque, les phoques de Weddell, les cachalots.",
+ "status": "S",
+ "source": "Alfred Wegener Institute, observatoire PALAOA (70°31′S, 8°13′O, à 1,5–3 km du front de la plate-forme ; hydrophones à ≈ 70 m sous la glace), epic.awi.de/id/eprint/18534",
+ "sounds": ["glace-palaoa", "phoque-weddell-palaoa"]
+}

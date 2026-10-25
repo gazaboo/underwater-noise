@@ -5,6 +5,10 @@
 // config/local.json5 (écrit par le panneau de réglage, ignoré par git).
 // Le serveur recharge ces fichiers à chaud : modifiez, enregistrez, l'image suit.
 {
+  // Profil physique fixe ; les anciennes surcharges acoustiques locales sont ignorées en référence.
+  // Pour expérimenter : science.mode = 'experimental' (résultats signalés comme tels).
+  // Écarts mesurés publiés par la validation (docs/VALIDATION_PROTOCOLE.md) ; absent = « non validé ».
+  science: { mode: 'reference', validationSummary: 'data/science/validation-summary.json' },
   display: {
     // Cible d'affichage : "screen" (écran du portable) ou "projector" (Epson EB-990U).
     // Surchargeable par l'URL : ?display=projector
@@ -19,9 +23,9 @@
   },
 
   qualityProfiles: {
-    // Radeon 780M : 60 images/s visées en 1920×1200 comme en 2256×1504.
-    expo: { visualSimWidth: 2048, visualSimSteps: 3, detailSimWidth: 1024, physicsSimWidth: 1024, worldTextureWidth: 2048 },
-    light: { visualSimWidth: 1536, visualSimSteps: 2, detailSimWidth: 768, physicsSimWidth: 768, worldTextureWidth: 1536 },
+    // La qualité change le rendu ; le profil de référence fixe la grille physique à 1024×512.
+    expo: { physicsSimWidth: 1024, worldTextureWidth: 2048 },
+    light: { physicsSimWidth: 768, worldTextureWidth: 1536 },
   },
 
   view: {
@@ -32,8 +36,7 @@
       fit: 'cover', // 'cover' remplit l'écran (rogne les bords en longitude), 'contain' montre tout
     },
     // Exploration : molette = zoom, glisser = déplacer, double-clic ou R = recadrer.
-    // Au-delà de minZoom, une grille d'ondes fine couvre la zone visible (marge comprise).
-    detail: { enabled: true, minZoom: 2.5, margin: 1.35 },
+    // Le zoom interpole la grille physique commune ; il ne lance aucune simulation indépendante.
   },
 
   // Globe : la Terre tourne lentement sous un regard fixe (modes globe, hemisphere, fisheye).
@@ -81,7 +84,10 @@
     oceanShallow: '#030a10',
     oceanDeep: '#000102',
     bathyRelief: 0.4, // relief du fond marin, à peine perceptible
-    land: '#000000',
+    land: '#000000', // aplat (land.style = 'flat')
+    // Terres « gouache » (land.style = 'gouache') : discrètes la nuit, pour que les ondes restent le sujet.
+    landLight: 0.3, // luminosité générale des terres (artistique)
+    landTint: '#ffdcb4', // teinte chaude multipliée (artistique)
     coast: '#1b2a36',
     coastOpacity: 0.55,
     unknownDim: 0.4, // zones jamais observées par l'AIS : dans l'ombre (terra incognita)
@@ -89,6 +95,11 @@
     fog: '#0b1117', // brouillard de la terra incognita : plus sombre que le calme connu, mais texturé
     wave: '#cfeaff',
     ship: '#e8f4ff',
+    // Bruit ajouté par les navires (artistique) : du faible au fort, luminance croissante sur fond sombre.
+    // Teintes chaudes réservées au bruit ; les cétacés gardent des teintes froides.
+    noiseLow: '#7a3b1c',
+    noiseMid: '#e0782c',
+    noiseHigh: '#ffd77a',
   },
 
   // Mode jour (touche J) : remplace la palette ci-dessus champ par champ. Choix artistiques : l'océan reste
@@ -99,6 +110,8 @@
     oceanDeep: '#163a56',
     bathyRelief: 0.6,
     land: '#cfc7b4',
+    landLight: 0.95,
+    landTint: '#fff4e4',
     coast: '#4e4a40',
     coastOpacity: 0.8,
     unknownDim: 0.8,
@@ -106,6 +119,71 @@
     fog: '#24445c',
     wave: '#eef8ff',
     ship: '#ffffff',
+    // Jour : encre de plus en plus sombre et saturée sur la mer claire.
+    noiseLow: '#e8a25a',
+    noiseMid: '#c8461f',
+    noiseHigh: '#6e0d1f',
+  },
+
+  // Terres peintes, façon gouache / aquarelle (inspiration : illustrations du Petit Prince).
+  // Tout est artistique, sauf les couleurs de départ (Natural Earth II, Tom Patterson, domaine public :
+  // couverture du sol stylisée, pas une mesure) et la position des volcans (Smithsonian GVP).
+  land: {
+    // 'illustre' : monde illustré (milieux, paliers de relief, côtes, ornements visibles dans tous les modes,
+    // demi-sphère comprise) ; 'gouache' : première proposition ; 'flat' : aplat palette.land (rendu d'origine).
+    style: 'illustre',
+    // Monde illustré. Cartes précalculées par tools/build_illustrated.py (milieux : interprétation artistique
+    // des couleurs Natural Earth II ; relief : ETOPO, sourcé, exagéré). Toutes les valeurs ci-dessous sont artistiques.
+    illustrated: {
+      // Nuit (installation) : terres sombres et chaudes, discrètes ; les ondes restent le sujet.
+      night: {
+        ice: '#3a4148', tundra: '#302f27', boreal: '#1d2a22', temperate: '#28331e', tropical: '#1b2f1d',
+        grass: '#333a22', savanna: '#403722', sand: '#463a29', rock: '#422e26',
+        mountain: '#40342d', snow: '#5a5f66', beach: '#4b412e',
+        shelf: '#0a1a20', ripple: '#1a3139',
+        ornament: '#6d675b', // pénombre chaude multipliée sur les vignettes (les cratères gardent leur lueur)
+      },
+      // Jour (lecture de la carte, touche J) : palette d'illustration, d'après les références visuelles.
+      day: {
+        ice: '#eef3f8', tundra: '#b6b893', boreal: '#3f7a5a', temperate: '#67a74c', tropical: '#2f8c45',
+        grass: '#a3c868', savanna: '#d8c078', sand: '#ebd197', rock: '#c88d66',
+        mountain: '#ab8678', snow: '#f7f9fc', beach: '#f2e0ae',
+        shelf: '#4aa6b8', ripple: '#d2f1f4',
+        ornament: '#ffffff',
+      },
+      tone: 0.6, // variation de ton héritée de NE II à l'intérieur d'un milieu
+      relief: 1.0, // lumière précalculée : ombré, ombres portées, vallées
+      // Paliers d'altitude (couches de papier) : ombre portée vers le sud-est et liseré éclairé au nord-ouest.
+      terraces: { enabled: true, shadow: 0.45, lip: 0.35, shadowPx: 2.5 },
+      snow: 1.0, // neiges éternelles : limite d'ordre de grandeur selon la latitude
+      rock: 0.7, // roche nue en altitude
+      // Côtes : plage (largeur à l'écran, en pixels CSS), ombre des terres sur la mer, liseré éclairé.
+      coast: { beachPx: 2.5, beach: 0.8, shadowPx: 4, shadow: 0.45, rim: 0.35 },
+      shelf: 0.6, // teinte du plateau continental (profondeur ETOPO < 200 m)
+      // Lignes d'eau fixes le long des côtes, fines et discrètes (à distinguer des ondes, qui bougent).
+      ripples: { enabled: true, spacingPx: 6, strength: 0.18 },
+    },
+    saturation: 1.7, // NE II est pastel : on ravive
+    steps: 5, // paliers de luminosité (aplats) ; 0 = dégradé continu
+    relief: 0.9, // relief ombré d'après ETOPO (lumière chaude au nord-ouest, ombre froide)
+    brushScale: 1.2, // taille des coups de pinceau (degrés)
+    brushWarp: 0.5, // déformation des frontières entre aplats
+    granulation: 0.35, // grain du pigment
+    wetEdge: 0.5, // pigment accumulé le long des côtes
+    // Petits arbres sur les forêts (indice de forêt tiré des couleurs NE II, artistique) et volcans holocènes
+    // émergés (positions : Smithsonian GVP). Carte plate seulement, au-delà de minZoom.
+    // Gouache (première proposition) : minZoom, treeDensity, volcanoSize. Monde illustré : vignettes rendues avec
+    // Blender (pack Quaternius CC0, montagnes et volcans procéduraux), hors d'échelle comme dans un livre illustré ;
+    // size, growth, density, vegetation, mountains, smoke, clouds. volcanoes et smokeSinceYear servent aux deux.
+    ornaments: {
+      enabled: true, minZoom: 3, treeDensity: 0.55, volcanoes: true, volcanoSize: 14, smokeSinceYear: 2010,
+      size: 34, growth: 0.45, density: 1.0, vegetation: true, mountains: true, smoke: true,
+      clouds: { enabled: true, count: 26, opacity: 0.9, speed: 1.0 },
+    },
+    // Grain de papier sur toute l'image (océan compris), en espace écran.
+    paper: { enabled: true, strength: 0.35, scale: 1.0 },
+    // Ciel étoilé et halo d'atmosphère autour du globe à l'écran (jamais projeté hors de la demi-sphère).
+    stars: { enabled: true, density: 0.5, twinkle: 0.5, halo: 0.5 },
   },
 
   // Surcharges propres à chaque cible.
@@ -119,34 +197,59 @@
       render: { renderScale: 1.0, vignette: 0.0, gamma: 1.1 },
       view: { flat: { fit: 'contain' } },
     },
+    // Page web autonome (téléphone, tablette, ordinateur) : profil léger, moins de traînées d'encre.
+    web: {
+      quality: 'light',
+      noise: { inkParticles: 8000 },
+      render: { renderScale: 0.6, vignette: 0.2 },
+    },
   },
 
-  // Ondes visibles (grille visuelle). Paramètres purement artistiques.
+  // Une seule horloge pour le replay, les sources synthétiques, les fronts et les cétacés.
+  // Le direct impose toujours ×1 ; le facteur choisi est conservé pour le replay/la simulation.
+  playback: { timeScale: 1 },
+
+  // Fronts du champ acoustique : augmentation sur le fond dans la bande sélectionnée.
+  // Visibilité nulle ≤ +1 dB, pleine à +10 dB (convention graphique, pas un seuil biologique).
   waves: {
-    courant: 0.45, // vitesse des fronts (cellules par pas à l'équateur) ; max stable ≈ 0,67
-    damping: 0.016, // persistance : plus petit = fronts qui voyagent plus loin (0,004 : tout l'océan sature)
-    coastDamping: 0.35, // 0 = côtes réfléchissantes, 1 = côtes absorbantes
-    polarCapLat: 79, // au-delà : banquise (mur)
-    pulse: {
-      wavelengthCells: 7, // longueur d'onde des fronts (cellules)
-      cycles: 1.5, // cycles par impulsion : 1 à 2 donnent des anneaux nets
-      rate: 0.35, // impulsions par seconde pour un navire de référence
-      gain: 0.8,
-    },
-    amplitude: {
-      slMin: 166, // niveau source large bande (dB re 1 µPa·m) qui donne une amplitude nulle
-      slMax: 192, // niveau qui donne l'amplitude maximale
-      gamma: 1.7, // compression : seuls les navires bruyants marquent fortement
-    },
-    brightness: 2.8,
-    shallowSpeed: 0.6, // réfraction : les fronts ralentissent et se courbent sur les plateaux (1 = aucun effet)
-    relief: 0.25, // part de l'éclairage « relief » (reflets) dans le rendu des ondes
+    band: 'low', // 'low' : 10–40 Hz ; 'mid' : 100–500 Hz ; 'high' : 1–10 kHz
+    brightness: 2.8, // luminosité, sans modifier le seuil de visibilité
+    relief: 0.25,
   },
+
+  // Bruit ajouté par les navires : ΔL = 10·log10(1 + E_navires / E_naturel) dans la bande waves.band.
+  // Forme et niveaux : champ calculé [C], non validé en mer (docs/PROPAGATION.md). Le reste est un choix
+  // de représentation (docs/REPRESENTATION.md) : paliers, couleurs, défilement [A] ; lissage, préchauffage [E].
+  noise: {
+    style: 'isophones', // 'isophones' | 'meteo' | 'encre' | 'fronts' (touche V)
+    smoothSec: 45, // [E] lissage d'affichage (s de scène) : la moyenne de 6 s du modèle « pompe »
+    warmupMinutes: 20, // [E] régime établi supposé : 20 min de scène calculées au démarrage, navires immobiles
+    steps: [10, 20, 30], // [A] paliers : ×10, ×100, ×1000 l'énergie du fond naturel (médiane mondiale ≈ +11 dB en 10–40 Hz, trafic estimé)
+    lineStepDb: 5, // [A] une ligne tous les 5 dB (énergie ×3,2) : deux lignes par palier
+    lineSpeed: 0.35, // [A] défilement vers l'extérieur, en temps réel : indique le sens, pas la vitesse du son
+    visible: true, // nappe affichée (touche V : styles puis « masquée ») ; masquée, le calcul continue
+    opacity: 0.8,
+    lines: 0.55,
+    inkParticles: 24000, // [A] traînées d'encre (style 'encre')
+    inkLifeSec: 9,
+  },
+
+  // Scénario (touche S) : 'actuel' ou 'sans-navires'. Sans navires, les cétacés n'entendent plus que le fond
+  // naturel (même équation du sonar) [C] ; navires, nappe et sons des navires disparaissent.
+  scenario: 'actuel',
+
+  // Lieux à écouter (data/lieux, docs/MEDIAS.md) : marqueur ivoire [A], distinct du froid des cétacés et du chaud
+  // du bruit. On entend le lieu le plus proche du centre de la vue ; un clic ouvre sa fiche.
+  lieux: { enabled: true, markerPx: 22, color: '#f2e6c9' },
+
+  // Parcours (data/parcours, prototypes de l'issue #4 ; touche H, ?parcours=<id>, bouton « Visite » du web).
+  // attract : parcours lancé seul après idleSec secondes sans geste ('' : aucun ; choix d'exposition à faire).
+  parcours: { attract: '', idleSec: 120 },
 
   ships: {
     visible: true,
-    pointSize: 2.2, // en pixels CSS
-    opacity: 0.7,
+    pointSize: 7, // chevron orienté selon la route (pixels CSS) [A]
+    opacity: 0.85,
   },
 
   // Bandes d'analyse acoustique (Hz) — utilisées par le champ physique (J3).
@@ -205,7 +308,7 @@
   // Mode simulation (navires synthétiques sur les routes maritimes).
   simulation: {
     shipCount: 5000,
-    timeScale: 20, // temps simulé / temps réel : 20 → un navire à 15 nœuds traverse l'Atlantique en ~8 h
+    // Vitesse du temps : playback.timeScale (commun à toute la scène).
     fishingFraction: 0.12, // part de navires de pêche (errance près des côtes)
     laneWidthKm: 25, // dispersion latérale autour des routes
     seed: 42,
@@ -230,7 +333,7 @@
   // Statut des valeurs : docs/REVUE_SCIENTIFIQUE.md (navires estimés).
   estimated: {
     dir: 'data/density',
-    timeScale: 20, // comme la simulation (choix d'affichage)
+    // Vitesse du temps : playback.timeScale.
     maxShips: 60000, // plafond technique (≈ 51 000 en route en moyenne sur oct. 2026 ; le client en affiche 70 000 au plus) ; s'il est atteint, le diagnostic le signale
     lifetimeHours: 24, // empirique : un navire renaît ailleurs au bout d'un jour simulé en moyenne (renouvelle la répartition)
     lookAheadKm: 30, // empirique : distance d'anticipation pour suivre les couloirs de densité
@@ -259,7 +362,7 @@
   // Replay de fichiers enregistrés (.ndjson.gz) — enregistrements du serveur ou archives converties (tools/convert_ais.py).
   replay: {
     path: 'data/replays', // fichier ou dossier ; pour rejouer vos propres enregistrements : 'data/recordings'
-    speed: 10, // ×10 : une heure d'archive en 6 minutes
+    // Vitesse du temps : playback.timeScale.
     loop: true,
   },
 
@@ -282,7 +385,7 @@
   // Statut de chaque valeur (sourcée, empirique, artistique) : docs/REVUE_SCIENTIFIQUE.md §6.
   whales: {
     enabled: true,
-    timeScale: 30, // les groupes se déplacent 30 fois plus vite qu'en vrai (sinon immobiles à l'œil)
+    // Vitesse du temps : playback.timeScale ; vitesses physiques en speedKmh ci-dessous.
     habitatThreshold: 0.35,
     useSightings: true,
     color: '#f2dcc2', // teinte chaude et pâle : le vivant, distinct de la lumière froide du bruit
@@ -290,8 +393,16 @@
       fill: 0.09, // remplissage de l'espace de communication
       contour: 0.6, // contour (là où l'appel cesse d'être audible)
       softnessDb: 10, // fondu du remplissage vers le contour
-      markerSize: 6, // point du groupe (pixels CSS) ; il s'illumine à chaque appel
+      markerSize: 6, // (ancien point du groupe, remplacé par les glyphes)
+      farFill: 0.06, // vue globale : voile léger, sans contour
+      lost: 0.35, // espace perdu (audible sans navires, plus maintenant) : semis de points [A]
     },
+    // Silhouettes par espèce [A] : taille fixe à l'écran (hors d'échelle), liseré sombre lisible jour et nuit.
+    glyphs: { size: 26, outline: '#08131c' },
+    // Vue globale → vue rapprochée (bulle perdue, portée sans navires en pointillés, anneaux d'appel).
+    lod: { closePxPerDeg: 14, fullPxPerDeg: 30 },
+    // Anneau d'appel [A] : s'étend jusqu'à la portée sans navires en 3,2 s de scène, se brise dans l'espace perdu.
+    calls: { ringSec: 3.2 },
     links: {
       enabled: true,
       hysteresisDb: 2, // pas de clignotement autour du seuil
@@ -301,22 +412,24 @@
       intensity: 0.9,
       ghost: 0.12,
       pulseSpeed: 0.3, // l'appel parcourt le fil en ~3 s
+      widthPx: 2.2, // épaisseur des fils à l'écran
     },
     species: [
       // band : bande du champ physique ; sl : niveau source de l'appel ; dt : seuil de détection ;
       // callBandwidthHz : largeur de l'appel (le bruit compte dans cette largeur) ;
       // visualScale : exagération des distances à l'écran (documentée : la vraie portée serait invisible).
+      // color : teinte froide propre à l'espèce [A] (le chaud est réservé au bruit des navires).
       // Niveaux sources (sl) : valeurs publiées, voir docs/REVUE_SCIENTIFIQUE.md §6.
       //   bleu 189 ± 3 et commun 189 ± 4 dB (Širović et al. 2007, JASA 122:1208) ;
       //   baleine à bosse : unités de chant 151–173 dB (Au et al. 2006) → 172 (haut de la fourchette) ;
       //   cachalot (codas) : médiane 161 dB rms (Jacobs et al. 2024, JEB) ;
       //   orque : appels stéréotypés 152,6 ± 5,9 dB (Miller 2006) → 153.
       // dt, callBandwidthHz : choix de l'auteur (non sourcés), à discuter.
-      { id: 'blue', name: 'Rorqual bleu', latin: 'Balaenoptera musculus', enabled: true, groups: 30, band: 'low', sl: 189, dt: 6, callBandwidthHz: 5, callIntervalSec: 14, minDepthM: 200, speedKmh: 5, visualScale: 1 },
-      { id: 'fin', name: 'Rorqual commun', latin: 'Balaenoptera physalus', enabled: true, groups: 40, band: 'low', sl: 189, dt: 6, callBandwidthHz: 10, callIntervalSec: 10, minDepthM: 100, speedKmh: 6, visualScale: 1 },
-      { id: 'humpback', name: 'Baleine à bosse', latin: 'Megaptera novaeangliae', enabled: true, groups: 40, band: 'mid', sl: 172, dt: 6, callBandwidthHz: 100, callIntervalSec: 6, minDepthM: 20, speedKmh: 5, visualScale: 4 },
-      { id: 'sperm', name: 'Cachalot', latin: 'Physeter macrocephalus', enabled: true, groups: 30, band: 'high', sl: 161, dt: 8, callBandwidthHz: 5000, callIntervalSec: 4, minDepthM: 1000, speedKmh: 4, visualScale: 40 },
-      { id: 'orca', name: 'Orque', latin: 'Orcinus orca', enabled: true, groups: 30, band: 'high', sl: 153, dt: 4, callBandwidthHz: 2000, callIntervalSec: 5, minDepthM: 10, speedKmh: 8, visualScale: 60 },
+      { id: 'blue', name: 'Rorqual bleu', latin: 'Balaenoptera musculus', enabled: true, groups: 30, band: 'low', sl: 189, dt: 6, callBandwidthHz: 5, callIntervalSec: 14, minDepthM: 200, speedKmh: 5, visualScale: 1, color: '#5cb8ff' },
+      { id: 'fin', name: 'Rorqual commun', latin: 'Balaenoptera physalus', enabled: true, groups: 40, band: 'low', sl: 189, dt: 6, callBandwidthHz: 10, callIntervalSec: 10, minDepthM: 100, speedKmh: 6, visualScale: 1, color: '#3fe0c2' },
+      { id: 'humpback', name: 'Baleine à bosse', latin: 'Megaptera novaeangliae', enabled: true, groups: 40, band: 'mid', sl: 172, dt: 6, callBandwidthHz: 100, callIntervalSec: 6, minDepthM: 20, speedKmh: 5, visualScale: 4, color: '#a8ec7a' },
+      { id: 'sperm', name: 'Cachalot', latin: 'Physeter macrocephalus', enabled: true, groups: 30, band: 'high', sl: 161, dt: 8, callBandwidthHz: 5000, callIntervalSec: 4, minDepthM: 1000, speedKmh: 4, visualScale: 40, color: '#b892ff' },
+      { id: 'orca', name: 'Orque', latin: 'Orcinus orca', enabled: true, groups: 30, band: 'high', sl: 153, dt: 4, callBandwidthHz: 2000, callIntervalSec: 5, minDepthM: 10, speedKmh: 8, visualScale: 60, color: '#eef4ff' },
     ],
   },
 
@@ -339,8 +452,17 @@
       voices: 4, // appels simultanés au plus
       answerDelaySec: 0.6, // pause avant de répondre, une fois l'appel arrivé le long du fil (lien rompu : pas de réponse)
       // Facteur de fréquence : rorquals ×5 (leurs 15–25 Hz deviennent 75–125 Hz), les autres tels quels.
+      // Pour les enregistrements, c'est la vitesse de lecture : hauteur et durée changent ensemble [A].
       transpose: { blue: 5, fin: 5, humpback: 1, sperm: 1, orca: 1 },
+      // 'recorded' : vrais enregistrements (data/media, provenance dans docs/MEDIAS.md), synthèse en repli
+      // si un fichier manque ; 'synth' : appels synthétisés seulement.
+      source: 'recorded',
+      // Durée jouée par appel (s réelles) : une fenêtre tirée au hasard dans l'extrait [A]. Proche des appels
+      // synthétisés ; bleu : une phrase A + B entière une fois transposée (84 s / 5).
+      maxCallSec: { blue: 17, fin: 7, humpback: 8, sperm: 4, orca: 2 },
     },
+    // Paysage sonore d'un lieu : masqué par le bruit des navires au même endroit (même chaîne que les appels) [A].
+    lieux: { volume: 0.7 },
   },
 
   server: {

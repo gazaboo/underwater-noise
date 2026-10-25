@@ -5,13 +5,14 @@
  * leur distance au centre (−`edgeAttenuationDb` au bord) ; zoomer revient à tendre l'oreille.
  *  - navires : `ships.voices` voix au plus, attribuées aux plus forts avec hystérésis ;
  *  - nappe : suit le niveau moyen de la bande basse dans la zone affichée ;
- *  - cétacés : chaque appel naturel ou réponse d'un groupe visible est joué ; le masquage
- *    (portée actuelle / portée en océan calme) ferme le filtre, baisse le niveau, hache l'appel.
+ *  - cétacés : chaque appel naturel ou réponse d'un groupe visible est joué, depuis un vrai enregistrement
+ *    (repli : synthèse) ; le masquage (portée actuelle / portée en océan calme) ferme le filtre, baisse le
+ *    niveau, hache l'appel.
  *
  * Le navigateur n'autorise le son qu'après un geste de l'utilisateur : le contexte audio démarre
  * au premier clic ou à la première touche (en kiosque : --autoplay-policy=no-user-gesture-required).
  */
-import type { Config } from '@vacarme/shared';
+import type { Config, Lieu } from '@vacarme/shared';
 import type { FlatTransform } from '../render/flat-view.ts';
 import { DEG, naturalLevel } from '@vacarme/shared';
 import type { ShipLayer, ShipSample } from '../render/ships.ts';
@@ -20,6 +21,9 @@ import type { CallEvent } from '../whales/whales.ts';
 import { allocate } from './allocator.ts';
 import { AudioOutput, noiseBuffer } from './output.ts';
 import { Bed, ShipVoice } from './ship-voice.ts';
+import { playRecording } from './recorded-voice.ts';
+import { SampleBank } from './sample-bank.ts';
+import { ZoneVoice, zoneClarity } from './zone-voice.ts';
 import { playCall } from './whale-voice.ts';
 
 /**
@@ -75,9 +79,6 @@ export function globeListener(facingLat: number, facingLon: number): Listener {
   };
 }
 
-/** Durée approximative d'un appel (s), pour limiter la polyphonie des cétacés. */
-const CALL_DURATION: Record<string, number> = { blue: 20, fin: 3, humpback: 8, sperm: 2, orca: 2 };
-
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private output: AudioOutput | null = null;
@@ -85,7 +86,13 @@ export class AudioEngine {
   private pink: AudioBuffer | null = null;
   private readonly voices = new Map<number, ShipVoice>();
   private active = new Set<number>();
-  private callsUntil: number[] = [];
+  private playingCalls: ReturnType<typeof playCall>[] = [];
+  /** Vrais enregistrements de cétacés et des lieux, décodés au démarrage du son. */
+  private readonly bank = new SampleBank();
+  /** Lieux à écouter (fournis par la couche des lieux) et niveau d'écoute de chacun, renvoyé pour l'affichage. */
+  places: { lieux: Lieu[]; listening: Map<string, number> } | null = null;
+  private zone: { id: string; voice: ZoneVoice; clarity: number } | null = null;
+  private timeScale = 1;
   private lastUpdate = 0;
   private readonly sample: ShipSample = { id: 0, lat: 0, lon: 0, sog: 0, classIndex: 0, lengthM: 0, slBroad: 0 };
   muted = false;
@@ -107,6 +114,7 @@ export class AudioEngine {
       this.output = new AudioOutput(this.ctx);
       this.pink = noiseBuffer(this.ctx, 'pink');
       this.bed = new Bed(this.ctx, this.output.input, noiseBuffer(this.ctx, 'brown', 6));
+      void this.bank.load(this.ctx);
     }
     if (this.ctx.state === 'suspended' && !probe) await this.ctx.resume();
   }
@@ -124,7 +132,24 @@ export class AudioEngine {
     this.muted = !this.muted;
   }
 
-  update(now: number, cfg: Config, listener: Listener, ships: ShipLayer, field: FieldReader, calls: CallEvent[]): void {
+  reset(): void {
+    for (const call of this.playingCalls) call.stop();
+    this.playingCalls = [];
+    for (const voice of this.voices.values()) voice.release();
+    this.voices.clear();
+    this.active.clear();
+    this.bedIntensity = 0;
+    this.zone?.voice.stop();
+    this.zone = null;
+  }
+
+  update(now: number, cfg: Config, listener: Listener, ships: ShipLayer, field: FieldReader, calls: CallEvent[], timeScale = 1): void {
+    if (timeScale !== this.timeScale) {
+      // Cancel calls scheduled at the old rate rather than leaving a second biological clock running.
+      for (const call of this.playingCalls) call.stop();
+      this.playingCalls = [];
+      this.timeScale = timeScale;
+    }
     const ctx = this.ctx;
     if (!ctx || !this.output || ctx.state !== 'running') {
       if (ctx?.state === 'suspended') this.status = 'son : en attente d\'un clic ou d\'une touche';
@@ -135,21 +160,22 @@ export class AudioEngine {
 
     // Cétacés : à chaque image, pour ne pas décaler les appels.
     const t = ctx.currentTime;
-    this.callsUntil = this.callsUntil.filter((e) => e > t);
+    this.playingCalls = this.playingCalls.filter(call => call.endTime > t);
     for (const ev of calls) {
-      if (!a.enabled || this.callsUntil.length >= a.whales.voices) continue;
+      if (!a.enabled || this.playingCalls.length >= a.whales.voices) continue;
       const g = ev.group;
       const d = listener.distance(g.lat, g.lon);
       if (!Number.isFinite(d)) continue;
       const clarity = g.rangeM / Math.max(1, g.quietRangeM);
-      playCall(ctx, this.output.input, {
-        species: g.species.id,
-        // Même atténuation centre → bord que les navires ; niveau de base modéré (les appels se superposent).
-        gain: a.whales.volume * Math.pow(10, (-a.ships.edgeAttenuationDb * d) / 20) * 0.2,
-        clarity,
-        transpose: a.whales.transpose[g.species.id] ?? 1,
-      });
-      this.callsUntil.push(t + (CALL_DURATION[g.species.id] ?? 3));
+      const id = g.species.id;
+      // Même atténuation centre → bord que les navires ; niveau de base modéré (les appels se superposent).
+      const gain = a.whales.volume * Math.pow(10, (-a.ships.edgeAttenuationDb * d) / 20) * 0.2;
+      const transpose = a.whales.transpose[id] ?? 1;
+      const rec = a.whales.source === 'recorded' ? this.bank.pick(id) : null;
+      const call = rec
+        ? playRecording(ctx, this.output.input, rec.buffer, { gain, clarity, playbackRate: transpose, maxSec: a.whales.maxCallSec[id] ?? 6, levelDbfs: rec.levelDbfs })
+        : playCall(ctx, this.output.input, { timeScale, species: id, gain, clarity, transpose });
+      this.playingCalls.push(call);
     }
 
     // Navires et nappe : dix fois par seconde suffit.
@@ -160,7 +186,9 @@ export class AudioEngine {
     // venu au-delà des (voix + actives) premiers : c'est équivalent à tout lui passer, sans allouer un objet
     // par navire (des dizaines de milliers avec les navires estimés).
     type Cand = { id: number; score: number; i: number; sog: number; classIndex: number; lengthM: number };
-    const n = a.enabled ? a.ships.voices : 0;
+    // Océan sans navires : ni voix de navires ni nappe.
+    const quietOcean = cfg.scenario === 'sans-navires';
+    const n = a.enabled && !quietOcean ? a.ships.voices : 0;
     const k = 2 * Math.max(1, n);
     const top: Cand[] = []; // décroissant, au plus k
     const kept: Cand[] = [];
@@ -224,11 +252,59 @@ export class AudioEngine {
       const acc = cfg.accumulation;
       this.bedIntensity = Math.max(0, Math.min(1, (mean - acc.quietDb) / (acc.saturationDb - acc.quietDb)));
     }
-    this.bed?.set(this.bedIntensity, a.enabled ? a.bed.volume : 0);
+    this.bed?.set(this.bedIntensity, a.enabled && !quietOcean ? a.bed.volume : 0);
+    this.updateZone(ctx, cfg, listener, field, quietOcean);
 
     const peak = this.output.peakDb();
     this.status = this.muted
       ? 'son : coupé (M)'
-      : `son : ${this.active.size} navires · ${this.callsUntil.length} appels en cours · nappe ${(100 * this.bedIntensity).toFixed(0)} % · crête ${Number.isFinite(peak) ? peak.toFixed(1) : '−∞'} dBFS · limiteur ${this.output.reductionDb.toFixed(1)} dB`;
+      : `son : ${this.active.size} navires · ${this.playingCalls.length} appels en cours (${a.whales.source === 'recorded' ? this.bank.status : 'synthèse'}) · lieu ${this.zone ? `${this.zone.id} (clarté ${this.zone.clarity.toFixed(2)})` : 'aucun'} · nappe ${quietOcean ? 'coupée (sans navires)' : `${(100 * this.bedIntensity).toFixed(0)} %`} · crête ${Number.isFinite(peak) ? peak.toFixed(1) : '−∞'} dBFS · limiteur ${this.output.reductionDb.toFixed(1)} dB`;
+  }
+
+  /**
+   * Paysage sonore : le lieu le plus proche du centre de l'écoute, un seul à la fois. Poids 1 au centre de la vue,
+   * nul au-delà de 55 % de son rayon [A]. Masqué par le bruit ajouté au lieu, dans la bande de ses sons.
+   */
+  private updateZone(ctx: AudioContext, cfg: Config, listener: Listener, field: FieldReader, quietOcean: boolean): void {
+    const p = this.places;
+    if (!p || !this.output) return;
+    let best: Lieu | null = null;
+    let weight = 0;
+    for (const l of p.lieux) {
+      p.listening.set(l.id, 0);
+      const d = listener.distance(l.center.lat, l.center.lon);
+      const x = Number.isFinite(d) ? Math.max(0, Math.min(1, (0.55 - d) / 0.4)) : 0;
+      const w = x * x * (3 - 2 * x);
+      if (w > weight) {
+        weight = w;
+        best = l;
+      }
+    }
+    const sounds = best ? this.bank.lieu(best.id) : [];
+    if (!best || weight < 0.02 || !sounds.length || !cfg.audio.enabled || !cfg.lieux.enabled) {
+      this.zone?.voice.stop();
+      this.zone = null;
+      return;
+    }
+    if (this.zone?.id !== best.id) {
+      this.zone?.voice.stop();
+      this.zone = { id: best.id, voice: new ZoneVoice(ctx, this.output.input, sounds, best.playbackRate ?? 1), clarity: 1 };
+    }
+    // Bande des sons du lieu : la plus proche (en octaves) du centre géométrique de leur spectrogramme, celui du
+    // fichier tel que la source le diffuse (sa transposition à la lecture n'est pas comptée).
+    const s = sounds[0].item.spectrogram;
+    const fc = Math.sqrt(Math.max(10, s.fMinHz) * s.fMaxHz);
+    const gap = (b: { fMin: number; fMax: number }) => Math.abs(Math.log(fc) - 0.5 * Math.log(b.fMin * b.fMax));
+    const band = cfg.bands.reduce((best, b, i) => (gap(b) < gap(cfg.bands[best]) ? i : best), 0);
+    let clarity = 1;
+    if (!quietOcean && field.ready) {
+      const level = field.sample(best.center.lat, best.center.lon, band + 1);
+      const excess = level - naturalLevel(cfg.bands[band], cfg.ambient.windSpeedMs);
+      if (Number.isFinite(excess)) clarity = zoneClarity(excess);
+    }
+    // Niveau de base modéré [E] : le lieu s'ajoute aux navires et aux appels.
+    this.zone.voice.set(cfg.audio.lieux.volume * weight * 0.35, clarity);
+    this.zone.clarity = clarity;
+    p.listening.set(best.id, weight);
   }
 }

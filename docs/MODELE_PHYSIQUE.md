@@ -1,18 +1,21 @@
 # Modèle physique
 
+> Le profil physique fixe et la confrontation aux mesures d’hydrophones sont décrits dans
+> [ACOUSTIQUE_SCIENTIFIQUE.md](ACOUSTIQUE_SCIENTIFIQUE.md) et [VALIDATION_PROTOCOLE.md](VALIDATION_PROTOCOLE.md).
+
 > Le statut de chaque hypothèse (sourcée, empirique, artistique, non vérifiée) est tenu à jour dans
 > [`REVUE_SCIENTIFIQUE.md`](REVUE_SCIENTIFIQUE.md). En cas de divergence, c'est ce dossier qui fait foi.
 
-L'œuvre vise des **ordres de grandeur justes**, pas une prédiction de gestion : chaque
-simplification ci-dessous est assumée et documentée. Deux grilles coexistent :
+Depuis la correction du 16 octobre 2026, **une grille physique commune** produit les fronts,
+les niveaux, la lueur et le bruit utilisé par les cétacés. Dans le profil de référence, elle fait
+1024×512 cellules (≈ 39 km en latitude), dans un domaine numérique limité à ±79°.
+La calibration est **numérique**, elle ne vaut pas validation en mer : le profil v1 a échoué aux
+critères publiés dans [VALIDATION.md](VALIDATION.md).
 
-| Grille | Rôle | Résolution (profil `expo`) | Calibrée ? |
-|---|---|---|---|
-| **visuelle** | fronts d'onde visibles, interférences | 2048×1024 (≈ 20 km), + grille de détail au zoom (≈ 6 km au zoom ×7) | non : paramètres artistiques |
-| **physique** | niveau de bruit en dB re 1 µPa, trois bandes | 1024×512 (≈ 39 km) | oui |
-
-Le niveau de la grille physique pilote la lueur d'accumulation (J3), le rayon d'écoute et les
-liens entre cétacés (J4), le mixage sonore (J5).
+La vitesse de référence est 1 500 m/s ; le pas physique vaut `0,14 × cellule_m / 1500`, soit environ
+3,65 s pour cette grille. Le facteur `playback.timeScale` est commun à toute la scène, avec direct
+limité à ×1. Le zoom interpole ce même champ. La méthode, les contrôles et les limites de la correction
+sont détaillés dans [PROPAGATION.md](PROPAGATION.md).
 
 ## 1. Niveau source des navires : JOMOPANS-ECHO
 
@@ -56,7 +59,7 @@ Perte de transmission visée : **TL(r) = 20·log10(r_t) + 10·log10(r / r_t) + �
 r_t ≈ profondeur d'eau, puis cylindrique.
 
 Elle est obtenue par une **simulation de l'équation des ondes 2D amortie sur la sphère** (grille
-équirectangulaire, laplacien sphérique, schéma saute-mouton) — `client/src/sim/physics-sim.ts` :
+équirectangulaire, laplacien sphérique, schéma saute-mouton, différences spatiales d’ordre 4 en mer et d’ordre 2 près des côtes) — `client/src/sim/physics-sim.ts` :
 
 - **Étalement cylindrique** : en 2D, l'intensité d'une source continue décroît en 1/r (au-delà
   d'une à deux longueurs d'onde de la grille) : c'est exactement 10·log10(r).
@@ -73,19 +76,22 @@ Elle est obtenue par une **simulation de l'équation des ondes 2D amortie sur la
 - **Aucune perte arbitraire** : `physics.extraLossDbPerKm` vaut 0 (l'ancienne valeur de 0,004 dB/km,
   non sourcée, a été retirée le 15/10).
 - **Un seul modèle de pertes** (`lossRateDbPerKm`) pour le champ de bruit et pour les appels des cétacés.
-- **Sources incohérentes** : chaque navire injecte une porteuse à phase aléatoire lentement
-  variable ; les interférences entre navires s'annulent dans la moyenne d'énergie (constante de temps
-  `physics.energyTauSec`, 6 s). Fluctuation résiduelle ≈ ±1 dB.
+- **Phases des sources** : chaque navire injecte une porteuse à phase aléatoire lentement variable
+  (cohérence numérique 86 pas). L’objectif est une somme énergétique incohérente, mais la moyenne
+  `physics.energyTauSec` de 6 s de scène est courte face à ces porteuses lentes. La fluctuation
+  résiduelle dans ces conditions nouvelles n’est pas quantifiée ; voir PROPAGATION.md.
 
 ### Calibration
 
-Au démarrage du client : une source unique d'amplitude 1 au centre d'une grille d'eau profonde
-uniforme, sans absorption ; après stabilisation (2 400 pas), on mesure l'énergie E(r) dans les quatre
+Au démarrage du client : une source unique d’amplitude 1 au centre d’une grille d’eau profonde
+uniforme, sans absorption ; après 8 572 pas numériques, on mesure l’énergie E(r) dans les quatre
 directions et on ajuste E(r) = K / r. Niveau reçu : **L = 10·log10(E) + L_ref − 10·log10(K · Δx)**.
 
-Résultat mesuré (Radeon 780M, Chromium) : **K = 1,41 ; écart maximal à la loi en 1/r : 0,88 dB**
-entre 18 et 96 cellules (critère du plan : < 2 dB). Durée : ≈ 0,9 s. Le résultat est affiché dans
-le diagnostic (touche `D`).
+Contrôle Chromium du 16 octobre 2026, avec SwiftShader : **K = 307,84 ; écart maximal à la loi en
+1/r de 0,38 dB** entre 18 et 96 cellules. K dépend du schéma et de l’injection numériques : il ne
+se compare pas directement à l’ancienne valeur du solveur. Le résultat est affiché dans le diagnostic
+(touche `D`) et conservé dans [le rapport de contrôle](propagation/verification.json).
+Cette calibration ne valide ni les niveaux reçus ni les portées en mer.
 
 ## 4. Bruit ambiant naturel
 
@@ -175,7 +181,7 @@ existeraient avec le seul bruit naturel.
 
 Placement : observations OBIS récentes (70 % des groupes) ou tirage pondéré par la probabilité
 d'habitat AquaMaps ; profondeur minimale par espèce (cachalot > 1 000 m). Déplacement : marche aléatoire
-corrélée dans l'habitat, vitesse réelle × `whales.timeScale` (30 par défaut : artistique).
+corrélée dans l'habitat, vitesse réelle dans le temps commun de la scène (`playback.timeScale`).
 Les groupes ne sont pas des animaux réels suivis : ce sont des présences plausibles.
 
 ## 9. Son (J5) : une traduction, pas une mesure

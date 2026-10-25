@@ -1,0 +1,18 @@
+{
+ "id": "tour-des-lieux",
+ "title": "Le tour du monde des sons",
+ "piste": 6,
+ "loop": true,
+ "steps": [
+  { "duration": 16, "mode": "globe", "camera": { "lieu": "palaoa", "zoom": 6, "flySec": 4 }, "scenario": "actuel", "noise": true, "open": "lieu:palaoa",
+    "caption": "L'océan n'est pas silencieux : sous la glace de l'Antarctique, la banquise craque et les phoques chantent.", "status": "S", "source": "Alfred Wegener Institute, PALAOA (CC-BY 4.0)" },
+  { "duration": 16, "camera": { "lieu": "icebergs-georgie-du-sud", "zoom": 6, "flySec": 4 }, "open": "lieu:icebergs-georgie-du-sud",
+    "caption": "Les icebergs grondent quand ils se brisent ; on les entend à des milliers de kilomètres.", "status": "S", "source": "NOAA PMEL (domaine public)" },
+  { "duration": 16, "camera": { "lieu": "pacifique-est-volcan", "zoom": 6, "flySec": 4 }, "open": "lieu:pacifique-est-volcan",
+    "caption": "Un volcan sous-marin, entendu par un seul hydrophone : personne ne sait où il est.", "status": "S", "source": "NOAA PMEL (domaine public)" },
+  { "duration": 18, "camera": { "lieu": "monterey", "zoom": 6, "flySec": 4 }, "open": "lieu:monterey",
+    "caption": "Au large de la Californie, le grondement des navires s'ajoute à ce monde sonore.", "status": "S", "source": "MBARI (CC-BY 4.0) ; passage de navire identifié par nous [E]" },
+  { "duration": 18, "camera": { "lieu": "glacier-bay", "zoom": 6, "flySec": 4 }, "open": "lieu:glacier-bay",
+    "caption": "En 2020, sans paquebots, Glacier Bay a retrouvé un peu de calme.", "status": "S", "source": "NPS ; Gabriele et al. 2021 (−3,3 à −5,1 dB en médiane)" }
+ ]
+}

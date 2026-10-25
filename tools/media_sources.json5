@@ -1,0 +1,342 @@
+// Sources des sons de la carte : écrites à la main, lues par tools/build_media.py.
+//
+// Une entrée = un extrait d'un vrai enregistrement. Champs :
+//   subject     : { species: 'blue' | 'fin' | 'humpback' | 'sperm' | 'orca' } ou { lieu: '<id>' }
+//   origin      : d'où vient le son (source, URL de la page, auteur, date, lieu, instrument)
+//   license     : licence de la source, ou « accord personnel <date> »
+//   credit      : texte de crédit à afficher
+//   fetch       : 'wav-range' (plage d'octets d'un WAV PCM distant) ou 'file' (fichier court)
+//   prepare     : filtres et normalisation [E] ; la hauteur n'est jamais modifiée ici
+//   spectrogram : bande affichée (Hz)
+//   status      : statut de l'extrait (S = sourcé)
+//
+// Choix des extraits (25 oct. 2026) : spectrogrammes regardés sur des fenêtres plus longues, puis un appel
+// net retenu par espèce. Échantillon frugal : un extrait par espèce, deux pour le lieu PALAOA.
+{
+  sons: [
+    {
+      id: 'blue-ab-mars-20171101',
+      subject: { species: 'blue' },
+      title: 'Rorqual bleu : appels A puis B (chant du Pacifique Nord-Est)',
+      origin: {
+        source: 'MBARI, Pacific Ocean Sound Recordings (hydrophone de l\'observatoire câblé MARS)',
+        url: 'https://registry.opendata.aws/pacific-sound/',
+        author: 'Monterey Bay Aquarium Research Institute (MBARI)',
+        recordedAt: '2017-11-01T05:03:06Z',
+        place: 'Smooth Ridge, au large de la baie de Monterey (Californie), ≈ 900 m de fond',
+        instrument: 'hydrophone MARS, fichier décimé à 2 kHz',
+      },
+      license: 'CC-BY 4.0',
+      credit: 'Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0), consulté le 25 oct. 2026 sur registry.opendata.aws/pacific-sound',
+      fetch: {
+        type: 'wav-range',
+        url: 'https://pacific-sound-2khz.s3.amazonaws.com/2017/11/MARS-20171101T000000Z-2kHz.wav',
+        startSec: 18186, // 05:03:06 ; novembre 2017 = plus forte activité de chant sur 2015–2021 (notebook MBARI Blue A)
+        durationSec: 84,
+      },
+      // Le passe-haut retire les impulsions de rorquals communs (15–25 Hz) présentes dans le même extrait,
+      // et donc aussi la fondamentale du B (≈ 15 Hz) ; restent l'appel A (≈ 80–90 Hz) et la 3e harmonique du B (≈ 43 Hz).
+      prepare: { highpassHz: 28, lowpassHz: 200, fadeMs: 400, peakDb: -3 },
+      spectrogram: { fMinHz: 10, fMaxHz: 120 },
+      notes: 'Infrason : inaudible tel quel. Lu transposé (audio.whales.transpose, ×5 : hauteur et durée), choix artistique [A].',
+    },
+    {
+      id: 'fin-mars-20231201',
+      subject: { species: 'fin' },
+      title: 'Rorqual commun : impulsions à 20 Hz',
+      origin: {
+        source: 'MBARI, Pacific Ocean Sound Recordings (hydrophone de l\'observatoire câblé MARS)',
+        url: 'https://registry.opendata.aws/pacific-sound/',
+        author: 'Monterey Bay Aquarium Research Institute (MBARI)',
+        recordedAt: '2023-12-01T15:00:36Z',
+        place: 'Smooth Ridge, au large de la baie de Monterey (Californie), ≈ 900 m de fond',
+        instrument: 'hydrophone MARS, fichier décimé à 2 kHz',
+      },
+      license: 'CC-BY 4.0',
+      credit: 'Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0), consulté le 25 oct. 2026 sur registry.opendata.aws/pacific-sound',
+      fetch: {
+        type: 'wav-range',
+        url: 'https://pacific-sound-2khz.s3.amazonaws.com/2023/12/MARS-20231201T000000Z-2kHz.wav',
+        startSec: 54036, // 15:00:36 ; journée du notebook MBARI « Fin Call Index »
+        durationSec: 34,
+      },
+      // Passe-bas : retire une raie continue à ≈ 105 Hz (instrument ou navire lointain).
+      prepare: { highpassHz: 10, lowpassHz: 45, fadeMs: 300, peakDb: -3 },
+      spectrogram: { fMinHz: 5, fMaxHz: 60 },
+      notes: 'Infrason : lu transposé ×5 (hauteur et durée), choix artistique [A]. Les impulsions sont espacées d\'environ 23 s.',
+    },
+    {
+      id: 'humpback-mars-20151207',
+      subject: { species: 'humpback' },
+      title: 'Baleine à bosse : unités de chant',
+      origin: {
+        source: 'MBARI, Pacific Ocean Sound Recordings (hydrophone de l\'observatoire câblé MARS)',
+        url: 'https://registry.opendata.aws/pacific-sound/',
+        author: 'Monterey Bay Aquarium Research Institute (MBARI)',
+        recordedAt: '2015-12-07T06:58:23Z',
+        place: 'Smooth Ridge, au large de la baie de Monterey (Californie), ≈ 900 m de fond',
+        instrument: 'hydrophone MARS, fichier décimé à 16 kHz',
+      },
+      license: 'CC-BY 4.0',
+      credit: 'Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0), consulté le 25 oct. 2026 sur registry.opendata.aws/pacific-sound',
+      fetch: {
+        type: 'wav-range',
+        url: 'https://pacific-sound-16khz.s3.amazonaws.com/2015/12/MARS-20151207T000000Z-16kHz.wav',
+        startSec: 25103, // 06:58:23 ; exemple « humpback whale » du notebook MBARI PacificSoundListen
+        durationSec: 20,
+      },
+      prepare: { highpassHz: 80, lowpassHz: 4000, fadeMs: 200, peakDb: -3 },
+      spectrogram: { fMinHz: 50, fMaxHz: 3000 },
+    },
+    {
+      id: 'sperm-palaoa',
+      subject: { species: 'sperm' },
+      title: 'Cachalot : trains de clics réguliers',
+      origin: {
+        source: 'Alfred Wegener Institute, observatoire PALAOA (projet Polar Sounds, avec Cities and Memory et HIFMB)',
+        url: 'https://audioboom.com/posts/8229553',
+        author: 'Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research',
+        recordedAt: '',
+        place: 'PALAOA, sous la plate-forme d\'Ekström, baie d\'Atka (Antarctique)',
+        instrument: 'hydrophone PALAOA (extrait diffusé en mp3)',
+      },
+      license: 'CC-BY 4.0',
+      credit: 'Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research 2022 (CC-BY 4.0), projet Polar Sounds',
+      fetch: { type: 'file', url: 'https://audioboom.com/posts/8229553-the-sperm-whale-physeter-macrocephalus.mp3', startSec: 255, durationSec: 15 },
+      // Passe-haut : atténue le fond basse fréquence et les appels lointains de phoques de Weddell.
+      prepare: { highpassHz: 1500, fadeMs: 100, peakDb: -3 },
+      spectrogram: { fMinHz: 500, fMaxHz: 15000 },
+      notes: 'Plusieurs trains de clics se chevauchent (source AWI). Date d\'enregistrement non précisée par la source.',
+    },
+    {
+      id: 'orca-j-s01',
+      subject: { species: 'orca' },
+      title: 'Orque (résidents du Sud, pod J) : appel S01',
+      origin: {
+        source: 'Orcasound, « Learn the favorite calls of the Southern Resident killer whales »',
+        url: 'https://www.orcasound.net/learn/learn-the-favorite-calls-of-the-southern-resident-killer-whales-j-k-and-l-pods/',
+        author: 'Orcasound',
+        recordedAt: '',
+        place: 'mer des Salish (hydrophones Orcasound)',
+        instrument: 'hydrophone Orcasound (extrait préparé par Orcasound)',
+      },
+      license: 'CC BY-NC-SA 4.0',
+      credit: 'Orcasound (orcasound.net), CC BY-NC-SA 4.0',
+      fetch: { type: 'file', url: 'https://www.orcasound.net/data/product/SRKW/calls-3-favorites/J-pod-S01-stereo.ogg' },
+      prepare: { highpassHz: 300, fadeMs: 30, peakDb: -3 },
+      spectrogram: { fMinHz: 200, fMaxHz: 8000 },
+      notes: 'Écotype « résident » : les autres écotypes d\'orques ont d\'autres répertoires. Clause SA : l\'extrait dérivé est diffusé sous la même licence.',
+    },
+    {
+      id: 'glace-palaoa',
+      subject: { lieu: 'palaoa' },
+      title: 'Banquise qui frotte et craque',
+      origin: {
+        source: 'Alfred Wegener Institute, observatoire PALAOA (projet Polar Sounds)',
+        url: 'https://audioboom.com/posts/8230903',
+        author: 'Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research',
+        recordedAt: '',
+        place: 'PALAOA, sous la plate-forme d\'Ekström, baie d\'Atka (Antarctique)',
+        instrument: 'hydrophone PALAOA (extrait diffusé en mp3)',
+      },
+      license: 'CC-BY 4.0',
+      credit: 'Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research 2022 (CC-BY 4.0), projet Polar Sounds',
+      fetch: { type: 'file', url: 'https://audioboom.com/posts/8230903-rubbing-sea-ice-recording-2.mp3', startSec: 60, durationSec: 30 },
+      prepare: { highpassHz: 100, fadeMs: 1500, peakDb: -3 },
+      spectrogram: { fMinHz: 50, fMaxHz: 6000 },
+    },
+    {
+      id: 'phoque-weddell-palaoa',
+      subject: { lieu: 'palaoa' },
+      title: 'Phoque de Weddell : séquence de « chirps » descendants',
+      origin: {
+        source: 'Alfred Wegener Institute, observatoire PALAOA (projet Polar Sounds)',
+        url: 'https://audioboom.com/posts/8230215',
+        author: 'Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research',
+        recordedAt: '',
+        place: 'PALAOA, sous la plate-forme d\'Ekström, baie d\'Atka (Antarctique)',
+        instrument: 'hydrophone PALAOA (extrait diffusé en mp3)',
+      },
+      license: 'CC-BY 4.0',
+      credit: 'Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research 2022 (CC-BY 4.0), projet Polar Sounds',
+      fetch: { type: 'file', url: 'https://audioboom.com/posts/8230215-weddell-seal-leptonychotes-weddellii-recording-2.mp3', startSec: 26, durationSec: 24 },
+      prepare: { highpassHz: 100, fadeMs: 1000, peakDb: -3 },
+      spectrogram: { fMinHz: 50, fMaxHz: 6000 },
+      notes: 'Contient aussi des appels lointains de phoques léopards (source AWI).',
+    },
+    // --- Glacier Bay (Alaska) : hydrophone du National Park Service à l'embouchure de la baie. Paire de
+    // contraste : rugissement de phoque commun dans le calme de 2020 (aucun paquebot) et avec un navire (2005).
+    {
+      id: 'phoque-calme-glacier-bay-2020',
+      subject: { lieu: 'glacier-bay' },
+      title: 'Phoque commun : rugissement, été 2020, sans paquebots',
+      origin: {
+        source: 'U.S. National Park Service, Glacier Bay National Park, « Sounds Recorded in Glacier Bay »',
+        url: 'https://www.nps.gov/glba/learn/nature/soundclips.htm',
+        author: 'National Park Service (C. Gabriele et al.)',
+        recordedAt: '2020-08-07T16:31',
+        place: 'embouchure de Glacier Bay (Alaska), hydrophone ancré',
+        instrument: 'hydrophone de surveillance du bruit ambiant du NPS',
+      },
+      license: 'domaine public (gouvernement des États-Unis)',
+      credit: 'U.S. National Park Service, Glacier Bay National Park (domaine public)',
+      fetch: { type: 'file', url: 'https://www.nps.gov/glba/learn/nature/upload/HASE_in_quiet_2020Aug07_1631-2.mp3' },
+      prepare: { highpassHz: 40, fadeMs: 400, peakDb: -3 },
+      spectrogram: { fMinHz: 20, fMaxHz: 3000 },
+      notes: 'Été 2020 : pas de paquebots dans la baie (pandémie). Les phoques mâles « rugissent » pour défendre leur territoire.',
+    },
+    {
+      id: 'phoque-navire-glacier-bay-2005',
+      subject: { lieu: 'glacier-bay' },
+      title: 'Phoque commun : rugissement avec bruit de navire, 2005',
+      origin: {
+        source: 'U.S. National Park Service, Glacier Bay National Park, « Sounds Recorded in Glacier Bay »',
+        url: 'https://www.nps.gov/glba/learn/nature/soundclips.htm',
+        author: 'National Park Service (C. Gabriele et al.)',
+        recordedAt: '2005-07-21T13:23:46',
+        place: 'embouchure de Glacier Bay (Alaska), hydrophone ancré',
+        instrument: 'hydrophone de surveillance du bruit ambiant du NPS',
+      },
+      license: 'domaine public (gouvernement des États-Unis)',
+      credit: 'U.S. National Park Service, Glacier Bay National Park (domaine public)',
+      fetch: { type: 'file', url: 'https://www.nps.gov/glba/learn/nature/upload/HASE_w_vessel_7_21_2005_13_23_46.mp3' },
+      prepare: { highpassHz: 40, fadeMs: 400, peakDb: -3 },
+      spectrogram: { fMinHz: 20, fMaxHz: 3000 },
+      notes: 'Raies continues vers 1 kHz : moteur du navire. Autre jour et autre animal que l\'extrait de 2020 : contraste d\'ambiance, pas mesure.',
+    },
+    {
+      id: 'bosses-phoques-calme-glacier-bay-2020',
+      subject: { lieu: 'glacier-bay' },
+      title: 'Baleines à bosse et phoques communs dans le calme, juin 2020',
+      origin: {
+        source: 'U.S. National Park Service, Glacier Bay National Park, « Sounds Recorded in Glacier Bay »',
+        url: 'https://www.nps.gov/glba/learn/nature/soundclips.htm',
+        author: 'National Park Service (C. Gabriele et al.)',
+        recordedAt: '2020-06-22T17:00',
+        place: 'embouchure de Glacier Bay (Alaska), hydrophone ancré',
+        instrument: 'hydrophone de surveillance du bruit ambiant du NPS',
+      },
+      license: 'domaine public (gouvernement des États-Unis)',
+      credit: 'U.S. National Park Service, Glacier Bay National Park (domaine public)',
+      fetch: { type: 'file', url: 'https://www.nps.gov/glba/learn/nature/upload/06_22_2020_1700-1725a_vocals_snip1-AMPLIFIED.mp3', startSec: 0, durationSec: 32 },
+      sourceTransforms: ['amplifié par la source (« AMPLIFIED »)'],
+      prepare: { highpassHz: 40, fadeMs: 1500, peakDb: -3 },
+      spectrogram: { fMinHz: 20, fMaxHz: 3000 },
+    },
+    // --- Icebergs près de la Géorgie du Sud : hydrophones NOAA de la mer de Scotia, dislocation de A53a (2008).
+    {
+      id: 'iceberg-tremor-georgie-du-sud',
+      subject: { lieu: 'icebergs-georgie-du-sud' },
+      title: 'Iceberg : trémor harmonique',
+      origin: {
+        source: 'NOAA PMEL, Acoustics Program, « Icequakes (Bloop) »',
+        url: 'https://pmel.noaa.gov/acoustics/sounds/bloop.html',
+        author: 'NOAA Pacific Marine Environmental Laboratory',
+        recordedAt: '',
+        place: 'mer de Scotia (hydrophones NOAA), près de la Géorgie du Sud',
+        instrument: 'hydrophone autonome NOAA',
+      },
+      license: 'domaine public (gouvernement des États-Unis)',
+      credit: 'NOAA PMEL Acoustics Program (domaine public)',
+      fetch: { type: 'file', url: 'https://pmel.noaa.gov/acoustics/sounds/HarmonicTremor2006_215_09_20UsedOnBloopWebsite.wav', startSec: 60, durationSec: 60 },
+      sourceTransforms: ['accéléré ×3 par la source'],
+      prepare: { highpassHz: 3, fadeMs: 1500, peakDb: -3 },
+      spectrogram: { fMinHz: 1, fMaxHz: 450 },
+      notes: 'Iceberg en contact avec le fond ou avec un autre iceberg : fondamentale de 40 Hz et ses harmoniques (source PMEL), entendue ×3.',
+    },
+    {
+      id: 'iceberg-velage-georgie-du-sud',
+      subject: { lieu: 'icebergs-georgie-du-sud' },
+      title: 'Iceberg A53a : vêlage (un pan qui se détache)',
+      origin: {
+        source: 'NOAA PMEL, Acoustics Program, « Icequakes (Bloop) »',
+        url: 'https://pmel.noaa.gov/acoustics/sounds/bloop.html',
+        author: 'NOAA Pacific Marine Environmental Laboratory',
+        recordedAt: '2008',
+        place: 'mer de Scotia (hydrophones NOAA), près de la Géorgie du Sud',
+        instrument: 'hydrophone autonome NOAA',
+      },
+      license: 'domaine public (gouvernement des États-Unis)',
+      credit: 'NOAA PMEL Acoustics Program (domaine public)',
+      fetch: { type: 'file', url: 'https://pmel.noaa.gov/acoustics/sounds/A53JD33Calving_3x.wav', startSec: 240, durationSec: 42 },
+      sourceTransforms: ['accéléré ×3 par la source'],
+      prepare: { highpassHz: 3, lowpassHz: 450, fadeMs: 1500, peakDb: -3 },
+      spectrogram: { fMinHz: 1, fMaxHz: 450 },
+      notes: 'Signal bref et large bande (1–440 Hz selon la source), entendu ×3.',
+    },
+    // --- Pacifique Est : un volcan sous-marin entendu, sans savoir où il est.
+    {
+      id: 'volcan-sifflement-pacifique-est-1997',
+      subject: { lieu: 'pacifique-est-volcan' },
+      title: 'Éruption sous-marine : « Whistle »',
+      origin: {
+        source: 'NOAA PMEL, Acoustics Program, « Submarine Volcanic Eruption (Whistle) »',
+        url: 'https://pmel.noaa.gov/acoustics/sounds/whistle.html',
+        author: 'NOAA Pacific Marine Environmental Laboratory',
+        recordedAt: '1997-07-07T07:30Z',
+        place: 'hydrophone autonome du Pacifique Est, 8° N 110° O',
+        instrument: 'hydrophone autonome NOAA',
+      },
+      license: 'domaine public (gouvernement des États-Unis)',
+      credit: 'NOAA PMEL Acoustics Program (domaine public)',
+      fetch: { type: 'file', url: 'https://pmel.noaa.gov/acoustics/sounds/whistle16x.wav' },
+      sourceTransforms: ['accéléré ×16 par la source', 'filtre passe-bande 8–20 Hz (avant accélération) par la source'],
+      // Passe-bas : la source est filtrée à 8–20 Hz, soit 128–320 Hz une fois accélérée ×16.
+      prepare: { highpassHz: 20, lowpassHz: 450, fadeMs: 1500, peakDb: -3 },
+      spectrogram: { fMinHz: 1, fMaxHz: 400 },
+      notes: 'Un seul hydrophone l\'a enregistré : la position du volcan est inconnue, peut-être à des milliers de kilomètres.',
+    },
+    // --- Baie de Monterey : la même journée au même hydrophone, dans le calme de la nuit et pendant un passage de
+    // navire. Repérage : 24 fenêtres de 30 s (une par heure), puis une fenêtre de 10 s toutes les 2 min le soir,
+    // niveau dans la bande de 63 Hz (scratch, 25 oct. 2026). Montée de ≈ 10 dB entre 22:04 et 22:30, retour vers 22:52.
+    {
+      id: 'calme-mars-20210521',
+      subject: { lieu: 'monterey' },
+      title: 'Nuit calme : impulsions brèves, pas de grondement continu',
+      origin: {
+        source: 'MBARI, Pacific Ocean Sound Recordings (hydrophone de l\'observatoire câblé MARS)',
+        url: 'https://registry.opendata.aws/pacific-sound/',
+        author: 'Monterey Bay Aquarium Research Institute (MBARI)',
+        recordedAt: '2021-05-21T01:30:00Z',
+        place: 'Smooth Ridge, au large de la baie de Monterey (Californie), ≈ 900 m de fond',
+        instrument: 'hydrophone MARS, fichier décimé à 2 kHz',
+      },
+      license: 'CC-BY 4.0',
+      credit: 'Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0), consulté le 25 oct. 2026 sur registry.opendata.aws/pacific-sound',
+      fetch: { type: 'wav-range', url: 'https://pacific-sound-2khz.s3.amazonaws.com/2021/05/MARS-20210521T000000Z-2kHz.wav', startSec: 5400, durationSec: 30 },
+      prepare: { highpassHz: 8, lowpassHz: 400, fadeMs: 1500, peakDb: -3 },
+      spectrogram: { fMinHz: 5, fMaxHz: 300 },
+      notes: 'Niveau le plus bas de la journée dans la bande de 63 Hz (−96 dBFS, non calibré).',
+    },
+    {
+      id: 'navire-mars-20210521',
+      subject: { lieu: 'monterey' },
+      title: 'Passage d\'un navire : grondement continu sous 100 Hz',
+      origin: {
+        source: 'MBARI, Pacific Ocean Sound Recordings (hydrophone de l\'observatoire câblé MARS)',
+        url: 'https://registry.opendata.aws/pacific-sound/',
+        author: 'Monterey Bay Aquarium Research Institute (MBARI)',
+        recordedAt: '2021-05-21T22:27:00Z',
+        place: 'Smooth Ridge, au large de la baie de Monterey (Californie), ≈ 900 m de fond',
+        instrument: 'hydrophone MARS, fichier décimé à 2 kHz',
+      },
+      license: 'CC-BY 4.0',
+      credit: 'Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0), consulté le 25 oct. 2026 sur registry.opendata.aws/pacific-sound',
+      fetch: { type: 'wav-range', url: 'https://pacific-sound-2khz.s3.amazonaws.com/2021/05/MARS-20210521T000000Z-2kHz.wav', startSec: 80820, durationSec: 30 },
+      prepare: { highpassHz: 8, lowpassHz: 400, fadeMs: 1500, peakDb: -3 },
+      spectrogram: { fMinHz: 5, fMaxHz: 300 },
+      status: 'E',
+      notes: 'Identification [E] : la nôtre, pas celle de la source. Montée lente de ≈ 10 dB dans la bande de 63 Hz sur une demi-heure, énergie continue sous 100 Hz : signature typique d\'un passage de navire. Non confirmée par l\'AIS. Les niveaux des deux extraits sont normalisés : l\'écart réel (≈ 4 dB en médiane sous 100 Hz sur 60 s) ne s\'entend pas tel quel.',
+    },
+  ],
+
+  // Photos (fiches espèces) : un fichier de Wikimedia Commons par espèce. Auteur, licence et date sont lus
+  // sur Commons par build_media.py. Choix du 25 oct. 2026 : domaine public (NOAA) d'abord, sinon CC.
+  photos: [
+    { id: 'photo-blue', subject: { species: 'blue' }, title: 'Rorqual bleu en surface', commons: 'Anim1755 - Flickr - NOAA Photo Library.jpg' },
+    { id: 'photo-fin', subject: { species: 'fin' }, title: 'Rorqual commun qui souffle', commons: 'Finhval.jpg', place: 'au large du Groenland' },
+    { id: 'photo-humpback', subject: { species: 'humpback' }, title: 'Baleines à bosse en position de chant', commons: 'Humpback whales in singing position.jpg', place: 'sanctuaire marin national des baleines à bosse (Hawaï)' },
+    { id: 'photo-sperm', subject: { species: 'sperm' }, title: 'Cachalot et son petit', commons: 'Mother and baby sperm whale.jpg', place: 'au large de Maurice' },
+    { id: 'photo-orca', subject: { species: 'orca' }, title: 'Orques en saut', commons: 'Killerwhales jumping.jpg', place: 'île d\'Unimak, Aléoutiennes orientales (Alaska)' },
+  ],
+}

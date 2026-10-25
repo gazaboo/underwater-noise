@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "document": "docs/VALIDATION_PROTOCOLE.md",
+  "seed": 20261015,
+  "radiusKm": 300,
+  "windowStartUtc": "00:15",
+  "dma": { "bounds": [2.7, 51.9, 18.6, 59.6], "days": ["2019-02-20", "2019-04-16", "2019-06-05", "2019-11-12"] },
+  "marinecadastre": { "bounds": [-126.9, 35.2, -120.0, 40.6], "days": ["2019-11-12", "2020-02-20", "2020-04-16", "2020-06-05"] },
+  "stations": [
+    { "id": "hjelm", "ices": "12867", "role": "calibration", "stratum": "kattegat", "days": { "2019-02-20": 174, "2019-04-16": 176, "2019-06-05": 178 } },
+    { "id": "anholt", "ices": "12868", "role": "holdout", "stratum": "kattegat", "days": { "2019-02-20": 212, "2019-04-16": 210, "2019-06-05": 208, "2019-11-12": 205 } },
+    { "id": "lillebaelt", "ices": "12863", "role": "holdout", "stratum": "belts-baltic", "days": { "2019-02-20": 224, "2019-04-16": 223, "2019-06-05": 221, "2019-11-12": 219 } },
+    { "id": "stevns", "ices": "12866", "role": "calibration", "stratum": "belts-baltic", "days": { "2019-02-20": 192, "2019-04-16": 191, "2019-06-05": 189 } },
+    { "id": "fehmarn", "ices": "2174", "role": "holdout", "stratum": "belts-baltic", "days": { "2019-02-20": 1404, "2019-04-16": 1405, "2019-06-05": 1407, "2019-11-12": 1412 } },
+    { "id": "arkona", "ices": "2654", "role": "calibration", "stratum": "belts-baltic", "days": { "2019-02-20": 1355, "2019-04-16": 1357, "2019-11-12": 1363 } },
+    { "id": "hornsrev3", "ices": "12870", "role": "calibration", "stratum": "north-sea", "days": { "2019-04-16": 162, "2019-06-05": 167, "2019-11-12": 168 } },
+    { "id": "nrs11", "nrs": "11", "role": "holdout-deep", "stratum": "deep", "days": { "2019-11-12": null, "2020-02-20": null, "2020-04-16": null, "2020-06-05": null } }
+  ]
+}

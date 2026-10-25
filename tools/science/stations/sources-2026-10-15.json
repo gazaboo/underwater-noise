@@ -1,0 +1,251 @@
+{
+  "retrieved": "2026-10-15",
+  "source": {
+    "dictionary": "https://gis.ices.dk/gis/rest/services/ICES_Datasets/Station_Dictionary/MapServer/0/query",
+    "emodnet": "https://rest.emodnet-bathymetry.eu/depth_sample"
+  },
+  "stations": {
+    "12863": {
+      "Station_Code": "12863",
+      "Station_Country": "Denmark",
+      "Station_Name": "DKMst035",
+      "Station_LongName": "BIAS Lillebaelt",
+      "Station_Latitude": 55.07466367,
+      "Station_Longitude": 9.9218816,
+      "Station_LatitudeRange": 0.003,
+      "Station_LongitudeRange": 0.003,
+      "Station_Notes": "Aarhus University Station 035"
+    },
+    "12866": {
+      "Station_Code": "12866",
+      "Station_Country": "Denmark",
+      "Station_Name": "DKMst038",
+      "Station_LongName": "BIAS Stevns",
+      "Station_Latitude": 55.198875,
+      "Station_Longitude": 12.25897917,
+      "Station_LatitudeRange": 0.003,
+      "Station_LongitudeRange": 0.003,
+      "Station_Notes": "Aarhus University Station 038"
+    },
+    "12867": {
+      "Station_Code": "12867",
+      "Station_Country": "Denmark",
+      "Station_Name": "DKMst103",
+      "Station_LongName": "BIAS Hjelm",
+      "Station_Latitude": 56.11314722,
+      "Station_Longitude": 10.73365,
+      "Station_LatitudeRange": 0.003,
+      "Station_LongitudeRange": 0.003,
+      "Station_Notes": "Aarhus University Station 103"
+    },
+    "12868": {
+      "Station_Code": "12868",
+      "Station_Country": "Denmark",
+      "Station_Name": "DKMst104",
+      "Station_LongName": "BIAS Anholt",
+      "Station_Latitude": 56.9242025,
+      "Station_Longitude": 11.20572083,
+      "Station_LatitudeRange": 0.003,
+      "Station_LongitudeRange": 0.003,
+      "Station_Notes": "Aarhus University Station 104"
+    },
+    "12870": {
+      "Station_Code": "12870",
+      "Station_Country": "Denmark",
+      "Station_Name": "DKMst201",
+      "Station_LongName": "HR3 Horns Rev 3",
+      "Station_Latitude": 55.68941667,
+      "Station_Longitude": 7.58566667,
+      "Station_LatitudeRange": 0.003,
+      "Station_LongitudeRange": 0.003,
+      "Station_Notes": "Aarhus University Station 201"
+    },
+    "13076": {
+      "Station_Code": "13076",
+      "Station_Country": "Sweden",
+      "Station_Name": "Hon1",
+      "Station_LongName": "Hönö primary station",
+      "Station_Latitude": 57.67967,
+      "Station_Longitude": 11.5915,
+      "Station_LatitudeRange": 8e-05,
+      "Station_LongitudeRange": 8e-05,
+      "Station_Notes": null
+    },
+    "13557": {
+      "Station_Code": "13557",
+      "Station_Country": "Germany",
+      "Station_Name": "FINO3",
+      "Station_LongName": "BSH Continuous Noise Monitoring at FINO 3",
+      "Station_Latitude": 55.19365,
+      "Station_Longitude": 7.1585,
+      "Station_LatitudeRange": 0.0001,
+      "Station_LongitudeRange": 0.0001,
+      "Station_Notes": "Research platform in the North sea � used by several institutions ; meteorological, oceanographical, biological and acoustical measurements"
+    },
+    "2174": {
+      "Station_Code": "2174",
+      "Station_Country": "Germany",
+      "Station_Name": "Fehmarn Belt",
+      "Station_LongName": "Fehmarn Belt",
+      "Station_Latitude": 54.6,
+      "Station_Longitude": 11.15,
+      "Station_LatitudeRange": 0.01833,
+      "Station_LongitudeRange": 0.02167,
+      "Station_Notes": "Documentation of the monitoring station Fehmarn Belt operated by Federal Maritime and Hydrographic Agency of Germany (BSH) -  MARNET automatic station  "
+    },
+    "2654": {
+      "Station_Code": "2654",
+      "Station_Country": "Germany",
+      "Station_Name": "Arkona Deep",
+      "Station_LongName": "Arkona Deep",
+      "Station_Latitude": 54.88333,
+      "Station_Longitude": 13.86667,
+      "Station_LatitudeRange": 0.0163,
+      "Station_LongitudeRange": 0.02452,
+      "Station_Notes": "Documentation of the monitoring station Arkona Deep operated by Federal Maritime and Hydrographic Agency of Germany (BSH) -  MARNET automatic station -  I  "
+    }
+  },
+  "emodnetDepth": {
+    "12863": {
+      "min": -27.28475,
+      "max": -27.28475,
+      "avg": -27.28475,
+      "stdev": 0.0,
+      "elementarySurfaces": -1,
+      "interpolationType": false,
+      "smoothed": -27.260525,
+      "smoothedOffset": 0.024225235,
+      "reference": {
+        "organisation_id": 4669,
+        "identifier": "DDM2024_50m",
+        "type": "DTM",
+        "metadata_url": "https://sextant.ifremer.fr/record/SDN_CPRD_4669_DDM2024_50m"
+      }
+    },
+    "12866": {
+      "min": -10.33186,
+      "max": -10.33186,
+      "avg": -10.33186,
+      "stdev": 0.0,
+      "elementarySurfaces": 1,
+      "interpolationType": true,
+      "smoothed": -10.311041,
+      "smoothedOffset": 0.02081871,
+      "reference": {
+        "organisation_id": 4669,
+        "identifier": "DDM2024_50m",
+        "type": "DTM",
+        "metadata_url": "https://sextant.ifremer.fr/record/SDN_CPRD_4669_DDM2024_50m"
+      }
+    },
+    "12867": {
+      "min": -10.397982,
+      "max": -10.397982,
+      "avg": -10.397982,
+      "stdev": 0.0,
+      "elementarySurfaces": -1,
+      "interpolationType": false,
+      "smoothed": -10.683543,
+      "smoothedOffset": 0.28556156,
+      "reference": {
+        "organisation_id": 4669,
+        "identifier": "DDM2024_50m",
+        "type": "DTM",
+        "metadata_url": "https://sextant.ifremer.fr/record/SDN_CPRD_4669_DDM2024_50m"
+      }
+    },
+    "12868": {
+      "min": -11.363015,
+      "max": -11.363015,
+      "avg": -11.363015,
+      "stdev": 0.0,
+      "elementarySurfaces": 1,
+      "interpolationType": true,
+      "smoothed": -11.255054,
+      "smoothedOffset": 0.1079607,
+      "reference": {
+        "organisation_id": 4669,
+        "identifier": "DDM2024_50m",
+        "type": "DTM",
+        "metadata_url": "https://sextant.ifremer.fr/record/SDN_CPRD_4669_DDM2024_50m"
+      }
+    },
+    "12870": {
+      "min": -14.101994,
+      "max": -14.101994,
+      "avg": -14.101994,
+      "stdev": 0.0,
+      "elementarySurfaces": -1,
+      "interpolationType": true,
+      "smoothed": -14.146418,
+      "smoothedOffset": 0.044424057,
+      "reference": {
+        "organisation_id": 4669,
+        "identifier": "DDM2024_50m",
+        "type": "DTM",
+        "metadata_url": "https://sextant.ifremer.fr/record/SDN_CPRD_4669_DDM2024_50m"
+      }
+    },
+    "13076": {
+      "min": -19.99,
+      "max": -19.99,
+      "avg": -19.99,
+      "stdev": 0.0,
+      "elementarySurfaces": 1,
+      "interpolationType": true,
+      "smoothed": -19.911251,
+      "smoothedOffset": 0.0787487,
+      "reference": {
+        "organisation_id": 1215,
+        "identifier": "10843604798",
+        "type": "CDI",
+        "metadata_url": "https://cdi-bathymetry.seadatanet.org/report/edmo/1215/10843604798"
+      }
+    },
+    "13557": {
+      "avg": -21.75,
+      "elementarySurfaces": 1,
+      "interpolationType": true,
+      "smoothed": -21.7575,
+      "smoothedOffset": 0.007499695,
+      "reference": {
+        "organisation_id": 96,
+        "identifier": "db1",
+        "type": "CDI",
+        "metadata_url": "https://cdi-bathymetry.seadatanet.org/report/edmo/96/db1"
+      }
+    },
+    "2174": {
+      "min": -28.26,
+      "max": -28.26,
+      "avg": -28.236406,
+      "stdev": 0.0,
+      "elementarySurfaces": 1,
+      "interpolationType": true,
+      "smoothed": -28.182503,
+      "smoothedOffset": 0.05390358,
+      "reference": {
+        "organisation_id": 1850,
+        "identifier": "GERMANY-BALTIC-SEA-DTM",
+        "type": "DTM",
+        "metadata_url": "https://sextant.ifremer.fr/record/SDN_CPRD_1850_GERMANY-BALTIC-SEA-DTM"
+      }
+    },
+    "2654": {
+      "min": -45.13,
+      "max": -45.13,
+      "avg": -45.137344,
+      "stdev": 0.0,
+      "elementarySurfaces": 1,
+      "interpolationType": true,
+      "smoothed": -45.142853,
+      "smoothedOffset": 0.005508423,
+      "reference": {
+        "organisation_id": 1850,
+        "identifier": "GERMANY-BALTIC-SEA-DTM",
+        "type": "DTM",
+        "metadata_url": "https://sextant.ifremer.fr/record/SDN_CPRD_1850_GERMANY-BALTIC-SEA-DTM"
+      }
+    }
+  }
+}

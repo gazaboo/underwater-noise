@@ -3,6 +3,7 @@
  * profondeur, observations (OBIS). Elles servent à placer et déplacer les groupes de cétacés et à
  * tester qu'aucun lien ne traverse les terres.
  */
+import { dataUrl } from '../data-url.ts';
 
 /** Grille équirectangulaire d'octets (ligne 0 au nord), lue depuis un PNG. */
 export class ByteGrid {
@@ -70,7 +71,7 @@ export interface SpeciesData {
 export async function loadSpeciesData(ids: string[]): Promise<Map<string, SpeciesData>> {
   let sightings: Record<string, Sighting[]> = {};
   try {
-    const res = await fetch('/data/habitats/sightings.json');
+    const res = await fetch(dataUrl('habitats/sightings.json'));
     if (res.ok) sightings = (await res.json()).species ?? {};
   } catch {
     /* pas d'observations : positions tirées des habitats */
@@ -78,7 +79,7 @@ export async function loadSpeciesData(ids: string[]): Promise<Map<string, Specie
   const out = new Map<string, SpeciesData>();
   await Promise.all(
     ids.map(async (id) => {
-      const habitat = await ByteGrid.load(`/data/habitats/${id}.png`);
+      const habitat = await ByteGrid.load(dataUrl(`habitats/${id}.png`));
       if (!habitat) console.warn(`[cétacés] pas de carte d'habitat pour « ${id} » (tools/build_habitats.py) : répartition selon la profondeur seule`);
       out.set(id, { habitat, sightings: sightings[id] ?? [] });
     }),

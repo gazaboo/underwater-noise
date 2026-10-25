@@ -6,6 +6,7 @@
  *   ?scene=duo                  scène de test : deux groupes de rorquals communs en mer Ligure
  *   ?mode=flat|globe|hemisphere|equirect|fisheye   mode de rendu
  *   ?theme=night|day            palette de nuit (installation) ou de jour
+ *   ?parcours=<id>              démarre un parcours (data/parcours) : avant-apres, puissances-de-dix, tour-des-lieux
  */
 import { App, type UrlOverrides } from './app.ts';
 
@@ -17,6 +18,7 @@ const overrides: UrlOverrides = {
   scene: params.get('scene') ?? undefined,
   mode: (['flat', 'globe', 'hemisphere', 'equirect', 'fisheye'] as const).find((m) => m === params.get('mode')),
   theme: (['night', 'day'] as const).find((t) => t === params.get('theme')),
+  parcours: params.get('parcours') ?? undefined,
 };
 
 const status = document.getElementById('status')!;

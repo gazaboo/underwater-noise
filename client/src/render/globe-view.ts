@@ -16,8 +16,10 @@
  * direction « face au public » (0, 0, 1) sur le point (φ₀, λ₀).
  */
 import * as THREE from 'three';
+import { PAPER_GLSL } from './paper.ts';
 import type { Config } from '@vacarme/shared';
 import { FullscreenPass, rawMaterial } from './fullscreen.ts';
+import { Pinch } from '../ui/pinch.ts';
 
 export type GlobeMode = 'globe' | 'hemisphere' | 'equirect' | 'fisheye';
 const MODE_INDEX: Record<GlobeMode, number> = { globe: 1, hemisphere: 2, equirect: 3, fisheye: 4 };
@@ -43,6 +45,7 @@ uniform bool uCalib;
 uniform float uExposure, uGamma, uBlackLift, uVignette;
 uniform bool uDither;
 uniform float uTime;
+uniform float uStars, uStarDensity, uTwinkle, uHalo;
 
 const float PI = 3.141592653589793;
 
@@ -51,6 +54,8 @@ float hash(vec2 p) {
   p += dot(p, p.yx + 19.19);
   return fract((p.x + p.y) * p.x);
 }
+
+${PAPER_GLSL}
 
 // Lecture de la texture monde sans couture à l'antiméridien (méthode de Tarini) :
 // on choisit, pour les dérivées, la paramétrisation de u la plus continue.
@@ -87,6 +92,7 @@ void main() {
   bool hit = false;
   float cosInc = 1.0;
   float edge = 1.0;
+  float rayDistance = 10.0;
 
   if (uMode == 3) {
     // Équirect : rectangle 2:1 centré.
@@ -119,6 +125,7 @@ void main() {
     vec3 ro = vec3(0.0, 0.0, uDist);
     vec3 rd = normalize(vec3(s * uTanHalf, -1.0));
     float b = dot(ro, rd);
+    rayDistance = sqrt(max(dot(ro,ro)-b*b, 0.0));
     float h = b * b - (dot(ro, ro) - 1.0);
     if (h > 0.0) {
       float t = -b - sqrt(h);
@@ -151,6 +158,18 @@ void main() {
     col *= edge;
   }
 
+  if (uMode == 1 && !hit && uStars > 0.0) {
+    // Constantes de répartition, taille et couleur artistiques ; étoiles fixes dans l'écran.
+    vec2 cell = floor(frag / 32.0);
+    float seed = hash(cell);
+    vec2 offset = vec2(hash(cell+7.3), hash(cell+19.1));
+    vec2 delta = frag - (cell+0.15+offset*0.7)*32.0;
+    float star = (1.0-smoothstep(0.2,1.6,length(delta))) * step(seed, uStarDensity*0.3);
+    float pulse = 1.0-uTwinkle*0.35*(0.5+0.5*sin(uTime*0.7+seed*61.0));
+    col += mix(vec3(0.65,0.78,1),vec3(1,0.82,0.6),seed)*star*pulse*0.7;
+    col += vec3(0.16,0.31,0.46)*exp(-max(rayDistance-1.0,0.0)*38.0)*uHalo;
+  }
+
   // Mire : cercles concentriques et croix d'axe, dans le repère de l'image.
   if (uCalib) {
     float r = length(p);
@@ -160,6 +179,7 @@ void main() {
   }
 
   // Finition.
+  if (hit) col += (paper(col, frag) - col) * edge;
   if (uMode == 1) {
     vec2 qv = frag / uResolution - 0.5;
     qv.x *= uResolution.x / uResolution.y;
@@ -245,6 +265,8 @@ export class GlobeView {
 
   constructor() {
     this.uniforms = {
+      uPaperStrength: { value: 0 }, uPaperScale: { value: 1 },
+      uStars: { value: 0 }, uStarDensity: { value: 0 }, uTwinkle: { value: 0 }, uHalo: { value: 0 },
       uWorld: { value: null },
       uResolution: { value: new THREE.Vector2() },
       uMode: { value: 1 },
@@ -273,6 +295,11 @@ export class GlobeView {
 
   render(renderer: THREE.WebGLRenderer, world: THREE.Texture, mode: GlobeMode, cam: GlobeCamera, M: THREE.Matrix3, cfg: Config, width: number, height: number, time: number): void {
     const u = this.uniforms;
+    const { paper, stars } = cfg.land;
+    u.uPaperStrength.value = paper.enabled ? paper.strength : 0;
+    u.uPaperScale.value = paper.scale;
+    u.uStars.value = stars.enabled ? 1 : 0;
+    u.uStarDensity.value = stars.density; u.uTwinkle.value = stars.twinkle; u.uHalo.value = stars.halo;
     u.uWorld.value = world;
     (u.uResolution.value as THREE.Vector2).set(width, height);
     u.uMode.value = MODE_INDEX[mode];
@@ -309,7 +336,10 @@ export class GlobeController {
   facingLon: number;
   private userLat = 0;
   zoom = 1;
+  /** Rotation automatique suspendue (parcours). */
+  hold = false;
   private dragging: { x: number; y: number } | null = null;
+  private flight: { from: [number, number, number]; to: [number, number, number]; t: number; dur: number } | null = null;
 
   constructor(cfg: Config) {
     this.facingLon = cfg.globe.startLonDeg;
@@ -319,9 +349,28 @@ export class GlobeController {
     return (cfg) => Math.max(-85, Math.min(85, cfg.globe.viewLatDeg + this.userLat));
   }
 
+  /** Vol de caméra vers un point (latitude face au public) et un zoom, en `sec` secondes réelles. */
+  flyTo(cfg: Config, lon: number, lat: number, zoom: number, sec: number): void {
+    const to: [number, number, number] = [lon, Math.max(-110, Math.min(60, lat - cfg.globe.viewLatDeg)), Math.max(0.5, Math.min(4, zoom))];
+    this.flight = { from: [this.facingLon, this.userLat, this.zoom], to, t: 0, dur: Math.max(0.01, sec) };
+  }
+
   update(cfg: Config, dtSec: number): void {
     const g = cfg.globe;
-    if (g.periodMinutes > 0 && !this.dragging) {
+    if (this.flight) {
+      const f = this.flight;
+      f.t = Math.min(f.dur, f.t + dtSec);
+      const x = f.t / f.dur;
+      const e = x * x * (3 - 2 * x);
+      const dLon = ((((f.to[0] - f.from[0]) % 360) + 540) % 360) - 180; // le plus court chemin
+      this.facingLon = ((((f.from[0] + dLon * e + 180) % 360) + 360) % 360) - 180;
+      this.userLat = f.from[1] + (f.to[1] - f.from[1]) * e;
+      // Zoom en échelle logarithmique : le recul et l'approche paraissent réguliers.
+      this.zoom = Math.exp(Math.log(f.from[2]) + (Math.log(f.to[2]) - Math.log(f.from[2])) * e);
+      if (x >= 1) this.flight = null;
+      return;
+    }
+    if (g.periodMinutes > 0 && !this.dragging && !this.hold) {
       let slow = 1;
       for (const d of g.dwell) {
         const dl = Math.abs(((((this.facingLon - d.lonDeg + 180) % 360) + 360) % 360) - 180);
@@ -333,14 +382,20 @@ export class GlobeController {
     }
   }
 
-  /** Interactions à l'écran : glisser = tourner, molette = zoomer. */
+  /** Interactions à l'écran : glisser = tourner, molette ou pincement = zoomer. */
   install(canvas: HTMLCanvasElement, active: () => boolean): void {
+    const pinch = new Pinch(canvas, (factor) => {
+      if (!active()) return;
+      this.dragging = null;
+      this.zoom = Math.max(0.5, Math.min(4, this.zoom * factor));
+    });
     canvas.addEventListener('pointerdown', (e) => {
       if (!active() || e.button !== 0) return;
+      this.flight = null;
       this.dragging = { x: e.clientX, y: e.clientY };
     });
     canvas.addEventListener('pointermove', (e) => {
-      if (!active() || !this.dragging) return;
+      if (!active() || !this.dragging || pinch.active) return;
       const k = 0.25 / this.zoom;
       this.facingLon -= (e.clientX - this.dragging.x) * k;
       this.userLat += (e.clientY - this.dragging.y) * k;

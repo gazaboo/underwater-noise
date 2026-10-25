@@ -3,14 +3,59 @@
 Installation projetée qui rend visible et audible, en temps réel et à l'échelle du monde, le bruit
 sous-marin des navires — et ce qu'il fait à l'espace de communication des cétacés.
 
-Chaque navire émet des fronts d'onde qui se propagent sur l'océan, interfèrent, s'arrêtent sur les
-côtes ; là où le trafic est dense, l'océan s'illumine ; ailleurs, il reste noir.
+Le bruit ajouté par les navires s'étend sur l'océan en nappe de paliers chauds ; les cétacés, en
+silhouettes froides, voient leur espace de communication se réduire et leurs appels se briser sur ce bruit.
+Trois usages : installation projetée (demi-sphère), écran du portable, **page web autonome** (sans serveur).
+
+## Intention
+
+L'océan est un monde de sons. Pour beaucoup de cétacés, l'ouïe compte davantage que la vue : ils
+s'y orientent, s'y nourrissent et s'y appellent, parfois à des centaines de kilomètres. Depuis un
+siècle, nous y avons ajouté un bruit de fond nouveau : celui des hélices, des moteurs, des sonars, des
+campagnes sismiques. Ce bruit ne se voit pas et ne s'entend pas depuis la côte. Il reste donc absent
+de notre représentation de l'océan, alors qu'il réduit, jour après jour, l'espace dans lequel ces
+animaux peuvent encore s'entendre.
+
+Ce projet veut rendre cette pression **perceptible** sans la trahir. Il est né comme une œuvre. Il
+cherche à devenir un **outil de vulgarisation scientifique** : un endroit où l'on comprend, en
+quelques minutes, comment vivent les animaux marins et ce que les activités humaines changent pour eux.
+
+Principes :
+
+- **Dire ce que l'on sait, et comment on le sait.** Chaque nombre porte son statut : sourcé, ordre de
+  grandeur, choix empirique ou choix artistique. Une mesure, un modèle et une image ne se confondent pas.
+- **Montrer aussi l'incertitude.** Là où les données manquent (haute mer mal vue par l'AIS, régions peu
+  observées), la carte le dit au lieu de remplir le vide.
+- **Ne pas forcer le trait.** Les cétacés affichés sont aujourd'hui des présences plausibles, pas des
+  animaux suivis. Les portées sans navires sont des bornes hautes. Les exagérations visuelles sont
+  signalées. L'émotion doit venir des faits, pas de leur exagération.
+- **Confronter le modèle au réel.** Les niveaux calculés sont comparés à des enregistrements
+  d'hydrophones selon un protocole publié à l'avance, y compris quand le résultat est un échec.
+- **Rester lisible.** Une personne qui passe doit saisir l'essentiel. Celle qui creuse doit pouvoir
+  remonter jusqu'aux sources.
+
+Prochaines étapes ([issue #15](https://github.com/gazaboo/underwater-noise/issues/15)) :
+- mieux décrire les animaux : répartition, effectifs, taille des groupes, statut de conservation ;
+- faire entendre de vrais enregistrements de cétacés, de navires et d'hydrophones ;
+- ouvrir une fiche par espèce au clic, avec photo, informations naturalistes, sons et spectrogramme ;
+- rendre la couche de bruit facultative, pour laisser respirer l'image ;
+- placer sur le globe des lieux au paysage sonore remarquable (glace, récifs, volcans), avec de vrais
+  enregistrements ([#2](https://github.com/gazaboo/underwater-noise/issues/2)) ;
+- guider le visiteur par un parcours ou une boucle d'attraction
+  ([#4](https://github.com/gazaboo/underwater-noise/issues/4), pistes dans
+  [`docs/PARCOURS_PISTES.md`](docs/PARCOURS_PISTES.md)).
+
+Le projet relève de la **recherche et de la vulgarisation, sans but lucratif**. Il s'appuie sur des
+données publiques, toujours créditées (voir [`docs/SOURCES_DONNEES.md`](docs/SOURCES_DONNEES.md)).
+Les acousticiens, biologistes marins, médiateurs scientifiques, musées et associations qui voudraient
+relire, corriger, prêter des données ou des sons, ou accueillir l'installation sont les bienvenus.
 
 > État : **jalon J6** — navires en direct (aisstream.io), en replay ou simulés ; ondes visibles ;
 > champ de bruit calibré en dB (trois bandes) ; lueur d'accumulation ; terra incognita ; exploration (zoom) ;
 > cétacés : espace de communication rongé par le bruit, liens entre groupes ; son ; globe et demi-sphère
 > (un projecteur) ; mode exposition. Revue scientifique : [`docs/REVUE_SCIENTIFIQUE.md`](docs/REVUE_SCIENTIFIQUE.md).
-> Plan complet et jalons : voir la section « Feuille de route » plus bas.
+> Refonte de la représentation (bruit, cétacés, navires, légende) et mode web autonome :
+> [`docs/REPRESENTATION.md`](docs/REPRESENTATION.md). Plan complet et jalons : « Feuille de route » plus bas.
 
 ## Installation
 
@@ -35,6 +80,16 @@ npm run dev         # serveur local (port 8787) + client Vite (http://localhost:
 
 Exposition (demi-sphère, projecteur, kiosque) : `npm run expo` — voir [`docs/EXPO.md`](docs/EXPO.md).
 
+Page web autonome (statique, sans serveur Node : les navires sont calculés dans le navigateur) :
+
+```bash
+npm run build:web                                   # client/dist-web (≈ 37 Mo avec les données)
+cd client && npx vite preview --outDir dist-web     # vérification locale
+```
+
+En développement, `?standalone` donne le même fonctionnement depuis `npm run dev`. Mettre la page en ligne
+(GitHub Pages ou autre) est une publication : à décider explicitement.
+
 Production (un seul processus, le serveur sert le client compilé) :
 
 ```bash
@@ -45,8 +100,9 @@ npm run build && npm start   # http://localhost:8787
 
 | Paramètre | Valeurs | Effet |
 |---|---|---|
-| `display` | `screen` (défaut), `projector` | cible d'affichage : écran du portable ou Epson EB-990U |
-| `quality` | `expo` (défaut), `light` | profil de qualité (taille de la simulation, pas par image) |
+| `target` | `screen` (défaut), `projector`, `web` | cible d'affichage : écran du portable, Epson EB-990U, page web |
+| `standalone` | (présent) | web autonome : navires calculés dans le navigateur, sans `/ws` ni `/api` |
+| `quality` | `expo` (défaut), `light` | qualité du rendu (la grille physique de référence reste fixe) |
 | `hud` | (présent) | affiche le diagnostic au démarrage |
 | `scene` | `duo` | scène de test des liens (deux groupes en mer Ligure) |
 | `mode` | `flat`, `globe`, `hemisphere`, `equirect`, `fisheye` | mode de rendu |
@@ -58,6 +114,11 @@ npm run build && npm start   # http://localhost:8787
 |---|---|
 | `P` | panneau de réglage (caché) |
 | `D` | diagnostic : images/s, temps CPU et GPU, navires, source, calibration, niveau de bruit sous le curseur |
+| `V` | représentation du bruit : isophones → météo → encre → fronts bruts → nappe masquée |
+| `S` | scénario : trafic actuel ↔ océan sans navires (calculé) |
+| `H` | parcours guidé suivant (avant / après, puissances de dix, tour des lieux) ; `H` ou tout geste rend la main |
+| clic sur un cétacé | fiche de l'espèce : photo, portée du groupe, faits sourcés, vrais enregistrements (`Échap` ferme) |
+| clic sur un lieu (anneau ivoire) | fiche du lieu : texte, paire de contraste, vrais enregistrements ; on entend le lieu le plus proche du centre de la vue |
 | `B` | champ physique en dB (isolignes tous les 10 dB) : accumulé → basse → moyenne → haute → rendu |
 | `M` | couper / rétablir le son |
 | `G` | carte plate ↔ globe (globe : glisser = tourner, molette = zoom) |
@@ -71,10 +132,9 @@ npm run build && npm start   # http://localhost:8787
 | flèches, `+` / `-` | déplacer, zoomer au clavier |
 | double-clic, `R`, `0` | revenir au cadrage initial |
 
-Au-delà d'un zoom ×2,5 (`view.detail.minZoom`), une **grille d'ondes de détail** couvre la zone
-visible (≈ 6 km par cellule au zoom ×7, contre ≈ 20 km pour la grille mondiale) : les fronts d'onde
-restent fins quand on explore une mer ou un détroit. Elle est recalculée quand on sort de son emprise,
-en reprenant l'état des ondes de l'ancienne grille : le déplacement ne fait pas sursauter les fronts.
+Le zoom interpole le **même champ acoustique mondial**, de résolution ≈ 39 km par cellule dans
+le profil de référence. Il ne crée plus de grille d’ondes indépendante : vitesse et portée ne changent
+pas avec le cadrage ou le profil de rendu. Les petits détroits restent insuffisamment résolus.
 
 Le curseur disparaît après deux secondes d'immobilité.
 
@@ -84,7 +144,7 @@ Le curseur disparaît après deux secondes d'immobilité.
 |---|---|
 | `auto` (défaut) | direct si la clé est présente et le flux en bonne santé ; sinon replay ; sinon simulation |
 | `live` | aisstream.io uniquement |
-| `replay` | fichiers de `replay.path` (en boucle, vitesse `replay.speed`) |
+| `replay` | fichiers de `replay.path` (en boucle, vitesse commune `playback.timeScale`) |
 | `simulation` | navires synthétiques sur les grandes routes (`simulation.*`) |
 
 - **Direct** : la clé est lue dans `.env` (`AISSTREAM_API_KEY`), jamais dans le code ni dans le
@@ -130,7 +190,15 @@ Le diagnostic (`D`) affiche la source active, l'état du direct (messages/s, nav
 
 ## Réglages
 
-Tous les paramètres artistiques et physiques sont dans **`config/default.json5`**, commenté ligne à ligne.
+**Fiabilité des décibels** : le panneau « Fiabilité » en haut à gauche distingue niveaux des navires,
+fond naturel et augmentation du bruit. Le profil physique de référence est fixe ; les réglages
+artistiques ne modifient pas ces lectures. Les niveaux sont confrontés à des mesures d’hydrophones
+selon un protocole pré-enregistré ([`docs/VALIDATION_PROTOCOLE.md`](docs/VALIDATION_PROTOCOLE.md)) ;
+les écarts mesurés ne sont affichés que dans les zones mesurées, « non validé » ailleurs.
+Méthode et outils : [`docs/ACOUSTIQUE_SCIENTIFIQUE.md`](docs/ACOUSTIQUE_SCIENTIFIQUE.md).
+
+Les paramètres sont dans **`config/default.json5`**, commenté ligne à ligne. Le profil de référence fixe
+les hypothèses acoustiques ; `science.mode: 'experimental'` permet les variantes physiques.
 
 - Le serveur recharge la configuration **à chaud** : on modifie, on enregistre, l'image suit.
 - Le panneau (`P`) agit en direct ; « Enregistrer » écrit `config/local.json5` (ignoré par git),
@@ -138,30 +206,36 @@ Tous les paramètres artistiques et physiques sont dans **`config/default.json5`
   courante (`targets.screen` ou `targets.projector`), la palette et les ondes pour toutes les cibles.
 - `config/expo.json5` s'applique en plus quand le serveur est lancé avec `VACARME_MODE=expo`.
 
-Repères pour régler les ondes :
+Le dossier **« Temps de la scène »** propose un facteur unique ×1–×100 (`playback.timeScale`).
+À ×1, le modèle propage le son à environ **1,5 km/s** ; le même facteur accélère navires, cétacés,
+appels, liens et accumulation. Le direct AIS impose ×1. Le curseur est appliqué et enregistré sur
+le serveur ; une modification du facteur ne redémarre pas la scène.
 
-| Paramètre | Effet |
-|---|---|
-| `waves.damping` | persistance des fronts. Trop bas (≈ 0,004) : tout l'océan sature, plus de contraste. |
-| `waves.amplitude.slMin` / `gamma` | quels navires « marquent » : monter `slMin` éteint les petits bateaux |
-| `waves.brightness`, `waves.relief` | luminosité des crêtes ; part de reflets « en relief » |
-| `waves.pulse.*` | longueur d'onde, nombre de cycles par impulsion, cadence |
-| `render.blackLift` | plancher de noir (utile au projecteur, dont le noir est gris) |
+Les fronts visibles viennent du **champ acoustique à trois bandes**. Le panneau conserve seulement
+la bande affichée (`waves.band`, 10–40 Hz par défaut), la luminosité et le relief. Leur enveloppe suit
+l’augmentation du niveau sur le fond naturel modélisé : invisible jusqu’à +1 dB, transition douce
+jusqu’à +10 dB. Ce sont des **conventions de lisibilité**, pas des seuils biologiques. Augmenter la
+luminosité ne révèle pas les zones sous ce seuil. L’espacement des anneaux reste numérique.
+
+Les anciens réglages de vitesse, amortissement, impulsions, réfraction et amplitudes visuelles sont
+ignorés au chargement. Les accélérations séparées des sources et des cétacés sont également ignorées.
+La correction ne valide pas les portées en mer : le profil v1 est conservé avec ses limites publiées.
+Les contrôles et la méthode sont décrits dans [`docs/PROPAGATION.md`](docs/PROPAGATION.md).
 
 ## Ce que l'on voit
 
-- **Ondes** (grille visuelle) : chaque navire émet des fronts d'onde ; ils interfèrent, se réfractent
-  sur les plateaux continentaux et s'arrêtent sur les côtes.
-- **Lueur d'accumulation** (grille physique, calibrée en dB re 1 µPa) : là où le bruit dure,
-  l'océan s'illumine lentement ; quand le trafic s'en va, la lueur s'efface plus lentement encore.
-- **Terra incognita** : les zones où l'AIS ne voit rien sont dans l'ombre, sous un brouillard lent et
-  un grain fin — distinctes du calme connu (noir net, relief du fond à peine perceptible).
-- **Cétacés** (lumière chaude, pâle) : rorquals bleus et communs, baleines à bosse, cachalots, orques,
-  en groupes placés dans leurs habitats (AquaMaps) et près d'observations réelles (OBIS).
-  - **Espace de communication** : autour de chaque groupe, la zone où son appel reste audible, calculée
-    pixel par pixel avec le bruit local — rongée par les couloirs de trafic, coupée par les côtes ;
-    contour pointillé et tremblant là où l'AIS ne voit rien (bruit sous-estimé).
-  - **Liens** : fils de lumière entre groupes qui s'entendent ; les appels y circulent dans le sens de
+Détails, statut de chaque choix et captures : [`docs/REPRESENTATION.md`](docs/REPRESENTATION.md).
+
+- **Bruit ajouté par les navires** (teintes chaudes) : ΔL au-dessus du fond naturel dans une bande, en
+  paliers +10 / +20 / +30 dB (×10, ×100, ×1000 l'énergie). Quatre représentations (touche `V`) : isophones
+  animées, carte météo, encre, fronts bruts du modèle. Une légende permanente dit ce que l'on voit.
+- **Terra incognita** : hachures là où l'AIS ne voit rien (bruit sous-estimé). Une zone sombre ne prouve pas le silence.
+- **Navires** : chevrons orientés selon la route ; navires estimés en chevrons creux.
+- **Cétacés** (teintes froides, une par espèce) : silhouettes des rorquals bleus et communs, baleines à bosse,
+  cachalots, orques, en groupes placés dans leurs habitats (AquaMaps) et près d'observations réelles (OBIS).
+  - **Vue rapprochée** (groupe le plus proche du centre) : zone encore audible, portée sans navires en
+    pointillés, espace perdu en semis de points, anneau d'appel qui se brise sur le bruit.
+  - **Liens** : fils colorés entre groupes qui s'entendent ; les appels y circulent dans le sens de
     l'écoute ; un lien peut devenir asymétrique (l'un entend, l'autre non), s'effilocher, se rompre, laisser
     une trace fantôme, se retisser.
   - Scène de test : `?scene=duo` — deux groupes de rorquals communs en mer Ligure, au seuil de s'entendre.
@@ -176,31 +250,29 @@ Modèle, calibration (écart < 1 dB à la loi théorique), niveaux obtenus et li
 
 ## Performances mesurées (Radeon 780M, Chromium + Vulkan)
 
-| Cible | Résolution de rendu | GPU / image | Images/s |
-|---|---|---|---|
-| écran (profil expo) | 1692×1128 (échelle 0,75 de 2256×1504) | 9,3 ms | 60 |
-| projecteur (profil expo) | 1920×1200 | 11,6 ms | 60 |
-| écran (profil light) | 1692×1128 | 6,7 ms | 60 |
-
-Avec la grille de détail (zoom), compter 1 à 2 ms de plus.
+Projecteur 1920×1200, profil expo, 50 854 navires estimés, cadence normale (25 oct. 2026) : 60 images/s en
+médiane dans tous les modes et toutes les représentations du bruit ; 1 à 2 % d'images entre 35 et 58 ms
+(relecture du champ à chaque pas du modèle). Tableau complet et méthode : [`docs/REPRESENTATION.md`](docs/REPRESENTATION.md).
 
 ## Architecture
 
 ```
-shared/   modèle acoustique (JOMOPANS-ECHO, bandes, Thorp), protocole binaire, schéma de config
+shared/   modèle acoustique (JOMOPANS-ECHO, bandes, Thorp), protocole binaire, schéma de config,
+          sources de navires sans Node (shared/ships : simulation, estimés, AIS, couverture)
 server/   serveur local : configuration, sources (AIS direct, replay, simulation, bascule), enregistreur,
           carte de couverture, WebSocket
-client/   rendu WebGL2 (Three.js) : simulation d'ondes GPU, navires, composition, HUD, panneau
+client/   rendu WebGL2 (Three.js) : champ acoustique GPU, nappe de bruit, navires, cétacés, monde illustré,
+          légende, panneau ; web autonome (sources de navires dans un Web Worker)
 tools/    scripts Python (uv) : grilles, routes, conversion d'archives AIS
 scripts/  utilitaires (faux serveur aisstream pour les tests)
 data/     grilles terre/mer et bathymétrie, routes maritimes
 docs/     sources et licences ; modèle physique (J3) ; guide d'exposition (J6)
 ```
 
-- **Simulation d'ondes** (`client/src/sim/wave-sim.ts`) : équation des ondes 2D amortie, calculée sur
-  la sphère en équirectangulaire (laplacien sphérique, stabilité locale près des pôles), les terres
-  forment une frontière. Les navires y injectent des impulsions dont l'amplitude dépend de leur
-  niveau source.
+- **Champ et fronts acoustiques** (`client/src/sim/physics-sim.ts`) : équation des ondes 2D amortie
+  sur la sphère ; pas en secondes physiques, différences d’ordre 4 en mer et d’ordre 2 au voisinage
+  de la terre. Les sources et les pertes sont communes aux fronts et aux lectures en dB. Les navires
+  injectent un signal numérique incohérent dont la longueur d’onde ne représente pas le spectre réel.
 - **Niveaux sources** (`shared/src/acoustics/jomopans-echo.ts`) : modèle JOMOPANS-ECHO
   (MacGillivray & de Jong, 2021), 13 classes de navires, vitesse et longueur ; testé contre la figure 7
   de l'article.
@@ -213,6 +285,8 @@ docs/     sources et licences ; modèle physique (J3) ; guide d'exposition (J6)
 npm test         # vitest : modèle acoustique, protocole, classes AIS, géodésie, simulation,
                  #         messages aisstream, registre, couverture, enregistreur, replay, direct (serveur factice)
 npm run typecheck
+npm run test:propagation                           # contrôles numériques sous Chromium
+node scripts/verify-representation.mjs              # captures de la représentation et temps d'image (dev actif)
 ```
 
 ## Feuille de route
@@ -223,3 +297,23 @@ npm run typecheck
 - [x] **J4** cétacés, espace de communication, liens entre groupes
 - [x] **J5** son (sans spatialisation)
 - [x] **J6** globe, demi-sphère avec un projecteur, mode exposition
+
+Contrôles numériques et interface sous **Chromium** (serveurs temporaires isolés, aucun AIS réel,
+aucun changement de `config/local.json5`) : `npm run test:propagation`. Chromium doit être installé ;
+`CHROMIUM_PATH` permet de préciser son exécutable. Résultats dans `/tmp/vacarme-propagation-results`.
+
+### Terres « gouache »
+
+Les terres utilisent les couleurs idéalisées de Natural Earth II, stylisées dans le shader : aplats doux, relief chaud/froid, granulation et pigment sur les côtes. La nuit, leur lumière reste discrète pour laisser les ondes au premier plan. `J` bascule entre palettes nuit et jour.
+
+Le panneau `P`, dossier **Terres (gouache)**, règle la matière et active séparément ornements, papier et étoiles. Les arbres et volcans apparaissent au zoom en carte plate ; étoiles et halo entourent uniquement le globe à l'écran. Les réglages sont enregistrés dans `config/local.json5` par le bouton du panneau. La palette de jour dispose de ses propres réglages `landLight` et `landTint`.
+
+Pour retrouver l'ancien rendu, choisir `land.style: 'flat'` et désactiver `land.paper.enabled` ainsi que `land.stars.enabled`. Les positions des volcans sont sourcées (Smithsonian GVP) ; arbres, indice de forêt, fumée et traitement des couleurs sont **artistiques**, sans mesure de couverture forestière ni activité volcanique en direct. Voir `docs/SOURCES_DONNEES.md` et `docs/REVUE_SCIENTIFIQUE.md`. `npm run data` reconstruit aussi les données des terres.
+
+### Monde illustré (par défaut)
+
+Les terres et leurs ornements sont dessinés comme un globe illustré : milieux peints, relief en paliers,
+plages, montagnes, volcans fumants, bosquets et nuages hors d'échelle. Ils sont visibles dans **tous les
+modes**, demi-sphère comprise, pour un coût GPU non mesurable sur la Radeon 780M. `J` bascule nuit / jour ;
+`P` → **Terres** règle tout (et permet de revenir à la gouache ou à l'aplat). Données, sources, traçabilité,
+reconstruction et captures : [`docs/MONDE_ILLUSTRE.md`](docs/MONDE_ILLUSTRE.md).

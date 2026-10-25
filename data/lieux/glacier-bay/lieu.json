@@ -1,0 +1,15 @@
+{
+ "id": "glacier-bay",
+ "title": "Glacier Bay (Alaska)",
+ "center": { "lat": 58.45, "lon": -136.05 },
+ "radiusKm": 80,
+ "text": "Un hydrophone écoute l'entrée de la baie depuis 2000. En 2020, sans paquebots, le bruit médian a baissé de 3 à 5 dB aux heures de passage : on y entend phoques et baleines à bosse dans le calme.",
+ "status": "S",
+ "source": "U.S. National Park Service, Glacier Bay (hydrophone à l'embouchure, position approximative [S-r]) ; Gabriele et al. 2021, Frontiers in Marine Science (−3,3 à −5,1 dB en médiane, nombre de navires −44 à −49 % en 2020)",
+ "sounds": ["phoque-calme-glacier-bay-2020", "phoque-navire-glacier-bay-2005", "bosses-phoques-calme-glacier-bay-2020"],
+ "contrast": {
+  "quiet": "phoque-calme-glacier-bay-2020",
+  "noisy": "phoque-navire-glacier-bay-2005",
+  "text": "Même lieu, même espèce : un rugissement dans le calme de 2020, un autre avec un navire en 2005. Ce ne sont ni le même jour ni le même animal : c'est un contraste d'ambiance, pas une mesure."
+ }
+}

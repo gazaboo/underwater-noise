@@ -1,0 +1,10 @@
+{
+ "id": "pacifique-est-volcan",
+ "title": "Un volcan qu'on entend sans savoir où il est",
+ "center": { "lat": 8, "lon": -110 },
+ "radiusKm": 300,
+ "text": "En juillet 1997, un hydrophone posé ici a capté le chant d'une éruption sous-marine. Un seul appareil l'a entendu : impossible de situer le volcan, peut-être à des milliers de kilomètres. Le son porte loin ; savoir d'où il vient demande plusieurs oreilles.",
+ "status": "S",
+ "source": "NOAA PMEL, « Submarine Volcanic Eruption (Whistle) » (hydrophone autonome du Pacifique Est, 8° N 110° O)",
+ "sounds": ["volcan-sifflement-pacifique-est-1997"]
+}

@@ -1,7 +1,7 @@
 /**
  * Champ de bruit physique : grille calibrée en dB re 1 µPa, trois bandes (canaux R, G, B).
  *
- * Même équation des ondes que la grille visuelle, mais :
+ * Ce champ produit les fronts visibles et les niveaux acoustiques :
  *  - chaque navire injecte un signal à bande étroite et à phase aléatoire (sources incohérentes :
  *    les interférences entre navires s'annulent en moyenne) ;
  *  - l'amplitude injectée vaut a² = 10^((SL − 10·log10(r_t) − L_ref) / 10), avec SL le niveau source
@@ -17,7 +17,7 @@
  * Détails et hypothèses : docs/MODELE_PHYSIQUE.md.
  */
 import * as THREE from 'three';
-import { thorpAbsorptionDbPerKm, bandCenter, naturalLevel, BOTTOM_LOSS_FULL_DEPTH, BOTTOM_LOSS_ZERO_DEPTH, type Config } from '@vacarme/shared';
+import { thorpAbsorptionDbPerKm, bandCenter, naturalLevel, BOTTOM_LOSS_FULL_DEPTH, BOTTOM_LOSS_ZERO_DEPTH, PHYS_COURANT, PHYS_POLAR_CAP_DEG, physicsStepSeconds, type Config } from '@vacarme/shared';
 
 /**
  * Pertes au fond et coupure modale en GLSL : transcription exacte de lossRateDbPerKm()
@@ -54,9 +54,9 @@ export function setLossUniforms(u: Record<string, THREE.IUniform>, cfg: Config):
 import { FullscreenPass, rawMaterial } from '../render/fullscreen.ts';
 
 /** Paramètres numériques fixes (non artistiques : la calibration en dépend). */
-export const PHYS_COURANT = 0.5;
+export { PHYS_COURANT } from '@vacarme/shared';
 export const PHYS_WAVELENGTH = 6; // cellules
-export const PHYS_COHERENCE = 24; // pas : durée de cohérence de la phase des sources
+export const PHYS_COHERENCE = 86; // pas : durée de cohérence de la phase des sources
 export const L_REF = 150; // dB : référence de normalisation des amplitudes
 const EARTH_RADIUS_M = 6_371_000;
 
@@ -93,8 +93,21 @@ void main() {
   vec3 uS = texture(uCur, vUv + vec2(0.0, uTexel.y)).rgb;
   float c = max(cos(lat), 0.02);
   float h = uTexel.y * uLatSpan;
-  vec3 lap = (uE + uW - 2.0 * u) / (c * c) + (uN + uS - 2.0 * u) - tan(lat) * h * (uN - uS) * 0.5;
-  float C = min(COURANT, 0.95 / sqrt(1.0 + 1.0 / (c * c)));
+  // Fourth-order differences reduce the six-cell carrier's numerical group delay.
+  vec3 uE2 = texture(uCur, vUv + vec2(2.0 * uTexel.x, 0.0)).rgb;
+  vec3 uW2 = texture(uCur, vUv - vec2(2.0 * uTexel.x, 0.0)).rgb;
+  vec3 uN2 = texture(uCur, vUv - vec2(0.0, 2.0 * uTexel.y)).rgb;
+  vec3 uS2 = texture(uCur, vUv + vec2(0.0, 2.0 * uTexel.y)).rgb;
+  vec3 lap = ((4.0/3.0) * (uE + uW) - (uE2 + uW2) / 12.0 - 2.5 * u) / (c * c)
+           + (4.0/3.0) * (uN + uS) - (uN2 + uS2) / 12.0 - 2.5 * u
+           - tan(lat) * h * (8.0 * (uN - uS) - (uN2 - uS2)) / 12.0;
+  // A two-cell stencil must NEVER jump over a one-cell land barrier.
+  float seaNeighbours = min(min(texture(uOcean, vUv + vec2(uTexel.x, 0.0)).r,
+                               texture(uOcean, vUv - vec2(uTexel.x, 0.0)).r),
+                           min(texture(uOcean, vUv + vec2(0.0, uTexel.y)).r,
+                               texture(uOcean, vUv - vec2(0.0, uTexel.y)).r));
+  if (seaNeighbours < 0.5) lap = (uE + uW - 2.0 * u) / (c * c) + (uN + uS - 2.0 * u) - tan(lat) * h * (uN - uS) * 0.5;
+  float C = COURANT; // stable on the entire domain, with no latitude-dependent slowing
 
   // Pertes par bande, converties en amortissement par pas :
   // une onde parcourt C cellules par pas ; perte d'énergie (dB/cellule) = 8,686 · g / C.
@@ -154,6 +167,28 @@ void main() {
   outColor = vec4(A, L);
 }`;
 
+/**
+ * Excès lissé pour l'affichage : rapport E_navires / E_naturel par bande, moyenné sur `noise.smoothSec`
+ * (moyenne d'énergie, pas de dB). ΔL = 10·log10(1 + rapport) se calcule à la lecture.
+ */
+const EXCESS_FRAG = /* glsl */ `
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uEnergy;
+uniform sampler2D uExcess;
+uniform sampler2D uOcean;
+uniform float uOffsetDb;
+uniform vec3 uNatural;
+uniform float uBeta;         // 1 − exp(−dt/τ) ; 1 : initialisation
+void main() {
+  vec3 e = max(texture(uEnergy, vUv).rgb, vec3(0.0));
+  vec3 ratio = e * pow(vec3(10.0), (uOffsetDb - uNatural) / 10.0);
+  vec3 s = texture(uExcess, vUv).rgb;
+  s += uBeta * (ratio - s);
+  if (texture(uOcean, vUv).r < 0.5) s = vec3(0.0);
+  outColor = vec4(s, 1.0);
+}`;
+
 function floatTarget(w: number, h: number, wrapS: THREE.Wrapping): THREE.WebGLRenderTarget {
   return new THREE.WebGLRenderTarget(w, h, {
     type: THREE.FloatType,
@@ -183,13 +218,18 @@ export class PhysicsField {
   private states: THREE.WebGLRenderTarget[];
   private energy: [THREE.WebGLRenderTarget, THREE.WebGLRenderTarget];
   private accum: [THREE.WebGLRenderTarget, THREE.WebGLRenderTarget];
+  private excess: [THREE.WebGLRenderTarget, THREE.WebGLRenderTarget];
   private readonly stepPass: FullscreenPass;
   private readonly energyPass: FullscreenPass;
   private readonly accumPass: FullscreenPass;
+  private readonly excessPass: FullscreenPass;
   private readonly su: Record<string, THREE.IUniform>;
   private readonly eu: Record<string, THREE.IUniform>;
   private readonly au: Record<string, THREE.IUniform>;
+  private readonly xu: Record<string, THREE.IUniform>;
   private initialized = false;
+  private serial = 0;
+  get revision(): number { return this.serial; }
   /** Constante de calibration (énergie·cellules par unité d'amplitude²). */
   calibrationK = 1;
 
@@ -203,7 +243,8 @@ export class PhysicsField {
     this.states = [0, 1, 2].map(() => floatTarget(this.width, this.height, wrap));
     this.energy = [floatTarget(this.width, this.height, wrap), floatTarget(this.width, this.height, wrap)];
     this.accum = [floatTarget(this.width, this.height, wrap), floatTarget(this.width, this.height, wrap)];
-    for (const t of this.accum) t.texture.magFilter = t.texture.minFilter = THREE.LinearFilter;
+    this.excess = [floatTarget(this.width, this.height, wrap), floatTarget(this.width, this.height, wrap)];
+    for (const t of [...this.accum, ...this.excess]) t.texture.magFilter = t.texture.minFilter = THREE.LinearFilter;
     this.sourceTarget = new THREE.WebGLRenderTarget(this.width, this.height, {
       type: THREE.HalfFloatType,
       format: THREE.RGBAFormat,
@@ -221,7 +262,7 @@ export class PhysicsField {
       uLatTop: { value: domain.latTop * deg },
       uLatSpan: { value: domain.latSpan * deg },
       uSponge: { value: regional ? 12 : 0 },
-      uPolarCap: { value: 79 * deg },
+      uPolarCap: { value: PHYS_POLAR_CAP_DEG * deg },
       uAlpha: { value: new THREE.Vector3() },
       uBandFreq: { value: new THREE.Vector3(20, 224, 3162) },
       uCellKm: { value: this.cellMeters / 1000 },
@@ -241,9 +282,18 @@ export class PhysicsField {
       uFall: { value: 0 },
       uInit: { value: 1 },
     };
+    this.xu = {
+      uEnergy: { value: null },
+      uExcess: { value: null },
+      uOcean: { value: ocean },
+      uOffsetDb: { value: L_REF },
+      uNatural: this.au.uNatural,
+      uBeta: { value: 1 },
+    };
     this.stepPass = new FullscreenPass(rawMaterial(STEP_FRAG, this.su));
     this.energyPass = new FullscreenPass(rawMaterial(ENERGY_FRAG, this.eu));
     this.accumPass = new FullscreenPass(rawMaterial(ACCUM_FRAG, this.au));
+    this.excessPass = new FullscreenPass(rawMaterial(EXCESS_FRAG, this.xu));
   }
 
   configure(cfg: Config): void {
@@ -253,12 +303,17 @@ export class PhysicsField {
     (this.su.uBandFreq.value as THREE.Vector3).set(f[0], f[1], f[2]);
     this.su.uExtraLoss.value = cfg.physics.extraLossDbPerKm;
     setLossUniforms(this.su, cfg);
-    this.su.uPolarCap.value = (cfg.waves.polarCapLat * Math.PI) / 180;
+    this.su.uPolarCap.value = (PHYS_POLAR_CAP_DEG * Math.PI) / 180; // numerical domain, independent of visual wave settings
     const wind = cfg.ambient.windSpeedMs;
     (this.au.uNatural.value as THREE.Vector3).set(naturalLevel(low, wind), naturalLevel(mid, wind), naturalLevel(high, wind));
     const w = cfg.accumulation.bandWeights;
     (this.au.uWeights.value as THREE.Vector3).set(w.low, w.mid, w.high);
   }
+
+  /** Seconds of source time per solver step (not seconds per rendered frame). */
+  get stepSeconds(): number { return physicsStepSeconds(this.cellMeters); }
+  get texture(): THREE.Texture { return this.states[1].texture; }
+  get previousTexture(): THREE.Texture { return this.states[0].texture; }
 
   /** Décalage dB : L = 10·log10(E) + offset. */
   get offsetDb(): number {
@@ -270,8 +325,9 @@ export class PhysicsField {
   }
 
   clear(renderer: THREE.WebGLRenderer): void {
+    this.serial++;
     renderer.setClearColor(0x000000, 0);
-    for (const t of [...this.states, ...this.energy, ...this.accum, this.sourceTarget]) {
+    for (const t of [...this.states, ...this.energy, ...this.accum, ...this.excess, this.sourceTarget]) {
       renderer.setRenderTarget(t);
       renderer.clear(true, false, false);
     }
@@ -280,6 +336,7 @@ export class PhysicsField {
 
   /** Un pas de l'équation des ondes (après l'injection dans sourceTarget). */
   step(renderer: THREE.WebGLRenderer): void {
+    this.serial++;
     const [prev, cur, next] = this.states;
     this.su.uPrev.value = prev.texture;
     this.su.uCur.value = cur.texture;
@@ -296,7 +353,7 @@ export class PhysicsField {
     this.energy = [this.energy[1], this.energy[0]];
   }
 
-  /** Conversion en dB et accumulation (dtSec : temps réel écoulé). */
+  /** Conversion en dB et accumulation (dtSec : temps de la scène écoulé). */
   accumulate(renderer: THREE.WebGLRenderer, dtSec: number, cfg: Config): void {
     const a = cfg.accumulation;
     this.au.uEnergy.value = this.energy[0].texture;
@@ -307,7 +364,18 @@ export class PhysicsField {
     this.au.uInit.value = this.initialized ? 0 : 1;
     this.accumPass.render(renderer, this.accum[1]);
     this.accum = [this.accum[1], this.accum[0]];
+    this.xu.uEnergy.value = this.energy[0].texture;
+    this.xu.uExcess.value = this.excess[0].texture;
+    this.xu.uOffsetDb.value = this.offsetDb;
+    this.xu.uBeta.value = this.initialized ? 1 - Math.exp(-dtSec / cfg.noise.smoothSec) : 1;
+    this.excessPass.render(renderer, this.excess[1]);
+    this.excess = [this.excess[1], this.excess[0]];
     this.initialized = true;
+  }
+
+  /** Excès lissé pour l'affichage : RGB = E_navires / E_naturel par bande (temps de scène `noise.smoothSec`). */
+  get excessTexture(): THREE.Texture {
+    return this.excess[0].texture;
   }
 
   /** R = niveau affiché accumulé (dB), G/B/A = niveaux courants par bande (dB re 1 µPa). */
@@ -318,6 +386,29 @@ export class PhysicsField {
   get energyTarget(): THREE.WebGLRenderTarget {
     return this.energy[0];
   }
+
+  /** Direct energy readout: independent of visual accumulation, palette and band weights. */
+  readComponents(renderer: THREE.WebGLRenderer, lat: number, lon: number, cfg: Config): number[] | null {
+    const d = this.domain;
+    const dx = ((((lon - d.lonCenter + 180) % 360) + 360) % 360) - 180;
+    const u = dx / d.lonSpan + 0.5, v = (d.latTop - lat) / d.latSpan;
+    if (u < 0 || u >= 1 || v < 0 || v >= 1 || Math.abs(lat) > 79) return null;
+    const image = this.ocean.image as HTMLImageElement;
+    if (image?.width && image?.height) {
+      // Cache the bathymetry mask once; no GPU readback or canvas allocation per cursor update.
+      if (!this.readMask) {
+        const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height;
+        const context = canvas.getContext('2d');
+        if (context) { context.drawImage(image, 0, 0); this.readMask = context.getImageData(0, 0, image.width, image.height); }
+      }
+      if (this.readMask && this.readMask.data[4 * (Math.floor(v * image.height) * image.width + Math.floor(u * image.width))] < 128) return null;
+    }
+    const e = new Float32Array(4);
+    renderer.readRenderTargetPixels(this.energyTarget, Math.floor(u * this.width), Math.floor(v * this.height), 1, 1, e);
+    return cfg.bands.flatMap((band, i) => [e[i] > 0 ? 10 * Math.log10(e[i]) + this.offsetDb : -Infinity, naturalLevel(band, cfg.ambient.windSpeedMs)]);
+  }
+
+  private readMask: ImageData | null = null;
 
   /** Lit les niveaux (dB) en un point. */
   readLevels(renderer: THREE.WebGLRenderer, lat: number, lon: number): [number, number, number, number] | null {
@@ -332,8 +423,8 @@ export class PhysicsField {
   }
 
   dispose(): void {
-    for (const t of [...this.states, ...this.energy, ...this.accum, this.sourceTarget]) t.dispose();
-    for (const p of [this.stepPass, this.energyPass, this.accumPass]) p.material.dispose();
+    for (const t of [...this.states, ...this.energy, ...this.accum, ...this.excess, this.sourceTarget]) t.dispose();
+    for (const p of [this.stepPass, this.energyPass, this.accumPass, this.excessPass]) p.material.dispose();
   }
 }
 
@@ -426,7 +517,7 @@ export interface CalibrationResult {
 /**
  * Calibration : une source unique d'amplitude 1 au centre d'une grille d'eau profonde uniforme,
  * sans absorption ; après stabilisation, on mesure E(r) le long des quatre directions et on
- * ajuste E(r) = K / r (étalement cylindrique). Durée : quelques dizaines de millisecondes.
+ * ajuste E(r) = K / r (étalement cylindrique). Durée dépendante du GPU ; cette calibration n’avance pas le temps de la scène.
  */
 export function calibrate(renderer: THREE.WebGLRenderer): CalibrationResult {
   const N = 256;
@@ -465,7 +556,7 @@ export function calibrate(renderer: THREE.WebGLRenderer): CalibrationResult {
   scene.add(pts);
   const cam = new THREE.Camera();
 
-  const STEPS = 2400;
+  const STEPS = Math.ceil(1200 / PHYS_COURANT);
   for (let s = 0; s < STEPS; s++) {
     mat.uniforms.uClock.value = s;
     renderer.setRenderTarget(field.sourceTarget);
@@ -474,7 +565,7 @@ export function calibrate(renderer: THREE.WebGLRenderer): CalibrationResult {
     renderer.render(scene, cam);
     field.step(renderer);
     // Moyenne d'énergie : démarrage rapide, puis longue moyenne.
-    field.updateEnergy(renderer, s < 600 ? 1 / 40 : 1 / 600);
+    field.updateEnergy(renderer, s < 300 / PHYS_COURANT ? PHYS_COURANT / 20 : PHYS_COURANT / 300);
   }
 
   const row = new Float32Array(N * 4);
