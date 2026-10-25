@@ -1,0 +1,10 @@
+{
+ "id": "mayotte-fani-maore",
+ "title": "Fani Maoré, un volcan né en 2018 (Mayotte)",
+ "center": { "lat": -12.9, "lon": 45.65 },
+ "radiusKm": 60,
+ "text": "En 2018, à 3 300 m de fond et à 50 km de Mayotte, un volcan de plus de 800 m de haut est né en quelques mois : la plus grande éruption sous-marine jamais documentée. Personne ne l'a vue naître : ce sont les séismes, ressentis sur l'île et enregistrés à travers le monde, qui l'ont trahie.",
+ "status": "S",
+ "source": "Feuillet et al. 2021, Nature Geoscience, doi:10.1038/s41561-021-00809-x ; IPGP, « Naissance du volcan sous-marin de Mayotte, la plus grande éruption sous-marine jamais documentée » (3 300 m de fond, ≈ 50 km des côtes ; édifice de plus de 800 m et 5 km de diamètre ; plus de 6 km³ de lave) ; REVOSIMA ; position approximative [S-r]",
+ "sounds": []
+}

@@ -1,0 +1,10 @@
+{
+ "id": "stellwagen",
+ "title": "Banc de Stellwagen (Massachusetts)",
+ "center": { "lat": 42.35, "lon": -70.35 },
+ "radiusKm": 50,
+ "text": "Au large de Boston, le bruit des navires de commerce a fait perdre aux baleines noires 63 à 67 % de leur « espace de communication » par rapport à il y a un demi-siècle : l'étendue de mer où elles peuvent encore s'entendre a fondu des deux tiers (estimation par modèle).",
+ "status": "S",
+ "source": "Hatch et al. 2012, Conservation Biology 26(6) (enregistreurs 2007–2010, trajets AIS et modèle de propagation) ; NOAA, sanctuaire marin national de Stellwagen Bank (communiqué du 15 août 2012)",
+ "sounds": []
+}

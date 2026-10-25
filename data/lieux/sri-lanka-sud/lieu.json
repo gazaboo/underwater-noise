@@ -1,0 +1,10 @@
+{
+ "id": "sri-lanka-sud",
+ "title": "Sud du Sri Lanka",
+ "center": { "lat": 5.75, "lon": 80.6 },
+ "radiusKm": 80,
+ "text": "Des rorquals bleus se nourrissent au large de la pointe sud du Sri Lanka, juste sous l'une des routes les plus fréquentées entre l'Asie et l'Europe. Décaler la route de 15 milles nautiques vers le large réduirait le risque de collision d'environ 95 %, pour 5 milles de trajet en plus (modèle).",
+ "status": "S",
+ "source": "Priyadarshana et al. 2016, Regional Studies in Marine Science (relevés 2014–2015 ; risque −95 % pour une route 15 milles nautiques plus au large) ; Comité scientifique de la CBI, 2016 ; chiffres diffusés par l'IFAW ; position approximative [S-r]",
+ "sounds": []
+}

@@ -1,0 +1,10 @@
+{
+ "id": "baie-de-fundy-2001",
+ "title": "Baie de Fundy, septembre 2001",
+ "center": { "lat": 44.6, "lon": -66.5 },
+ "radiusKm": 80,
+ "text": "Après les attentats du 11 septembre 2001, le trafic maritime a chuté quelques jours. Des chercheurs qui suivaient les baleines noires ont mesuré un bruit plus faible de 6 dB, surtout sous 150 Hz, et moins d'hormones de stress dans leurs excréments. Première preuve d'un stress chronique lié au bruit des navires.",
+ "status": "S",
+ "source": "Rolland et al. 2012, « Evidence that ship noise increases stress in right whales », Proceedings of the Royal Society B 279: 2363–2368 ; position approximative [S-r]",
+ "sounds": []
+}

@@ -272,6 +272,8 @@ export class AudioEngine {
     let weight = 0;
     for (const l of p.lieux) {
       p.listening.set(l.id, 0);
+      // Un lieu sans son ne masque pas un voisin qui en a un.
+      if (!l.sounds.length) continue;
       const d = listener.distance(l.center.lat, l.center.lon);
       const x = Number.isFinite(d) ? Math.max(0, Math.min(1, (0.55 - d) / 0.4)) : 0;
       const w = x * x * (3 - 2 * x);

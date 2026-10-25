@@ -1,0 +1,10 @@
+{
+ "id": "detroit-de-bering",
+ "title": "Détroit de Béring : un océan qui s'ouvre au bruit",
+ "center": { "lat": 65.8, "lon": -168.9 },
+ "radiusKm": 150,
+ "text": "La banquise recule et les navires montent vers l'Arctique : 37 % de navires en plus entre 2013 et 2023, et deux fois plus de milles parcourus. Le détroit de Béring, seule porte du Pacifique, est là où leur bruit est modélisé le plus fort, près des eaux où les baleines boréales chantent l'hiver.",
+ "status": "S",
+ "source": "PAME (Conseil de l'Arctique), Arctic Shipping Status Report, mise à jour 2024 (+37 % de navires distincts, distance parcourue +111 %, 2013–2023) ; Halliday et al. 2021 (bruit des navires modélisé 2015–2017, maximal dans le sud de la mer des Tchouktches, près du détroit) ; K. Stafford, hydrophones du détroit depuis 2009 [S-r]",
+ "sounds": []
+}

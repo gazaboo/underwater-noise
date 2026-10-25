@@ -1,0 +1,10 @@
+{
+ "id": "challenger-deep",
+ "title": "Fosse des Mariannes : même le fond n'est pas silencieux",
+ "center": { "lat": 11.37, "lon": 142.59 },
+ "radiusKm": 80,
+ "text": "À 10 854 m, au point le plus profond de l'océan, un hydrophone de la NOAA a écouté pendant trois semaines en 2015. On s'attendait au silence. Il a entendu des séismes, des baleines à fanons, des hélices de navires, des sonars, et un typhon de catégorie 4 passant non loin.",
+ "status": "S",
+ "source": "Dziak et al. 2017, « Ambient sound at Challenger Deep, Mariana Trench », Oceanography 30(2): 186–197 ; NOAA PMEL, « NOAA brings back first recordings from deepest part of the ocean » (2017)",
+ "sounds": []
+}

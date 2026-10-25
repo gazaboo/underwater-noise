@@ -25,7 +25,7 @@ try {
   await page.goto(`${url}?quality=expo`);
   await page.waitForFunction(() => window.vacarme && window.vacarme.whales && window.vacarme.warmupTotal > 0 && window.vacarme.warmupLeft === 0 && window.vacarme.lieux.lieux.length > 0, null, { timeout: 120000 });
   await page.mouse.click(30, 870); // geste utilisateur : démarre le son (clic dans le vide)
-  const lieux = await page.evaluate(() => window.vacarme.lieux.lieux.map((l) => ({ id: l.id, lat: l.center.lat, lon: l.center.lon, title: l.title })));
+  const lieux = await page.evaluate(() => window.vacarme.lieux.lieux.map((l) => ({ id: l.id, lat: l.center.lat, lon: l.center.lon, title: l.title, sounds: l.sounds.length })));
   console.log(`${lieux.length} lieux : ${lieux.map((l) => l.id).join(', ')}`);
   await page.waitForFunction(() => /enregistrements : \d+ espèce/.test(window.vacarme.audio.bank.status), null, { timeout: 60000 });
 
@@ -41,7 +41,7 @@ try {
     await page.screenshot({ path: `${out}/marqueurs-${name}.jpg`, type: 'jpeg', quality: 80 });
   }
 
-  // Chaque lieu au centre de la vue : on l'entend ; un clic sur son marqueur ouvre sa fiche. Carte plate si le lieu
+  // Chaque lieu au centre de la vue : on l'entend s'il a un son ; un clic sur son marqueur ouvre sa fiche. Carte plate si le lieu
   // est dans son cadre en latitude (view.flat), globe sinon (PALAOA, 70° S).
   for (const l of lieux) {
     const p = await page.evaluate(([lon, lat]) => {
@@ -59,7 +59,7 @@ try {
     }, [l.lon, l.lat]);
     await page.waitForTimeout(3000);
     const status = await page.evaluate(() => window.vacarme.audio.status.match(/lieu [^·]*/)?.[0]?.trim() ?? '');
-    if (!status.includes(l.id)) fail(`${l.id} : non entendu au centre de la vue (${status})`);
+    if (l.sounds && !status.includes(l.id)) fail(`${l.id} : non entendu au centre de la vue (${status})`);
     // Position réelle du marqueur sur la carte plate (la vue ne se centre pas toujours exactement).
     const at = p ?? await page.evaluate(([lon, lat]) => {
       const a = window.vacarme, v = a.lastView, c = a.renderer.domElement, r = c.width / c.clientWidth;
@@ -73,7 +73,8 @@ try {
     const title = await page.evaluate(() => (document.getElementById('fiche').hidden ? '' : document.querySelector('#fiche h2')?.firstChild?.textContent?.trim() ?? ''));
     if (title !== l.title) fail(`${l.id} : la fiche ne s'ouvre pas au clic (« ${title} »)`);
     console.log(`${l.id} : ${status} · fiche « ${title} »`);
-    if (l.id === 'glacier-bay') await page.screenshot({ path: `${out}/fiche-${l.id}.jpg`, type: 'jpeg', quality: 82 });
+    if (!l.sounds && !(await page.evaluate(() => document.querySelector('#fiche')?.textContent?.includes('Pas encore d\'enregistrement')))) fail(`${l.id} : fiche sans la mention « pas encore d'enregistrement »`);
+    if (l.id === 'glacier-bay' || l.id === 'challenger-deep') await page.screenshot({ path: `${out}/fiche-${l.id}.jpg`, type: 'jpeg', quality: 82 });
     await page.keyboard.press('Escape');
   }
 

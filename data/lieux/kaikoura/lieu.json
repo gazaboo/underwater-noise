@@ -1,0 +1,10 @@
+{
+ "id": "kaikoura",
+ "title": "Canyon de Kaikōura (Nouvelle-Zélande)",
+ "center": { "lat": -42.5, "lon": 173.75 },
+ "radiusKm": 40,
+ "text": "À un kilomètre du rivage, le fond plonge à 600 m, puis jusqu'à 2 000 m. Dans ce canyon, des cachalots mâles chassent toute l'année, si près de la côte qu'on les suit depuis la terre. Sur 27 ans de suivi, leur nombre en été a baissé.",
+ "status": "S-r",
+ "source": "Fiche IMMA « Kaikōura » (UICN, groupe de travail sur les aires de mammifères marins) ; suivi depuis la côte 2010–2012 (2015) ; photo-identification sur 27 ans (2021 : effectifs d'hiver stables, d'été en baisse) ; profondeurs du canyon [S-r]",
+ "sounds": []
+}

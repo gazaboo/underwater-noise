@@ -151,8 +151,8 @@ lecture du son, glissé, fermeture).
 
 ## Lieux à écouter
 
-Cinq lieux au paysage sonore remarquable (`data/lieux/`, issue #2), chacun avec de vrais enregistrements
-(provenance dans `MEDIAS.md`) :
+Vingt-sept lieux réels (`data/lieux/`, issue #2). Cinq ont de vrais enregistrements (provenance dans
+`MEDIAS.md`) :
 
 | Lieu | Ce qu'on entend | Source |
 |---|---|---|
@@ -162,10 +162,24 @@ Cinq lieux au paysage sonore remarquable (`data/lieux/`, issue #2), chacun avec 
 | Icebergs de la mer de Scotia | trémor harmonique, vêlage (accélérés ×3 par la source) | NOAA PMEL, domaine public |
 | Un volcan qu'on entend sans savoir où il est | éruption sous-marine de 1997 (accélérée ×16 par la source) | NOAA PMEL, domaine public |
 
+Les vingt-deux autres sont des **lieux à lire** : un fait sourcé sur le bruit ou l'écoute de l'océan, sans
+enregistrement diffusable pour l'instant (la fiche le dit). Statut et sources dans chaque `lieu.json` ; positions
+approximatives [S-r].
+
+| Thème | Lieux |
+|---|---|
+| Effet mesuré ou modélisé du bruit | Baie de Fundy (−6 dB après le 11 septembre 2001, moins d'hormones de stress), banc de Stellwagen (espace de communication −63 à −67 %, modèle), récif de Lizard Island (−15 dB après blanchissement), détroit de Béring (+37 % de navires dans l'Arctique) |
+| Solutions | mer des Salish (ralentissement ECHO), fosse hellénique (−70 %, modèle), sud du Sri Lanka (−95 %, modèle), sanctuaires Pelagos et Agoa |
+| Bruit humain impulsif | golfe du Mexique (canons à air) |
+| Écouter loin, écouter profond | Heard 1991 (16 000 km), fosse des Mariannes (10 854 m), ANTARES (cachalots, Toulon), canyon de Perth et cap Leeuwin |
+| Volcans | Fani Maoré (Mayotte, 2018), mont Axial (2015), West Mata (2009) |
+| Cétacés et hommes | détroit de Gibraltar (orques ibériques), Maui Nui (chœur des baleines à bosse), Açores (de la chasse à l'observation), Kaikōura (cachalots) |
+| Lacune | détroit de Malacca : beaucoup de navires, presque aucune étude sur nos cinq espèces |
+
 - **Marqueur** [A] : anneau d'écoute ivoire, à taille fixe à l'écran, dans tous les modes (même projection que
   les silhouettes des cétacés) ; ses ondes s'animent quand on entend le lieu. Un clic ouvre sa fiche (texte,
   paire de contraste, sons et spectrogrammes).
-- **Son** : on entend le lieu le plus proche du centre de la vue, un seul à la fois, poids 1 au centre et nul
+- **Son** : on entend le lieu sonore le plus proche du centre de la vue (les lieux à lire sont ignorés), un seul à la fois, poids 1 au centre et nul
   au-delà de 55 % du rayon de la vue [A]. Ses sons s'enchaînent en boucle.
 - **Masquage** [A] : clarté = 10^(−ΔL/20), où ΔL est le bruit ajouté par les navires au lieu, dans la bande la
   plus proche des sons du lieu ; même chaîne que les appels (filtre, niveau, hachage sous 0,3). Mesure du
@@ -175,7 +189,7 @@ Cinq lieux au paysage sonore remarquable (`data/lieux/`, issue #2), chacun avec 
 - La carte plate s'arrête à 62° S : PALAOA n'y figure pas ; on l'entend et on l'ouvre sur le globe.
 
 Vérification : `CHROMIUM_PATH=/chemin/chrome node scripts/verify-lieux.mjs` (marqueurs dans chaque mode, son
-au centre, fiche au clic, clarté rendue à 1 sans navires ; `RECORD_SEC=20` enregistre la sortie).
+au centre pour les lieux sonores, fiche au clic pour tous, clarté rendue à 1 sans navires ; `RECORD_SEC=20` enregistre la sortie).
 
 ## Navires
 

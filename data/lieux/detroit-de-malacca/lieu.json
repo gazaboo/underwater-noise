@@ -1,0 +1,10 @@
+{
+ "id": "detroit-de-malacca",
+ "title": "Détroit de Malacca : beaucoup de bruit, peu de savoir",
+ "center": { "lat": 3.2, "lon": 100.6 },
+ "radiusKm": 250,
+ "text": "Plus de 89 000 navires ont franchi les détroits de Malacca et de Singapour en 2023, un record. La carte y montre un bruit continu ; pourtant on n'y trouve presque aucune étude publiée sur nos cinq espèces. Ce lieu montre aussi ce qu'on ignore.",
+ "status": "S-r",
+ "source": "inforMARE, trafic des détroits de Malacca et de Singapour en 2023 (plus de 89 000 navires, +7,9 %) [S-r] ; absence d'études sur nos cinq espèces : audit du projet, docs/SOURCES_CANDIDATES.md §5 (seulement des études locales sur dauphins et marsouins, Langkawi et Penang) [S-r]",
+ "sounds": []
+}

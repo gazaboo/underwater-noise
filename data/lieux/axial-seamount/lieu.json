@@ -1,0 +1,10 @@
+{
+ "id": "axial-seamount",
+ "title": "Mont sous-marin Axial (Pacifique Nord-Est)",
+ "center": { "lat": 45.95, "lon": -130.0 },
+ "radiusKm": 60,
+ "text": "Le 24 avril 2015, ce volcan est entré en éruption sous les capteurs d'un observatoire câblé : une première. En une journée, environ 8 000 séismes, un fond qui s'affaisse de 2,4 m, et des hydrophones qui entendent des signaux semblables à des explosions.",
+ "status": "S",
+ "source": "Ocean Observatories Initiative, Regional Cabled Array, « OOI Team First to See April 24, 2015 Eruption of Axial Seamount » ; Rutgers OOI Data Lab, « 2015 Axial Seamount Eruption » ; position approximative [S-r]",
+ "sounds": []
+}

@@ -1,0 +1,10 @@
+{
+ "id": "hawaii-maui",
+ "title": "Maui Nui (Hawaï) : le chœur des baleines à bosse",
+ "center": { "lat": 20.85, "lon": -156.75 },
+ "radiusKm": 100,
+ "text": "De décembre à avril, les baleines à bosse du Pacifique Nord viennent se reproduire autour de Maui. Le chant des mâles devient alors le premier bruit de fond sous-marin en bien des endroits de l'archipel ; des enregistreurs posés sur le fond s'en servent pour suivre leur nombre.",
+ "status": "S",
+ "source": "NOAA, Hawaiian Islands Humpback Whale National Marine Sanctuary, « Acoustic Monitoring of Humpback Whale Chorusing » ; SanctSound 2018–2022 (Frontiers in Marine Science 2024 : paysage sonore dominé par le chant, pics de janvier à avril) ; position approximative [S-r]",
+ "sounds": []
+}
