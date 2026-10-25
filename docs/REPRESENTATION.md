@@ -166,6 +166,7 @@ relecture attend alors la file GPU (jusqu'à 2 s).
 npm run dev
 CHROMIUM_PATH=/chemin/chrome node scripts/verify-representation.mjs   # captures + temps d'image
 npm run test:propagation                                              # fronts bruts, inchangés
+CHROMIUM_PATH=/chemin/chrome node scripts/verify-audio.mjs           # sons des cétacés : chargement, sortie enregistrée, temps d'image
 ```
 
 Les captures de référence sont dans `docs/captures/representation/`.

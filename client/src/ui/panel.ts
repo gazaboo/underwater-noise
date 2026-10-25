@@ -168,6 +168,7 @@ export class Panel {
     au.addBinding(cfg.audio.bed, 'volume', { label: 'nappe', min: 0, max: 1, step: 0.01 });
     au.addBinding(cfg.audio.whales, 'volume', { label: 'cétacés', min: 0, max: 1, step: 0.01 });
     au.addBinding(cfg.audio.whales, 'voices', { label: 'appels simultanés', min: 0, max: 16, step: 1 });
+    au.addBinding(cfg.audio.whales, 'source', { label: 'appels', options: { 'vrais enregistrements': 'recorded', synthèse: 'synth' } });
     on(au, 'audio');
 
     const land = pane.addFolder({ title: 'Terres', expanded: false });

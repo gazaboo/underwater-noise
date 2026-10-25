@@ -155,6 +155,17 @@ def prepare(x: np.ndarray, sr: int, p: dict) -> np.ndarray:
     return (y / peak * 10 ** (p.get("peakDb", -3) / 20)).astype(np.float32)
 
 
+def active_level(y: np.ndarray, sr: int) -> float:
+    """Niveau actif (dBFS) : 90e centile des niveaux RMS sur des trames de 100 ms [E].
+
+    Le RMS global sous-estime les sons épars (clics de cachalot, impulsions de rorqual commun) ; le lecteur
+    compense vers un niveau de référence commun à partir de cette mesure (`levelDbfs` du catalogue)."""
+    n = max(1, sr // 10)
+    m = max(1, len(y) // n)
+    frames = np.sqrt(np.mean(y[: m * n].reshape(m, n) ** 2, axis=1) + 1e-20)
+    return float(20 * np.log10(np.percentile(frames, 90)))
+
+
 def bitrates(sr: int) -> tuple[str, str]:
     """(Opus, AAC). Les sources décimées (≤ 4 kHz, infrasons) n'ont rien au-delà de 2 kHz : 16 kbit/s suffisent
     (écart < 0,1 dB à 43 et 85 Hz, mesuré sur le rorqual bleu)."""
@@ -166,7 +177,8 @@ def encode(y: np.ndarray, sr: int, base: Path) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         wav = Path(tmp) / "x.wav"
         wavfile.write(wav, sr, y)
-        common = ["ffmpeg", "-v", "error", "-y", "-i", str(wav), "-ac", "1", "-map_metadata", "-1"]
+        common = ["ffmpeg", "-v", "error", "-y", "-i", str(wav), "-ac", "1", "-map_metadata", "-1",
+                  "-fflags", "+bitexact", "-flags:a", "+bitexact"]  # fichiers reproductibles (git)
         subprocess.run([*common, "-c:a", "libopus", "-b:a", opus, "-ar", "48000", str(base.with_suffix(".ogg"))], check=True)
         subprocess.run([*common, "-c:a", "aac", "-b:a", aac, "-ar", "44100", str(base.with_suffix(".m4a"))], check=True)
 
@@ -198,6 +210,7 @@ def build(s: dict) -> dict:
         "files": {"ogg": f"sons/{sid}.ogg", "m4a": f"sons/{sid}.m4a"},
         "durationSec": round(len(y) / sr, 2),
         "sampleRateHz": sr,
+        "levelDbfs": round(active_level(y, sr), 1),
         "origin": s["origin"],
         "license": s["license"],
         "credit": s["credit"],
@@ -217,10 +230,11 @@ def write_doc(items: list[dict]) -> None:
         "Fichier **généré** par `tools/build_media.py` à partir de `tools/media_sources.json5` : ne pas le modifier",
         "à la main. Chaque son est un extrait de vrai enregistrement, gardé à sa hauteur d'origine. Le spectrogramme",
         "est calculé sur l'extrait original, avant filtrage. Les transpositions des infrasons se font à la lecture",
-        "(`audio.whales.transpose`) et sont des choix artistiques [A]. Statuts : voir `REVUE_SCIENTIFIQUE.md`.",
+        "(`audio.whales.transpose`) et sont des choix artistiques [A]. Le niveau actif (90e centile des trames de",
+        "100 ms) sert à égaliser les espèces à la lecture [E]. Statuts : voir `REVUE_SCIENTIFIQUE.md`.",
         "",
-        "| Son | Sujet | Source | Date, lieu | Licence | Transformations | Remarques |",
-        "|---|---|---|---|---|---|---|",
+        "| Son | Sujet | Source | Date, lieu | Licence | Transformations | Niveau actif | Remarques |",
+        "|---|---|---|---|---|---|---|---|",
     ]
     for m in items:
         subject = m["subject"].get("species") or f"lieu `{m['subject'].get('lieu')}`"
@@ -229,7 +243,7 @@ def write_doc(items: list[dict]) -> None:
         tr = " ; ".join(f"{t['op']} ({t['detail']}) [{t['status']}]" for t in m["transforms"])
         lines.append(
             f"| `{m['id']}` : {cell(m['title'])}, {m['durationSec']} s | {cell(subject)} | [{cell(o['source'])}]({o['url']}) ; "
-            f"{cell(o['instrument'])} | {cell(when)} | {cell(m['license'])} | {cell(tr)} | {cell(m.get('notes', ''))} |")
+            f"{cell(o['instrument'])} | {cell(when)} | {cell(m['license'])} | {cell(tr)} | {m['levelDbfs']} dBFS | {cell(m.get('notes', ''))} |")
     lines += ["", "## Crédits", ""] + sorted({f"- {m['credit']}" for m in items}) + [""]
     (ROOT / "docs" / "MEDIAS.md").write_text("\n".join(lines), encoding="utf-8")
 

@@ -439,7 +439,14 @@
       voices: 4, // appels simultanés au plus
       answerDelaySec: 0.6, // pause avant de répondre, une fois l'appel arrivé le long du fil (lien rompu : pas de réponse)
       // Facteur de fréquence : rorquals ×5 (leurs 15–25 Hz deviennent 75–125 Hz), les autres tels quels.
+      // Pour les enregistrements, c'est la vitesse de lecture : hauteur et durée changent ensemble [A].
       transpose: { blue: 5, fin: 5, humpback: 1, sperm: 1, orca: 1 },
+      // 'recorded' : vrais enregistrements (data/media, provenance dans docs/MEDIAS.md), synthèse en repli
+      // si un fichier manque ; 'synth' : appels synthétisés seulement.
+      source: 'recorded',
+      // Durée jouée par appel (s réelles) : une fenêtre tirée au hasard dans l'extrait [A]. Proche des appels
+      // synthétisés ; bleu : une phrase A + B entière une fois transposée (84 s / 5).
+      maxCallSec: { blue: 17, fin: 7, humpback: 8, sperm: 4, orca: 2 },
     },
   },
 
