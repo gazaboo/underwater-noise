@@ -24,7 +24,7 @@ infrasons (`audio.whales.transpose`) se fait à la lecture et reste un choix art
 Pour chaque photo (section `photos`, fichiers de Wikimedia Commons) : auteur, licence et date sont lus dans les
 métadonnées de Commons (jamais recopiés à la main), vignette de 960 px convertie en WebP.
 
-Sortie : data/media/sons/<id>.ogg, .m4a, <id>.spectro.png, data/media/photos/<id>.webp, data/media/catalog.json (vérifié par
+Sortie : data/media/sons/<id>.ogg, .m4a, <id>.spectro.webp, data/media/photos/<id>.webp, data/media/catalog.json (vérifié par
 shared/test/media.test.ts) et docs/MEDIAS.md (table de provenance).
 
 Usage :
@@ -143,7 +143,7 @@ def spectrogram(x: np.ndarray, sr: int, fmin: float, fmax: float, out: Path) -> 
     db = 10 * np.log10(s[keep] + 1e-20)
     lo, hi = np.percentile(db, 5), np.percentile(db, 99.7)
     img = np.clip((db - lo) / max(hi - lo, 1e-6), 0, 1)[::-1]
-    Image.fromarray((img * 255).astype(np.uint8), "L").resize((SPECTRO_W, SPECTRO_H), Image.BILINEAR).save(out, optimize=True)
+    Image.fromarray((img * 255).astype(np.uint8), "L").resize((SPECTRO_W, SPECTRO_H), Image.BILINEAR).save(out, "WEBP", quality=75, method=6)
 
 
 def prepare(x: np.ndarray, sr: int, p: dict) -> np.ndarray:
@@ -172,14 +172,18 @@ def active_level(y: np.ndarray, sr: int) -> float:
     return float(20 * np.log10(np.percentile(frames, 90)))
 
 
-def bitrates(sr: int) -> tuple[str, str]:
-    """(Opus, AAC). Les sources décimées (≤ 4 kHz, infrasons) n'ont rien au-delà de 2 kHz : 16 kbit/s suffisent
-    (écart < 0,1 dB à 43 et 85 Hz, mesuré sur le rorqual bleu)."""
-    return ("16k", "24k") if sr <= 4000 else ("48k", "64k")
+def bitrates(bandwidth_hz: float) -> tuple[str, str]:
+    """(Opus, AAC) selon la bande utile (passe-bas ou moitié de la fréquence d'échantillonnage). Rien au-delà de
+    2 kHz : 16 kbit/s suffisent (écart < 0,1 dB à 43 et 85 Hz, mesuré sur le rorqual bleu)."""
+    return ("16k", "24k") if bandwidth_hz <= 2000 else ("48k", "64k")
 
 
-def encode(y: np.ndarray, sr: int, base: Path) -> None:
-    opus, aac = bitrates(sr)
+def bandwidth(sr: int, p: dict) -> float:
+    return min(sr / 2, p.get("lowpassHz") or sr / 2)
+
+
+def encode(y: np.ndarray, sr: int, base: Path, band: float) -> None:
+    opus, aac = bitrates(band)
     with tempfile.TemporaryDirectory() as tmp:
         wav = Path(tmp) / "x.wav"
         wavfile.write(wav, sr, y)
@@ -197,16 +201,18 @@ def build(s: dict) -> dict:
     if len(x) < sr * 0.2:
         raise ValueError(f"{sid} : extrait trop court ({len(x) / sr:.2f} s)")
     view = s["spectrogram"]
-    spectrogram(x, sr, view["fMinHz"], view["fMaxHz"], SOUNDS / f"{sid}.spectro.png")
+    spectrogram(x, sr, view["fMinHz"], view["fMaxHz"], SOUNDS / f"{sid}.spectro.webp")
     y = prepare(x, sr, p)
-    encode(y, sr, SOUNDS / sid)
-    transforms = [{"op": "découpe", "detail": f"{len(x) / sr:.1f} s", "status": "S"}]
+    encode(y, sr, SOUNDS / sid, bandwidth(sr, p))
+    # Transformations déjà faites par la source (accélération des infrasons, filtres) : dites telles quelles.
+    transforms = [{"op": "par la source", "detail": d, "status": "A"} for d in s.get("sourceTransforms", [])]
+    transforms.append({"op": "découpe", "detail": f"{len(x) / sr:.1f} s", "status": "S"})
     if p.get("highpassHz"):
         transforms.append({"op": "passe-haut", "detail": f"{p['highpassHz']} Hz, ordre 4", "status": "E"})
     if p.get("lowpassHz"):
         transforms.append({"op": "passe-bas", "detail": f"{p['lowpassHz']} Hz, ordre 4", "status": "E"})
     transforms.append({"op": "normalisation", "detail": f"crête à {p.get('peakDb', -3)} dBFS, fondus {p.get('fadeMs', 50)} ms", "status": "E"})
-    opus, aac = bitrates(sr)
+    opus, aac = bitrates(bandwidth(sr, p))
     transforms.append({"op": "encodage", "detail": f"Opus {opus}bit/s (.ogg), AAC {aac}bit/s (.m4a)", "status": "E"})
     return {
         "id": sid,
@@ -221,7 +227,7 @@ def build(s: dict) -> dict:
         "license": s["license"],
         "credit": s["credit"],
         "transforms": transforms,
-        "spectrogram": {"file": f"sons/{sid}.spectro.png", **view, "computedOn": "original"},
+        "spectrogram": {"file": f"sons/{sid}.spectro.webp", **view, "computedOn": "original"},
         "notes": s.get("notes", ""),
         "status": s.get("status", "S"),
     }

@@ -504,6 +504,10 @@ Ce qui reste un choix, pour les enregistrements :
 - chaque enregistrement contient déjà le bruit de son océan d'origine : un appel « propre » n'existe pas.
   On a choisi des extraits où l'appel domine nettement.
 
+- **lieux à écouter** (`data/lieux`) : vrais enregistrements [S] ; leur clarté vaut 10^(−ΔL/20), ΔL étant le
+  bruit ajouté au lieu [A] (image d'une portée qui diminue en propagation sphérique, pas une mesure) ; les
+  accélérations faites par les sources (×3, ×16) et la transposition des sons de Monterey (×4) sont [A].
+
 Le « masquage » (filtrage, baisse de niveau, hachage sous une clarté de 0,3) reste une **métaphore** de la
 réduction de portée [A], appliquée de la même façon aux appels enregistrés et synthétisés. Ce n'est pas une
 simulation psychoacoustique.

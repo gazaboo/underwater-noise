@@ -76,6 +76,7 @@ export class Panel {
     noise.addBinding(cfg.noise, 'style', { label: 'style', options: { 'isophones animées': 'isophones', 'carte météo': 'meteo', encre: 'encre', 'fronts bruts': 'fronts' } });
     noise.addBinding(cfg.noise, 'visible', { label: 'nappe affichée' });
     noise.addBinding(cfg, 'scenario', { label: 'scénario', options: { actuel: 'actuel', 'océan sans navires': 'sans-navires' } });
+    noise.addBinding(cfg.lieux, 'enabled', { label: 'lieux à écouter' });
     noise.addBinding(cfg.waves, 'band', { label: 'bande affichée', options: Object.fromEntries(cfg.bands.map(b => [`${b.fMin}–${b.fMax} Hz`, b.id])) });
     noise.addBinding(cfg.noise, 'opacity', { label: 'opacité de la nappe', min: 0, max: 1, step: 0.01 });
     noise.addBinding(cfg.noise, 'lines', { label: 'lignes / traits', min: 0, max: 1, step: 0.01 });
@@ -171,6 +172,7 @@ export class Panel {
     au.addBinding(cfg.audio.whales, 'volume', { label: 'cétacés', min: 0, max: 1, step: 0.01 });
     au.addBinding(cfg.audio.whales, 'voices', { label: 'appels simultanés', min: 0, max: 16, step: 1 });
     au.addBinding(cfg.audio.whales, 'source', { label: 'appels', options: { 'vrais enregistrements': 'recorded', synthèse: 'synth' } });
+    au.addBinding(cfg.audio.lieux, 'volume', { label: 'lieux', min: 0, max: 1, step: 0.01 });
     on(au, 'audio');
 
     const land = pane.addFolder({ title: 'Terres', expanded: false });

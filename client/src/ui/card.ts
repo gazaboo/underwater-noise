@@ -1,11 +1,12 @@
 /**
- * Fiche espèce, ouverte au clic (ou au toucher) sur un groupe de cétacés : photo, faits étiquetés, portée de
- * communication du groupe choisi, vrais enregistrements avec spectrogramme, crédits.
+ * Fiche ouverte au clic (ou au toucher) : sur un groupe de cétacés, photo, faits étiquetés, portée de
+ * communication du groupe choisi ; sur un lieu, son texte et sa paire de contraste. Dans les deux cas, les vrais
+ * enregistrements avec leur spectrogramme, et les crédits.
  *
  * Données : data/fiches/especes.json et data/media/catalog.json (schémas dans shared/src/media-schema.ts).
  * Chaque valeur affiche son statut ([S], [S-r], [C]…) ; la source est dans l'infobulle et en bas de fiche.
  */
-import { FACT_LABELS, STATUS_LABELS, type Config, type MediaItem, type SoundItem, type SpeciesCard as CardData, type ValueStatus } from '@vacarme/shared';
+import { FACT_LABELS, STATUS_LABELS, type Config, type Lieu, type MediaItem, type SoundItem, type SpeciesCard as CardData, type ValueStatus } from '@vacarme/shared';
 import { dataUrl } from '../data-url.ts';
 import type { WhaleGroup } from '../whales/agents.ts';
 
@@ -75,19 +76,41 @@ export class SpeciesCardPanel {
       <p class="fc-note">Un groupe affiché est une présence plausible, pas un animal suivi : une vraie espèce, dans un habitat où on la sait présente, près d'endroits où elle a été vue ${badge('A', 'docs/REPRESENTATION.md, « Ce que représentent les cétacés »')}</p>
       <section class="fc-range"></section>
       <dl>${facts}</dl>
-      ${sounds.map((s, i) => `
-        <section class="fc-sound">
-          <button type="button" data-sound="${i}">▶ Écouter</button> <span>${esc(s.title)}</span>
-          <div class="fc-spectro"><canvas width="640" height="160" data-spectro="${i}"></canvas><i></i>
-            <small class="fc-axis">${s.spectrogram.fMaxHz.toLocaleString('fr-FR')} Hz</small><small class="fc-axis fc-low">${s.spectrogram.fMinHz} Hz · ${s.durationSec.toLocaleString('fr-FR')} s</small></div>
-          <p class="fc-note">${esc(s.origin.place)}${s.origin.recordedAt ? `, ${esc(s.origin.recordedAt.slice(0, 10))}` : ''} · spectrogramme de l'enregistrement original ${badge('S', s.credit)}
-          ${transpose !== 1 ? `<br>Lu ×${transpose} : plus aigu et plus court, pour être audible ${badge('A', 'audio.whales.transpose')}` : ''}</p>
-        </section>`).join('')}
+      ${soundsHtml(sounds, transpose)}
       <details class="fc-credits"><summary>Sources et crédits</summary>
         <ul>${[...sources, ...sounds.map((s) => s.credit), ...(photo ? [photo.credit] : [])].map((s) => `<li>${esc(s)}</li>`).join('')}</ul>
         <p>Statuts : ${(['S', 'S-r', 'C', 'A'] as ValueStatus[]).map((s) => `${badge(s)} ${STATUS_LABELS[s]}`).join(' · ')}</p>
       </details>`;
     this.range = this.element.querySelector('.fc-range');
+    this.show(sounds, color, transpose);
+    this.update();
+    return true;
+  }
+
+  /** Ouvre la fiche d'un lieu : texte, paire de contraste, vrais enregistrements, sources. */
+  openLieu(lieu: Lieu, cfg: Config): void {
+    this.stopSound();
+    this.group = null;
+    this.range = null;
+    const sounds = lieu.sounds.map((id) => this.media.get(id)).filter((m): m is SoundItem => m?.kind === 'son');
+    const order = lieu.contrast ? [lieu.contrast.quiet, lieu.contrast.noisy] : [];
+    sounds.sort((a, b) => (order.indexOf(a.id) + 1 || 99) - (order.indexOf(b.id) + 1 || 99));
+    const color = cfg.lieux.color;
+    this.element.style.setProperty('--sp', color);
+    this.element.innerHTML = `
+      <button type="button" class="fc-close" aria-label="Fermer la fiche">×</button>
+      <h2>${esc(lieu.title)} <small>${Math.abs(lieu.center.lat).toFixed(1)}° ${lieu.center.lat >= 0 ? 'N' : 'S'}, ${Math.abs(lieu.center.lon).toFixed(1)}° ${lieu.center.lon >= 0 ? 'E' : 'O'}</small></h2>
+      <p>${esc(lieu.text)} ${badge(lieu.status, lieu.source)}</p>
+      <p class="fc-note">On entend ce lieu en approchant le centre de la vue ; le bruit des navires au même endroit l'étouffe ou le hache ${badge('A', 'même métaphore que pour les appels des cétacés (docs/REVUE_SCIENTIFIQUE.md §8)')}</p>
+      ${lieu.contrast ? `<section class="fc-contrast"><h3>Écouter la différence</h3><p class="fc-note">${esc(lieu.contrast.text)}</p></section>` : ''}
+      ${soundsHtml(sounds, lieu.playbackRate ?? 1)}
+      <details class="fc-credits"><summary>Sources et crédits</summary>
+        <ul>${[lieu.source, ...new Set(sounds.map((s) => s.credit))].map((s) => `<li>${esc(s)}</li>`).join('')}</ul>
+      </details>`;
+    this.show(sounds, color, lieu.playbackRate ?? 1);
+  }
+
+  private show(sounds: SoundItem[], color: string, transpose: number): void {
     this.element.querySelector('.fc-close')!.addEventListener('click', () => this.close());
     sounds.forEach((s, i) => {
       const canvas = this.element.querySelector<HTMLCanvasElement>(`[data-spectro="${i}"]`)!;
@@ -95,10 +118,9 @@ export class SpeciesCardPanel {
       this.element.querySelector<HTMLButtonElement>(`[data-sound="${i}"]`)!.addEventListener('click', (e) =>
         this.toggleSound(e.currentTarget as HTMLButtonElement, s, transpose, canvas.parentElement!.querySelector('i')!));
     });
+    this.element.scrollTop = 0;
     this.element.hidden = false;
     document.body.classList.add('fiche-open');
-    this.update();
-    return true;
   }
 
   close(): void {
@@ -156,6 +178,23 @@ export class SpeciesCardPanel {
     for (const b of this.element.querySelectorAll<HTMLButtonElement>('[data-sound]')) b.textContent = '▶ Écouter';
     for (const c of this.element.querySelectorAll<HTMLElement>('.fc-spectro i')) c.style.left = '0';
   }
+}
+
+/** Sons avec spectrogramme, curseur, provenance et transformations (dont celles faites par la source). */
+function soundsHtml(sounds: SoundItem[], transpose: number): string {
+  return sounds.map((s, i) => {
+    const bySource = s.transforms.filter((x) => x.op === 'par la source').map((x) => x.detail);
+    return `
+        <section class="fc-sound">
+          <button type="button" data-sound="${i}">▶ Écouter</button> <span>${esc(s.title)}</span>
+          <div class="fc-spectro"><canvas width="640" height="160" data-spectro="${i}"></canvas><i></i>
+            <small class="fc-axis">${s.spectrogram.fMaxHz.toLocaleString('fr-FR')} Hz</small><small class="fc-axis fc-low">${s.spectrogram.fMinHz} Hz · ${s.durationSec.toLocaleString('fr-FR')} s</small></div>
+          <p class="fc-note">${esc(s.origin.place)}${s.origin.recordedAt ? `, ${esc(s.origin.recordedAt.slice(0, 10))}` : ''} · spectrogramme du fichier diffusé par la source ${badge('S', s.credit)}
+          ${bySource.length ? `<br>${esc(bySource.join(' ; '))} ${badge('A', 'transformation faite par la source, avant nous')}` : ''}
+          ${transpose !== 1 ? `<br>Lu ×${transpose} : plus aigu et plus court, pour être audible ${badge('A', 'transposition à la lecture (audio.whales.transpose ou playbackRate du lieu)')}` : ''}
+          ${s.notes ? `<br>${esc(s.notes)}` : ''}</p>
+        </section>`;
+  }).join('');
 }
 
 /** Spectrogramme en niveaux de gris → teinte de l'espèce sur fond sombre. */

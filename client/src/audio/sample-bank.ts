@@ -17,6 +17,7 @@ function formats(): ('ogg' | 'm4a')[] {
 
 export class SampleBank {
   private readonly bySpecies = new Map<string, { item: SoundItem; buffer: AudioBuffer }[]>();
+  private readonly byLieu = new Map<string, { item: SoundItem; buffer: AudioBuffer }[]>();
   private loading: Promise<void> | null = null;
   /** Lisible pour le diagnostic. */
   status = 'enregistrements : non chargés';
@@ -40,18 +41,19 @@ export class SampleBank {
       this.status = `enregistrements : catalogue absent (${String(err)}), synthèse`;
       return;
     }
-    const sounds = catalog.items.filter((m): m is SoundItem => m.kind === 'son' && 'species' in m.subject);
+    const all = catalog.items.filter((m): m is SoundItem => m.kind === 'son');
+    const sounds = all.filter((m) => 'species' in m.subject);
     const order = formats();
-    await Promise.all(sounds.map(async (item) => {
+    await Promise.all(all.map(async (item) => {
       for (const ext of order) {
         try {
           const r = await this.fetcher(dataUrl(`media/${item.files[ext]}`));
           if (!r.ok) continue;
           const buffer = await ctx.decodeAudioData(await r.arrayBuffer());
-          const species = (item.subject as { species: string }).species;
-          const list = this.bySpecies.get(species) ?? [];
+          const [map, key] = 'species' in item.subject ? [this.bySpecies, item.subject.species] : [this.byLieu, item.subject.lieu];
+          const list = map.get(key) ?? [];
           list.push({ item, buffer });
-          this.bySpecies.set(species, list);
+          map.set(key, list);
           return;
         } catch { /* format suivant */ }
       }
@@ -66,6 +68,11 @@ export class SampleBank {
     if (!list?.length) return null;
     const { buffer, item } = list[Math.floor(Math.random() * list.length)];
     return { buffer, levelDbfs: item.levelDbfs };
+  }
+
+  /** Sons décodés d'un lieu. */
+  lieu(id: string): { buffer: AudioBuffer; levelDbfs: number; item: SoundItem }[] {
+    return (this.byLieu.get(id) ?? []).map(({ buffer, item }) => ({ buffer, levelDbfs: item.levelDbfs, item }));
   }
 
   /** Espèces disposant d'au moins un enregistrement décodé. */

@@ -117,6 +117,7 @@ npm run build && npm start   # http://localhost:8787
 | `V` | représentation du bruit : isophones → météo → encre → fronts bruts → nappe masquée |
 | `S` | scénario : trafic actuel ↔ océan sans navires (calculé) |
 | clic sur un cétacé | fiche de l'espèce : photo, portée du groupe, faits sourcés, vrais enregistrements (`Échap` ferme) |
+| clic sur un lieu (anneau ivoire) | fiche du lieu : texte, paire de contraste, vrais enregistrements ; on entend le lieu le plus proche du centre de la vue |
 | `B` | champ physique en dB (isolignes tous les 10 dB) : accumulé → basse → moyenne → haute → rendu |
 | `M` | couper / rétablir le son |
 | `G` | carte plate ↔ globe (globe : glisser = tourner, molette = zoom) |

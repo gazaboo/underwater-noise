@@ -19,7 +19,7 @@ const SPECIES = new Set(config.whales.species.map((s) => s.id));
 
 const catalog = mediaCatalog.parse(read('media/catalog.json'));
 const byId = new Map(catalog.items.map((m) => [m.id, m]));
-const lieuIds = existsSync(join(DATA, 'lieux', 'index.json')) ? lieuIndex.parse(read('lieux/index.json')).lieux : [];
+const lieuIds = existsSync(join(DATA, 'lieux', 'liste.json')) ? lieuIndex.parse(read('lieux/liste.json')).lieux : [];
 
 describe('catalogue des médias', () => {
   it('identifiants uniques', () => {
@@ -67,6 +67,7 @@ describe('lieux', () => {
         expect(m!.subject, `${id} : son ${s}`).toEqual({ lieu: id });
       }
       if (l.pair) expect(lieuIds).toContain(l.pair);
+      if (l.contrast) for (const s of [l.contrast.quiet, l.contrast.noisy]) expect(l.sounds, `${id} : contraste ${s}`).toContain(s);
     });
   }
 });
