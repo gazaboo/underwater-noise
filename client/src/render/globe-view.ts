@@ -19,6 +19,7 @@ import * as THREE from 'three';
 import { PAPER_GLSL } from './paper.ts';
 import type { Config } from '@vacarme/shared';
 import { FullscreenPass, rawMaterial } from './fullscreen.ts';
+import { Pinch } from '../ui/pinch.ts';
 
 export type GlobeMode = 'globe' | 'hemisphere' | 'equirect' | 'fisheye';
 const MODE_INDEX: Record<GlobeMode, number> = { globe: 1, hemisphere: 2, equirect: 3, fisheye: 4 };
@@ -359,14 +360,19 @@ export class GlobeController {
     }
   }
 
-  /** Interactions à l'écran : glisser = tourner, molette = zoomer. */
+  /** Interactions à l'écran : glisser = tourner, molette ou pincement = zoomer. */
   install(canvas: HTMLCanvasElement, active: () => boolean): void {
+    const pinch = new Pinch(canvas, (factor) => {
+      if (!active()) return;
+      this.dragging = null;
+      this.zoom = Math.max(0.5, Math.min(4, this.zoom * factor));
+    });
     canvas.addEventListener('pointerdown', (e) => {
       if (!active() || e.button !== 0) return;
       this.dragging = { x: e.clientX, y: e.clientY };
     });
     canvas.addEventListener('pointermove', (e) => {
-      if (!active() || !this.dragging) return;
+      if (!active() || !this.dragging || pinch.active) return;
       const k = 0.25 / this.zoom;
       this.facingLon -= (e.clientX - this.dragging.x) * k;
       this.userLat += (e.clientY - this.dragging.y) * k;

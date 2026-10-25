@@ -35,6 +35,11 @@ export class Legend {
     document.body.append(this.element);
   }
 
+  /** Replie ou déplie la légende (titre seul) ; renvoie vrai si elle est dépliée. */
+  toggle(force?: boolean): boolean {
+    return !this.element.classList.toggle('collapsed', force === undefined ? undefined : !force);
+  }
+
   /** `cfg` déjà thématisé (palette du jour appliquée) ; `ageSec` : histoire simulée après le préchauffage. */
   update(cfg: Config, scale: number, ageSec: number, warmupMin: number, warmupDone: boolean, stale: boolean): void {
     const mode = cfg.display.mode;

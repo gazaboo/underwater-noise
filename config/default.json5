@@ -197,6 +197,12 @@
       render: { renderScale: 1.0, vignette: 0.0, gamma: 1.1 },
       view: { flat: { fit: 'contain' } },
     },
+    // Page web autonome (téléphone, tablette, ordinateur) : profil léger, moins de traînées d'encre.
+    web: {
+      quality: 'light',
+      noise: { inkParticles: 8000 },
+      render: { renderScale: 0.6, vignette: 0.2 },
+    },
   },
 
   // Une seule horloge pour le replay, les sources synthétiques, les fronts et les cétacés.

@@ -6,7 +6,7 @@
     <title>La carte du vacarme</title>
     <style>
       html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-      canvas { display: block; width: 100vw; height: 100vh; }
+      canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
       body.idle, body.idle * { cursor: none !important; }
       #hud {
         position: fixed; left: 12px; bottom: 12px; padding: 8px 10px; display: none;
@@ -38,6 +38,14 @@
       #legend .lg-species small { opacity: .65; }
       #legend .lg-tags, #propagation { margin-top: 6px; font-size: .75em; }
       #science[open] ~ #legend { display: none; }
+      #legend.collapsed > :not(.lg-title) { display: none; }
+      #toolbar { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: calc(100vw - 24px); z-index: 5; }
+      #toolbar button { font: 600 13px/1 system-ui, sans-serif; padding: 9px 12px; border-radius: 18px; border: 1px solid #ffffff33; background: rgba(6, 12, 18, .8); color: #e4ebef; }
+      @media (max-width: 700px) {
+        #legend { left: 12px; right: 12px; bottom: auto; top: 12px; max-width: none; font-size: 12px; }
+        #science { display: none; }
+        .tp-dfwv { display: none; }
+      }
       #science { position: fixed; top: 12px; left: 12px; z-index: 10; max-width: min(440px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow: auto; padding: 10px 12px; border: 1px solid #526777; border-radius: 5px; color: #d6e2e8; background: rgba(8, 18, 27, .94); font: 12px/1.5 system-ui, sans-serif; }
       #science[open] ~ #propagation { display: none; }
       #science summary { cursor: pointer; font-weight: 600; }

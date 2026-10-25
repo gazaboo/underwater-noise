@@ -12,6 +12,7 @@
   "scripts": {
     "dev": "concurrently -k -n server,client -c blue,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
     "build": "npm run build -w client",
+    "build:web": "node --import tsx scripts/build-web.ts",
     "start": "npm run start -w server",
     "expo": "bash scripts/expo.sh",
     "test": "vitest run",

@@ -96,8 +96,36 @@ const illustrated = z.object({
   ripples: z.object({ enabled: z.boolean(), spacingPx: z.number().min(2).max(40), strength: unit }),
 });
 
-/** Surcharges propres à une cible d'affichage (écran du portable / projecteur). */
+/**
+ * Représentation du bruit ajouté par les navires, ΔL = 10·log10(1 + E_navires / E_naturel) dans la bande
+ * `waves.band`. La forme vient du champ calculé [C] ; paliers, couleurs et mouvement sont artistiques [A].
+ */
+const noiseSchema = z.object({
+  /** isophones : nappe en paliers + lignes d'égal niveau qui défilent ; meteo : nappe seule, immobile ;
+   *  encre : traînées émises par les navires le long du gradient ; fronts : fronts bruts du modèle. */
+  style: z.enum(['isophones', 'meteo', 'encre', 'fronts']).default('isophones'),
+  /** Lissage d'affichage de l'énergie (s, temps de la scène) : supprime le pompage de la moyenne courte. */
+  smoothSec: z.number().min(1).max(600).default(45),
+  /** Régime établi supposé avant le début de l'histoire (minutes de scène, navires immobiles). 0 = aucun. */
+  warmupMinutes: z.number().min(0).max(120).default(20),
+  /** Paliers de la nappe (dB au-dessus du fond naturel). */
+  steps: z.tuple([z.number(), z.number(), z.number()]).default([10, 20, 30]),
+  /** Écart entre deux lignes d'égal niveau (dB) et leur défilement (lignes par seconde réelle). */
+  lineStepDb: z.number().min(0.5).max(20).default(5),
+  lineSpeed: z.number().min(0).max(5).default(0.35),
+  /** Opacité de la nappe et intensité des lignes. */
+  opacity: unit.default(0.8),
+  lines: unit.default(0.55),
+  /** Encre : nombre de traînées et durée de vie (s réelles). */
+  inkParticles: z.number().int().min(0).max(100000).default(24000),
+  inkLifeSec: z.number().min(1).max(60).default(9),
+}).default({});
+
+/** Surcharges propres à une cible d'affichage (écran du portable / projecteur / web autonome). */
 const targetOverride = z.object({
+  /** Profil de qualité imposé par la cible (web : appareils modestes). */
+  quality: z.enum(['expo', 'light']).optional(),
+  noise: z.object({ inkParticles: z.number().int().min(0).max(100000) }).partial().optional(),
   render: render.partial().optional(),
   palette: palette.partial().optional(),
   view: z.object({ flat: flatView.partial().optional() }).partial().optional(),
@@ -111,7 +139,8 @@ export const configSchema = z.object({
   }).default({}),
   playback: z.object({ timeScale: z.number().min(1).max(100).default(1) }).default({}),
   display: z.object({
-    target: z.enum(['screen', 'projector']),
+    /** screen : écran du portable ; projector : vidéoprojecteur ; web : page autonome (téléphone, ordinateur). */
+    target: z.enum(['screen', 'projector', 'web']),
     /** flat : carte plate ; globe : globe à l'écran ; hemisphere : demi-sphère éclairée par un projecteur ;
      *  equirect : texture « monde » brute (TouchDesigner, MapMap) ; fisheye : projection azimutale. */
     mode: z.enum(['flat', 'globe', 'hemisphere', 'equirect', 'fisheye']),
@@ -165,7 +194,7 @@ export const configSchema = z.object({
     fovDeg: z.number().min(60).max(360),
     model: z.enum(['equidistant', 'equisolid']),
   }),
-  targets: z.object({ screen: targetOverride, projector: targetOverride }),
+  targets: z.object({ screen: targetOverride, projector: targetOverride, web: targetOverride.default({}) }),
   waves: z.object({
     /** Bande dont les fronts et l'augmentation sur le fond sont affichés. */
     band: z.enum(['low', 'mid', 'high']).default('low'),
@@ -173,30 +202,7 @@ export const configSchema = z.object({
     brightness: z.number().min(0).max(20),
     relief: unit,
   }),
-  /**
-   * Représentation du bruit ajouté par les navires, ΔL = 10·log10(1 + E_navires / E_naturel) dans la bande
-   * `waves.band`. La forme vient du champ calculé [C] ; paliers, couleurs et mouvement sont artistiques [A].
-   */
-  noise: z.object({
-    /** isophones : nappe en paliers + lignes d'égal niveau qui défilent ; meteo : nappe seule, immobile ;
-     *  encre : traînées émises par les navires le long du gradient ; fronts : fronts bruts du modèle. */
-    style: z.enum(['isophones', 'meteo', 'encre', 'fronts']).default('isophones'),
-    /** Lissage d'affichage de l'énergie (s, temps de la scène) : supprime le pompage de la moyenne courte. */
-    smoothSec: z.number().min(1).max(600).default(45),
-    /** Régime établi supposé avant le début de l'histoire (minutes de scène, navires immobiles). 0 = aucun. */
-    warmupMinutes: z.number().min(0).max(120).default(20),
-    /** Paliers de la nappe (dB au-dessus du fond naturel). */
-    steps: z.tuple([z.number(), z.number(), z.number()]).default([10, 20, 30]),
-    /** Écart entre deux lignes d'égal niveau (dB) et leur défilement (lignes par seconde réelle). */
-    lineStepDb: z.number().min(0.5).max(20).default(5),
-    lineSpeed: z.number().min(0).max(5).default(0.35),
-    /** Opacité de la nappe et intensité des lignes. */
-    opacity: unit.default(0.8),
-    lines: unit.default(0.55),
-    /** Encre : nombre de traînées et durée de vie (s réelles). */
-    inkParticles: z.number().int().min(0).max(100000).default(24000),
-    inkLifeSec: z.number().min(1).max(60).default(9),
-  }).default({}),
+  noise: noiseSchema,
   ships: z.object({
     visible: z.boolean(),
     pointSize: z.number().min(0).max(10),
@@ -503,5 +509,5 @@ export function deepMerge<T>(base: T, over: unknown): T {
 /** Configuration effective pour une cible d'affichage (surcharges `targets[target]` appliquées). */
 export function resolveForTarget(cfg: Config, target: DisplayTarget): Config {
   const o = cfg.targets[target];
-  return deepMerge(cfg, { render: o.render, palette: o.palette, view: o.view, display: { ...cfg.display, target } });
+  return deepMerge(cfg, { render: o.render, palette: o.palette, view: o.view, noise: o.noise, display: { ...cfg.display, target, quality: o.quality ?? cfg.display.quality } });
 }

@@ -12,5 +12,9 @@ export default defineConfig({
       '/ws': { target, ws: true },
     },
   },
+  // Prévisualisation du build web autonome : tout vient de dist-web, aucun relais vers le serveur Node.
+  preview: { proxy: {} },
   build: { target: 'es2022', chunkSizeWarningLimit: 1500 },
+  // Web autonome : le worker des sources de navires importe des modules (shared/ships).
+  worker: { format: 'es' },
 });

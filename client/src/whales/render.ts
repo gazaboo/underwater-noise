@@ -182,7 +182,7 @@ void main() {
   // Vue rapprochée : la bulle complète pour le groupe focal (le plus proche du centre), discrète ailleurs.
   float focus = mix(1.0, mix(0.12, 1.0, vAnim.y), uClose);
   float aLost = mix(0.35, 1.0, uClose) * uLost * lost * stipple * (1.0 - 0.6 * clamp(dVis / rq, 0.0, 1.0)) * focus;
-  float aLine = uClose * (uContour * edge + 0.75 * ghost * dash * focus);
+  float aLine = uClose * (uContour * edge + 0.75 * ghost * dash) * focus;
   float a = clamp(fill + aLost + aLine + ring, 0.0, 1.0) * fade;
   vec3 c = mix(vColor, uLostTint, aLost / max(a, 1e-4) * 0.55);
   outColor = vec4(c * a, a); // prémultiplié

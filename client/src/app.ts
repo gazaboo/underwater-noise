@@ -5,7 +5,8 @@
 import * as THREE from 'three';
 import { deepMerge, naturalLevel, resolveForTarget, type Config, type DisplayTarget, type SourceStatus, type ShipSnapshot, PhysicalSteps } from '@vacarme/shared';
 import { loadOceanGrid, loadOrnaments, loadWorldAssets, loadVolcanoes, type Volcano, type WorldAssets } from './assets.ts';
-import { ShipStream } from './net/ship-stream.ts';
+import { ShipStream, type StreamEvents } from './net/ship-stream.ts';
+import { LocalShipStream } from './net/local-stream.ts';
 import { computeFlatTransform, FlatView, screenToGeo, worldTransform, type FlatTransform } from './render/flat-view.ts';
 import { GlobeController, GlobeView, globeCamera, pixelToGeo, viewToEarth, type GlobeMode } from './render/globe-view.ts';
 import { VolcanoLayer } from './render/volcanoes.ts';
@@ -24,11 +25,21 @@ import { FlatNavigator } from './ui/navigation.ts';
 import { Panel } from './ui/panel.ts';
 import { SciencePanel } from './ui/science.ts';
 import { Legend } from './ui/legend.ts';
+import { Toolbar } from './ui/toolbar.ts';
+import { dataUrl, STANDALONE } from './data-url.ts';
 
 const SCENE_STEP_SEC = 0.1;
 /** Pas de préchauffage par image (≈ 330 pas pour 20 min de scène sur la grille de 39 km). */
 const WARMUP_STEPS_PER_FRAME = 40;
 const NOISE_STYLES: Config['noise']['style'][] = ['isophones', 'meteo', 'encre', 'fronts'];
+/**
+ * Calibration mesurée sur la Radeon 780M (25 oct. 2026, grille 256², 1200/C pas) [C] : K et écart à la loi
+ * en 1/r. Le schéma numérique ne dépend pas de l'appareil ; refaire la mesure si STEP_FRAG change
+ * (scripts/verify-propagation.mjs compare toujours la calibration complète).
+ */
+const WEB_CALIBRATION: CalibrationResult = { K: 307.71153686770907, maxDeviationDb: 0.38, range: [18, 96], curve: [] };
+/** Clé des réglages du panneau enregistrés dans le navigateur (web autonome). */
+const LOCAL_SETTINGS = 'vacarme-web-settings';
 
 export interface UrlOverrides {
   target?: DisplayTarget;
@@ -55,6 +66,8 @@ export class App {
   private readonly panel: Panel;
   private readonly science: SciencePanel;
   private readonly legend: Legend;
+  /** Web autonome : sources de navires dans un worker du navigateur. */
+  private local: LocalShipStream | null = null;
   private readonly nav: FlatNavigator;
   private readonly gpu: GpuTimer;
   private readonly flat: FlatView;
@@ -121,9 +134,10 @@ export class App {
     this.legend = new Legend();
     this.volcanoes = new VolcanoLayer(volcanoes);
     this.ornaments = ornaments ? new OrnamentLayer(ornaments.data, ornaments.atlas, ornaments.image) : null;
-    // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale.
+    // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale. Web autonome : la
+    // constante mesurée (même schéma numérique) évite ~3 s de calcul sur un téléphone ; ?calibrate la refait.
     const t0 = performance.now();
-    this.calibration = calibrate(this.renderer);
+    this.calibration = STANDALONE && !new URLSearchParams(location.search).has('calibrate') ? WEB_CALIBRATION : calibrate(this.renderer);
     console.info(
       `[physique] calibration en ${(performance.now() - t0).toFixed(0)} ms : K = ${this.calibration.K.toExponential(3)}, ` +
         `écart max ${this.calibration.maxDeviationDb.toFixed(2)} dB sur r = ${this.calibration.range[0]}–${this.calibration.range[1]} cellules`,
@@ -145,12 +159,12 @@ export class App {
     if (overrides.hud) this.hud.toggle(true);
 
     this.speciesKey = JSON.stringify(this.cfg.whales.species);
-    void Whales.create(this.cfg, `/data/grid/ocean_1024.png`, assets.elevationLinear, (lat, lon) => this.coverageAt(lat, lon), overrides.scene).then((w) => {
+    void Whales.create(this.cfg, dataUrl(`grid/ocean_1024.png`), assets.elevationLinear, (lat, lon) => this.coverageAt(lat, lon), overrides.scene).then((w) => {
       this.whales = w;
       if (overrides.scene === 'duo') this.nav.goTo(8.1, 43.4, 22);
     }, (e) => console.error('[cétacés] initialisation impossible :', e));
 
-    new ShipStream({
+    const events: StreamEvents = {
       onSnapshot: (snap, at) => this.onSnapshot(snap, at),
       onConfig: (c) => this.onServerConfig(c),
       onCoverage: (w, h, data) => this.onCoverage(w, h, data),
@@ -165,14 +179,17 @@ export class App {
         if (!ok) this.sceneClock.disconnect();
       },
       onScienceStatus: () => { void this.science.reload(); },
-    });
+    };
+    // Web autonome : sources calculées dans le navigateur ; sinon, flux du serveur local.
+    if (STANDALONE) {
+      this.local = new LocalShipStream(this.cfg, events);
+      this.installToolbar();
+    } else new ShipStream(events);
     requestAnimationFrame((t) => this.frame(t));
   }
 
   static async create(canvas: HTMLCanvasElement, overrides: UrlOverrides): Promise<App> {
-    const res = await fetch('/api/config');
-    if (!res.ok) throw new Error(`configuration indisponible (HTTP ${res.status}) — le serveur est-il lancé ?`);
-    const raw = (await res.json()) as Config;
+    const raw = await App.loadConfig();
     const quality = overrides.quality ?? raw.display.quality;
     const profile = raw.qualityProfiles[quality];
     // Ornements facultatifs : sans eux (données absentes), le monde illustré reste complet sans vignettes.
@@ -182,6 +199,26 @@ export class App {
     });
     const [assets, physicsOcean, volcanoes, orn] = await Promise.all([loadWorldAssets(profile.physicsSimWidth), loadOceanGrid(profile.physicsSimWidth), loadVolcanoes(), ornaments]);
     return new App(raw, overrides, assets, canvas, physicsOcean, volcanoes, orn);
+  }
+
+  /**
+   * Configuration : celle du serveur local, ou, en web autonome, config.json copié à côté de la page
+   * (build:web), complété par les réglages enregistrés dans ce navigateur.
+   */
+  private static async loadConfig(): Promise<Config> {
+    if (STANDALONE) {
+      // config.json du build web ; en développement (?standalone), la configuration du serveur local.
+      const res = await fetch(`${import.meta.env.BASE_URL}config.json`).catch(() => null);
+      const built = res?.ok && res.headers.get('content-type')?.includes('json') ? ((await res.json()) as Config) : null;
+      const base = built ?? ((await (await fetch('/api/config')).json()) as Config);
+      let saved: unknown = null;
+      try { saved = JSON.parse(localStorage.getItem(LOCAL_SETTINGS) ?? 'null'); } catch { /* stockage indisponible */ }
+      const cfg = saved ? deepMerge(base, saved) : base;
+      return deepMerge(cfg, { display: { target: 'web' } });
+    }
+    const res = await fetch('/api/config');
+    if (!res.ok) throw new Error(`configuration indisponible (HTTP ${res.status}) — le serveur est-il lancé ?`);
+    return (await res.json()) as Config;
   }
 
   private onSnapshot(snap: ShipSnapshot, at: number): void {
@@ -194,7 +231,8 @@ export class App {
     this.sceneAgeSec = 0;
     // Régime établi supposé [E] : on calcule `noise.warmupMinutes` de scène avant le début de l'histoire,
     // navires immobiles à leur position courante (en 20 min, un navire parcourt moins d'une cellule).
-    this.warmupLeft = Math.ceil((this.cfg.noise.warmupMinutes * 60) / this.physics.stepSeconds);
+    // Sans navires (avant le premier instantané), rien à préchauffer : la nouvelle chronologie le refera.
+    this.warmupLeft = this.ships.shipCount > 0 ? Math.ceil((this.cfg.noise.warmupMinutes * 60) / this.physics.stepSeconds) : 0;
     this.warmupTotal = this.warmupLeft;
     this.warmupTimeMs = timeMs;
     this.sceneTicks = 0;
@@ -257,6 +295,11 @@ export class App {
   private setShipsMode(mode: Config['source']['ships']): void {
     this.cfg.source.ships = mode;
     if (mode === this.raw.source.ships) return;
+    if (this.local) {
+      this.raw = deepMerge(this.raw, { source: { ships: mode } });
+      this.local.configure(this.cfg);
+      return;
+    }
     void fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source: { ships: mode } }) }).then(
       async (res) => res.ok || console.error(`[navires] ${await res.text()}`),
       (e: Error) => console.error(`[navires] ${e.message}`),
@@ -293,6 +336,12 @@ export class App {
     if (this.writingTimeScale !== null) return;
     const scale = this.desiredTimeScale;
     if (scale === null || scale === this.raw.playback.timeScale) {
+      this.desiredTimeScale = null;
+      return;
+    }
+    if (this.local) {
+      this.raw = deepMerge(this.raw, { playback: { timeScale: scale } });
+      this.local.configure(this.cfg);
       this.desiredTimeScale = null;
       return;
     }
@@ -352,6 +401,14 @@ export class App {
       fisheye: c.fisheye,
       targets: { [c.display.target]: { render: c.render, view: c.view } },
     };
+    if (this.local) {
+      try {
+        localStorage.setItem(LOCAL_SETTINGS, JSON.stringify(body));
+        return `enregistré dans ce navigateur (${new Date().toLocaleTimeString()})`;
+      } catch {
+        return 'stockage du navigateur indisponible : réglages non enregistrés';
+      }
+    }
     const res = await fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     return res.ok ? `enregistré (${new Date().toLocaleTimeString()})` : `erreur : ${await res.text()}`;
   }
@@ -446,6 +503,30 @@ export class App {
   }
 
   // ------------------------------------------------------------ entrées
+
+  /** Web autonome : les touches G, V, J, N, M deviennent des boutons ; légende repliée sur petit écran. */
+  private installToolbar(): void {
+    const c = () => this.cfg;
+    const NAMES = { isophones: 'Isophones', meteo: 'Météo', encre: 'Encre', fronts: 'Fronts' } as const;
+    const SHIPS = { real: 'Navires AIS', estimated: 'Navires estimés', mixed: 'AIS + estimés' } as const;
+    const labels = {
+      view: () => (c().display.mode === 'flat' ? 'Carte' : 'Globe'),
+      noise: () => `Bruit : ${NAMES[c().noise.style]}`,
+      theme: () => (c().display.theme === 'day' ? 'Jour' : 'Nuit'),
+      ships: () => SHIPS[c().source.ships],
+      sound: () => (this.audio.muted ? 'Son coupé' : 'Son'),
+      legend: () => 'Légende',
+    };
+    new Toolbar({
+      view: () => { c().display.mode = c().display.mode === 'flat' ? 'globe' : 'flat'; return labels.view(); },
+      noise: () => { c().noise.style = NOISE_STYLES[(NOISE_STYLES.indexOf(c().noise.style) + 1) % NOISE_STYLES.length]; return labels.noise(); },
+      theme: () => { c().display.theme = c().display.theme === 'day' ? 'night' : 'day'; return labels.theme(); },
+      ships: () => { this.setShipsMode(SHIPS_MODES[(SHIPS_MODES.indexOf(c().source.ships) + 1) % SHIPS_MODES.length]); return labels.ships(); },
+      sound: () => { this.audio.toggleMute(); return labels.sound(); },
+      legend: () => { this.legend.toggle(); return labels.legend(); },
+    }, labels);
+    if (innerWidth < 700) this.legend.toggle(false);
+  }
 
   private installKeys(): void {
     addEventListener('keydown', (e) => {
