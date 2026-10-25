@@ -95,6 +95,11 @@
     fog: '#0b1117', // brouillard de la terra incognita : plus sombre que le calme connu, mais texturé
     wave: '#cfeaff',
     ship: '#e8f4ff',
+    // Bruit ajouté par les navires (artistique) : du faible au fort, luminance croissante sur fond sombre.
+    // Teintes chaudes réservées au bruit ; les cétacés gardent des teintes froides.
+    noiseLow: '#7a3b1c',
+    noiseMid: '#e0782c',
+    noiseHigh: '#ffd77a',
   },
 
   // Mode jour (touche J) : remplace la palette ci-dessus champ par champ. Choix artistiques : l'océan reste
@@ -114,6 +119,10 @@
     fog: '#24445c',
     wave: '#eef8ff',
     ship: '#ffffff',
+    // Jour : encre de plus en plus sombre et saturée sur la mer claire.
+    noiseLow: '#e8a25a',
+    noiseMid: '#c8461f',
+    noiseHigh: '#6e0d1f',
   },
 
   // Terres peintes, façon gouache / aquarelle (inspiration : illustrations du Petit Prince).
@@ -200,6 +209,22 @@
     band: 'low', // 'low' : 10–40 Hz ; 'mid' : 100–500 Hz ; 'high' : 1–10 kHz
     brightness: 2.8, // luminosité, sans modifier le seuil de visibilité
     relief: 0.25,
+  },
+
+  // Bruit ajouté par les navires : ΔL = 10·log10(1 + E_navires / E_naturel) dans la bande waves.band.
+  // Forme et niveaux : champ calculé [C], non validé en mer (docs/PROPAGATION.md). Le reste est un choix
+  // de représentation (docs/REPRESENTATION.md) : paliers, couleurs, défilement [A] ; lissage, préchauffage [E].
+  noise: {
+    style: 'isophones', // 'isophones' | 'meteo' | 'encre' | 'fronts' (touche V)
+    smoothSec: 45, // [E] lissage d'affichage (s de scène) : la moyenne de 6 s du modèle « pompe »
+    warmupMinutes: 20, // [E] régime établi supposé : 20 min de scène calculées au démarrage, navires immobiles
+    steps: [10, 20, 30], // [A] paliers : ×10, ×100, ×1000 l'énergie du fond naturel (médiane mondiale ≈ +11 dB en 10–40 Hz, trafic estimé)
+    lineStepDb: 5, // [A] une ligne tous les 5 dB (énergie ×3,2) : deux lignes par palier
+    lineSpeed: 0.35, // [A] défilement vers l'extérieur, en temps réel : indique le sens, pas la vitesse du son
+    opacity: 0.8,
+    lines: 0.55,
+    inkParticles: 24000, // [A] traînées d'encre (style 'encre')
+    inkLifeSec: 9,
   },
 
   ships: {
@@ -365,17 +390,18 @@
       // band : bande du champ physique ; sl : niveau source de l'appel ; dt : seuil de détection ;
       // callBandwidthHz : largeur de l'appel (le bruit compte dans cette largeur) ;
       // visualScale : exagération des distances à l'écran (documentée : la vraie portée serait invisible).
+      // color : teinte froide propre à l'espèce [A] (le chaud est réservé au bruit des navires).
       // Niveaux sources (sl) : valeurs publiées, voir docs/REVUE_SCIENTIFIQUE.md §6.
       //   bleu 189 ± 3 et commun 189 ± 4 dB (Širović et al. 2007, JASA 122:1208) ;
       //   baleine à bosse : unités de chant 151–173 dB (Au et al. 2006) → 172 (haut de la fourchette) ;
       //   cachalot (codas) : médiane 161 dB rms (Jacobs et al. 2024, JEB) ;
       //   orque : appels stéréotypés 152,6 ± 5,9 dB (Miller 2006) → 153.
       // dt, callBandwidthHz : choix de l'auteur (non sourcés), à discuter.
-      { id: 'blue', name: 'Rorqual bleu', latin: 'Balaenoptera musculus', enabled: true, groups: 30, band: 'low', sl: 189, dt: 6, callBandwidthHz: 5, callIntervalSec: 14, minDepthM: 200, speedKmh: 5, visualScale: 1 },
-      { id: 'fin', name: 'Rorqual commun', latin: 'Balaenoptera physalus', enabled: true, groups: 40, band: 'low', sl: 189, dt: 6, callBandwidthHz: 10, callIntervalSec: 10, minDepthM: 100, speedKmh: 6, visualScale: 1 },
-      { id: 'humpback', name: 'Baleine à bosse', latin: 'Megaptera novaeangliae', enabled: true, groups: 40, band: 'mid', sl: 172, dt: 6, callBandwidthHz: 100, callIntervalSec: 6, minDepthM: 20, speedKmh: 5, visualScale: 4 },
-      { id: 'sperm', name: 'Cachalot', latin: 'Physeter macrocephalus', enabled: true, groups: 30, band: 'high', sl: 161, dt: 8, callBandwidthHz: 5000, callIntervalSec: 4, minDepthM: 1000, speedKmh: 4, visualScale: 40 },
-      { id: 'orca', name: 'Orque', latin: 'Orcinus orca', enabled: true, groups: 30, band: 'high', sl: 153, dt: 4, callBandwidthHz: 2000, callIntervalSec: 5, minDepthM: 10, speedKmh: 8, visualScale: 60 },
+      { id: 'blue', name: 'Rorqual bleu', latin: 'Balaenoptera musculus', enabled: true, groups: 30, band: 'low', sl: 189, dt: 6, callBandwidthHz: 5, callIntervalSec: 14, minDepthM: 200, speedKmh: 5, visualScale: 1, color: '#5cb8ff' },
+      { id: 'fin', name: 'Rorqual commun', latin: 'Balaenoptera physalus', enabled: true, groups: 40, band: 'low', sl: 189, dt: 6, callBandwidthHz: 10, callIntervalSec: 10, minDepthM: 100, speedKmh: 6, visualScale: 1, color: '#3fe0c2' },
+      { id: 'humpback', name: 'Baleine à bosse', latin: 'Megaptera novaeangliae', enabled: true, groups: 40, band: 'mid', sl: 172, dt: 6, callBandwidthHz: 100, callIntervalSec: 6, minDepthM: 20, speedKmh: 5, visualScale: 4, color: '#a8ec7a' },
+      { id: 'sperm', name: 'Cachalot', latin: 'Physeter macrocephalus', enabled: true, groups: 30, band: 'high', sl: 161, dt: 8, callBandwidthHz: 5000, callIntervalSec: 4, minDepthM: 1000, speedKmh: 4, visualScale: 40, color: '#b892ff' },
+      { id: 'orca', name: 'Orque', latin: 'Orcinus orca', enabled: true, groups: 30, band: 'high', sl: 153, dt: 4, callBandwidthHz: 2000, callIntervalSec: 5, minDepthM: 10, speedKmh: 8, visualScale: 60, color: '#eef4ff' },
     ],
   },
 

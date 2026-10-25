@@ -58,6 +58,10 @@ const palette = z.object({
   coastOpacity: unit,
   wave: color,
   ship: color,
+  /** Bruit ajouté par les navires (couche de données) : du plus faible palier au plus fort. Artistique. */
+  noiseLow: color,
+  noiseMid: color,
+  noiseHigh: color,
 });
 
 /** Couleurs du monde illustré (une palette pour la nuit, une pour le jour). Toutes artistiques. */
@@ -126,7 +130,7 @@ export const configSchema = z.object({
   dayPalette: palette.partial(),
   /** Globe (modes globe, hemisphere, fisheye) : rotation de la Terre sous un regard fixe. */
   globe: z.object({
-    /** Durée d'un tour complet (minutes, temps de la scène). 0 = immobile. */
+    /** Durée d'un tour complet (minutes réelles : présentation, indépendante du facteur temporel). 0 = immobile. */
     periodMinutes: z.number().min(0).max(1440),
     /** Latitude présentée au centre (inclinaison de l'axe vers le public). */
     viewLatDeg: z.number().min(-90).max(90),
@@ -169,6 +173,30 @@ export const configSchema = z.object({
     brightness: z.number().min(0).max(20),
     relief: unit,
   }),
+  /**
+   * Représentation du bruit ajouté par les navires, ΔL = 10·log10(1 + E_navires / E_naturel) dans la bande
+   * `waves.band`. La forme vient du champ calculé [C] ; paliers, couleurs et mouvement sont artistiques [A].
+   */
+  noise: z.object({
+    /** isophones : nappe en paliers + lignes d'égal niveau qui défilent ; meteo : nappe seule, immobile ;
+     *  encre : traînées émises par les navires le long du gradient ; fronts : fronts bruts du modèle. */
+    style: z.enum(['isophones', 'meteo', 'encre', 'fronts']).default('isophones'),
+    /** Lissage d'affichage de l'énergie (s, temps de la scène) : supprime le pompage de la moyenne courte. */
+    smoothSec: z.number().min(1).max(600).default(45),
+    /** Régime établi supposé avant le début de l'histoire (minutes de scène, navires immobiles). 0 = aucun. */
+    warmupMinutes: z.number().min(0).max(120).default(20),
+    /** Paliers de la nappe (dB au-dessus du fond naturel). */
+    steps: z.tuple([z.number(), z.number(), z.number()]).default([10, 20, 30]),
+    /** Écart entre deux lignes d'égal niveau (dB) et leur défilement (lignes par seconde réelle). */
+    lineStepDb: z.number().min(0.5).max(20).default(5),
+    lineSpeed: z.number().min(0).max(5).default(0.35),
+    /** Opacité de la nappe et intensité des lignes. */
+    opacity: unit.default(0.8),
+    lines: unit.default(0.55),
+    /** Encre : nombre de traînées et durée de vie (s réelles). */
+    inkParticles: z.number().int().min(0).max(100000).default(24000),
+    inkLifeSec: z.number().min(1).max(60).default(9),
+  }).default({}),
   ships: z.object({
     visible: z.boolean(),
     pointSize: z.number().min(0).max(10),

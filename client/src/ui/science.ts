@@ -1,4 +1,4 @@
-import { SOUND_SPEED_M_S, acousticComponents, validationRegionAt, validationSummarySchema, type Config, type ScienceStatus, type SourceStatus, type ValidationSummary } from '@vacarme/shared';
+import { acousticComponents, validationRegionAt, validationSummarySchema, type Config, type ScienceStatus, type SourceStatus, type ValidationSummary } from '@vacarme/shared';
 
 /**
  * Panneau « Fiabilité » : niveaux calculés par le moteur mondial au curseur (navires, fond naturel,
@@ -7,7 +7,6 @@ import { SOUND_SPEED_M_S, acousticComponents, validationRegionAt, validationSumm
  */
 export class SciencePanel {
   readonly element = document.createElement('details');
-  private readonly propagation = document.createElement('div');
   private readonly summary = document.createElement('summary');
   private readonly message = document.createElement('p');
   private readonly reading = document.createElement('pre');
@@ -21,16 +20,9 @@ export class SciencePanel {
     note.textContent = 'Fronts et niveaux [C] : même champ acoustique estimé, non validé en mer. Espacement des anneaux, visibilité et lueur [A] : conventions graphiques ; aucun seuil biologique. Domaine ±79°, grille de référence ≈ 39 km. Historique acoustique initial incomplet.';
     this.element.append(this.summary, this.message, note, this.reading, this.validation);
     for (const event of ['pointerdown', 'wheel', 'keydown']) this.element.addEventListener(event, e => e.stopPropagation());
-    this.propagation.id = 'propagation';
-    this.propagation.setAttribute('aria-live', 'off');
-    document.body.append(this.element, this.propagation);
+    document.body.append(this.element);
     void this.reload();
   }
-  updatePropagation(cfg: Config, scale: number, ageSec: number, stale: boolean): void {
-    const band = cfg.bands.find(b => b.id === cfg.waves.band)!;
-    this.propagation.textContent = `${band.fMin}–${band.fMax} Hz · Temps ×${scale} · c ≈ ${(SOUND_SPEED_M_S / 1000).toLocaleString('fr-FR')} km/s${cfg.physics.enabled ? '' : ' · champ désactivé'}\nOndes des navires : augmentation estimée du bruit · visibles au-delà de +1 dB\nHistorique acoustique incomplet (${Math.floor(ageSec / 60)} min simulées)${stale ? ' · données interrompues, scène arrêtée' : ''} · sombre ≠ silence`;
-  }
-
   get wantsLevels(): boolean { return this.element.open; }
   async reload(): Promise<void> {
     const request = ++this.request;
