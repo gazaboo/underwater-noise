@@ -87,7 +87,8 @@ simulation s'il n'y a pas de fichier). Toutes les données nécessaires sont loc
 | `G` | carte plate ↔ globe |
 | `M` | couper le son |
 | `B` | champ physique en dB (diagnostic) |
-| `V` | représentation du bruit : isophones → météo → encre → fronts bruts |
+| `V` | représentation du bruit : isophones → météo → encre → fronts bruts → nappe masquée |
+| `S` | scénario : trafic actuel ↔ océan sans navires (calculé) |
 
 ## 8. Performances mesurées (780M, Chromium + Vulkan)
 

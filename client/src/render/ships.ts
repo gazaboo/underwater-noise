@@ -303,7 +303,7 @@ export class ShipLayer {
 
   /** Dessine les navires sur la carte plate. */
   draw(renderer: THREE.WebGLRenderer, now: number, view: FlatTransform, cfg: Config, pixelRatio: number, target: THREE.WebGLRenderTarget | null = null): void {
-    if (!cfg.ships.visible) return;
+    if (!cfg.ships.visible || cfg.scenario === 'sans-navires') return;
     const u = this.displayMaterial.uniforms;
     u.uDt.value = this.dtSim(now);
     (u.uCenter.value as THREE.Vector2).set(view.centerLon, view.centerLat);

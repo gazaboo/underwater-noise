@@ -113,6 +113,8 @@ const noiseSchema = z.object({
   /** Écart entre deux lignes d'égal niveau (dB) et leur défilement (lignes par seconde réelle). */
   lineStepDb: z.number().min(0.5).max(20).default(5),
   lineSpeed: z.number().min(0).max(5).default(0.35),
+  /** Nappe affichée ; masquée, le calcul continue (affichage seulement). */
+  visible: z.boolean().default(true),
   /** Opacité de la nappe et intensité des lignes. */
   opacity: unit.default(0.8),
   lines: unit.default(0.55),
@@ -203,6 +205,12 @@ export const configSchema = z.object({
     relief: unit,
   }),
   noise: noiseSchema,
+  /**
+   * Scénario calculé. 'actuel' : navires et bruit du modèle. 'sans-navires' : les cétacés n'entendent plus que le
+   * fond naturel (même équation du sonar), navires, nappe et sons des navires retirés ; le champ continue d'être
+   * calculé pour revenir à l'état actuel sans attente.
+   */
+  scenario: z.enum(['actuel', 'sans-navires']).default('actuel'),
   ships: z.object({
     visible: z.boolean(),
     pointSize: z.number().min(0).max(10),

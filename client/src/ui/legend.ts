@@ -51,7 +51,7 @@ export class Legend {
     this.element.classList.toggle('day', cfg.display.theme === 'day');
     const n = cfg.noise;
     const p = cfg.palette;
-    const key = JSON.stringify([n.style, n.steps, n.lineStepDb, cfg.waves.band, p.noiseLow, p.noiseMid, p.noiseHigh, p.fog, cfg.whales.species.map(s => [s.enabled, s.color, s.name, s.band]), cfg.audio.enabled, cfg.audio.whales.source, cfg.audio.whales.transpose]);
+    const key = JSON.stringify([n.style, n.visible, cfg.scenario, n.steps, n.lineStepDb, cfg.waves.band, p.noiseLow, p.noiseMid, p.noiseHigh, p.fog, cfg.whales.species.map(s => [s.enabled, s.color, s.name, s.band]), cfg.audio.enabled, cfg.audio.whales.source, cfg.audio.whales.transpose]);
     if (key !== this.key) {
       this.key = key;
       this.build(cfg);
@@ -78,6 +78,19 @@ export class Legend {
       fronts: 'Fronts bruts du modèle : leur espacement (≈ 234 km) est numérique, sans signification acoustique.',
     }[n.style];
     this.unknown.innerHTML = `<i class="lg-hatch" style="--c:${p.fog}"></i>Hachures : jamais observé par l'AIS, bruit sous-estimé`;
+    this.title.textContent = 'Bruit ajouté par les navires';
+    this.steps.hidden = false;
+    this.unknown.hidden = cfg.scenario === 'sans-navires';
+    if (cfg.scenario === 'sans-navires') {
+      this.title.textContent = 'Océan sans navires (modèle)';
+      this.band.textContent = `Même calcul, avec le seul bruit naturel de la mer (vent ${cfg.ambient.windSpeedMs} m/s) [C]`;
+      this.steps.hidden = true;
+      this.style.textContent = 'Les cétacés retrouvent leur portée en océan calme (bornes hautes, surtout pour les rorquals). Touche S : trafic actuel.';
+    } else if (!n.visible) {
+      this.title.textContent = 'Bruit ajouté par les navires : nappe masquée';
+      this.steps.hidden = true;
+      this.style.textContent = 'Le calcul continue : les cétacés entendent toujours les navires. Touche V : afficher la nappe.';
+    }
     this.species.innerHTML = cfg.whales.species.filter(s => s.enabled).map(s => {
       const sb = cfg.bands.find(x => x.id === s.band)!;
       return `<span><i style="background:${s.color ?? cfg.whales.color}"></i>${s.name} <small>${sb.fMin}–${sb.fMax} Hz</small></span>`;

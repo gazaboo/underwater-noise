@@ -59,6 +59,23 @@ contrôlé par `npm run test:propagation`, sans changement.
 **Terra incognita** : hachures obliques ancrées dans la géographie, comme les blancs des cartes anciennes,
 sur la nappe atténuée. Le bruit y est sous-estimé : l'AIS n'y voit pas les navires.
 
+## Nappe masquée et océan sans navires
+
+Deux réglages distincts, à ne pas confondre (#15, chantier 4) :
+
+| Réglage | Nature | Ce qui change |
+|---|---|---|
+| **Nappe masquée** (`noise.visible`, touche `V` après le dernier style, bouton « Bruit » du web) | affichage seulement | la nappe, ses lignes, la lueur et les fronts disparaissent ; navires, cétacés, terra incognita et calcul restent. Les cétacés entendent toujours les navires |
+| **Océan sans navires** (`scenario: 'sans-navires'`, touche `S`, bouton « Avec / Sans navires ») | **calcul** [C] | les portées, les liens et les zones de la vue rapprochée sont recalculés avec le seul fond naturel, par la même équation du sonar que la « portée en océan calme ». Navires, nappe, terra incognita, voix des navires et nappe sonore disparaissent ; les appels des cétacés ne sont plus étouffés |
+
+Le champ acoustique continue d'être calculé pendant le scénario : le retour au trafic actuel est immédiat.
+Les portées passent d'un état à l'autre en quelques secondes (lissage existant des rayons, 1,5 s) ; les fils
+se renouent au rythme de leur hystérésis (`whales.links.reknitSec`). Mesure du 25 oct. 2026 : le rapport portée
+actuelle / portée en océan calme passe de 0,5 à 0,98 pour les rorquals, de 0,75 à 0,99 pour la baleine à
+bosse.
+
+L'état par défaut à l'exposition reste `actuel`, nappe affichée : à décider après un essai au dôme.
+
 ## Cétacés : deux niveaux de détail
 
 **Vue globale** :

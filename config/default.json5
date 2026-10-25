@@ -227,11 +227,16 @@
     steps: [10, 20, 30], // [A] paliers : ×10, ×100, ×1000 l'énergie du fond naturel (médiane mondiale ≈ +11 dB en 10–40 Hz, trafic estimé)
     lineStepDb: 5, // [A] une ligne tous les 5 dB (énergie ×3,2) : deux lignes par palier
     lineSpeed: 0.35, // [A] défilement vers l'extérieur, en temps réel : indique le sens, pas la vitesse du son
+    visible: true, // nappe affichée (touche V : styles puis « masquée ») ; masquée, le calcul continue
     opacity: 0.8,
     lines: 0.55,
     inkParticles: 24000, // [A] traînées d'encre (style 'encre')
     inkLifeSec: 9,
   },
+
+  // Scénario (touche S) : 'actuel' ou 'sans-navires'. Sans navires, les cétacés n'entendent plus que le fond
+  // naturel (même équation du sonar) [C] ; navires, nappe et sons des navires disparaissent.
+  scenario: 'actuel',
 
   ships: {
     visible: true,

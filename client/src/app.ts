@@ -19,6 +19,7 @@ import { PhysicsField, calibrate, type CalibrationResult } from './sim/physics-s
 import { Whales } from './whales/whales.ts';
 import { FieldReader } from './whales/field-reader.ts';
 import { AudioEngine, flatListener, globeListener } from './audio/engine.ts';
+import { cycleNoise, noiseLabel, noShips, scenarioLabel, toggleScenario } from './ui/scenario.ts';
 import { SceneClock } from './sim/scene-clock.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
 import { FlatNavigator } from './ui/navigation.ts';
@@ -31,7 +32,6 @@ import { dataUrl, STANDALONE } from './data-url.ts';
 const SCENE_STEP_SEC = 0.1;
 /** Pas de préchauffage par image (≈ 330 pas pour 20 min de scène sur la grille de 39 km). */
 const WARMUP_STEPS_PER_FRAME = 40;
-const NOISE_STYLES: Config['noise']['style'][] = ['isophones', 'meteo', 'encre', 'fronts'];
 /**
  * Calibration mesurée sur la Radeon 780M (25 oct. 2026, grille 256², 1200/C pas) [C] : K et écart à la loi
  * en 1/r. Le schéma numérique ne dépend pas de l'appareil ; refaire la mesure si STEP_FRAG change
@@ -436,6 +436,7 @@ export class App {
       rings: 1 - THREE.MathUtils.smoothstep(timeScale, 3, 10),
       lostTint: hexToVec3(cfg.palette.noiseMid),
       center,
+      ships: noShips(cfg) ? 0 : 1,
     };
   }
 
@@ -504,14 +505,14 @@ export class App {
 
   // ------------------------------------------------------------ entrées
 
-  /** Web autonome : les touches G, V, J, N, M deviennent des boutons ; légende repliée sur petit écran. */
+  /** Web autonome : les touches G, V, S, J, N, M deviennent des boutons ; légende repliée sur petit écran. */
   private installToolbar(): void {
     const c = () => this.cfg;
-    const NAMES = { isophones: 'Isophones', meteo: 'Météo', encre: 'Encre', fronts: 'Fronts' } as const;
     const SHIPS = { real: 'Navires AIS', estimated: 'Navires estimés', mixed: 'AIS + estimés' } as const;
     const labels = {
       view: () => (c().display.mode === 'flat' ? 'Carte' : 'Globe'),
-      noise: () => `Bruit : ${NAMES[c().noise.style]}`,
+      noise: () => noiseLabel(c().noise),
+      scenario: () => scenarioLabel(c()),
       theme: () => (c().display.theme === 'day' ? 'Jour' : 'Nuit'),
       ships: () => SHIPS[c().source.ships],
       sound: () => (this.audio.muted ? 'Son coupé' : 'Son'),
@@ -519,7 +520,8 @@ export class App {
     };
     new Toolbar({
       view: () => { c().display.mode = c().display.mode === 'flat' ? 'globe' : 'flat'; return labels.view(); },
-      noise: () => { c().noise.style = NOISE_STYLES[(NOISE_STYLES.indexOf(c().noise.style) + 1) % NOISE_STYLES.length]; return labels.noise(); },
+      noise: () => { cycleNoise(c().noise); return labels.noise(); },
+      scenario: () => { toggleScenario(c()); return labels.scenario(); },
       theme: () => { c().display.theme = c().display.theme === 'day' ? 'night' : 'day'; return labels.theme(); },
       ships: () => { this.setShipsMode(SHIPS_MODES[(SHIPS_MODES.indexOf(c().source.ships) + 1) % SHIPS_MODES.length]); return labels.ships(); },
       sound: () => { this.audio.toggleMute(); return labels.sound(); },
@@ -535,7 +537,10 @@ export class App {
       if (k === 'p') this.panel.toggle();
       else if (k === 'b') this.flat.debugField = (this.flat.debugField + 1) % 5;
       else if (k === 'v') {
-        this.cfg.noise.style = NOISE_STYLES[(NOISE_STYLES.indexOf(this.cfg.noise.style) + 1) % NOISE_STYLES.length];
+        cycleNoise(this.cfg.noise);
+        this.panel.refresh();
+      } else if (k === 's') {
+        toggleScenario(this.cfg);
         this.panel.refresh();
       }
       else if (k === 'm') this.audio.toggleMute();

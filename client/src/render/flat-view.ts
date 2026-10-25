@@ -105,6 +105,8 @@ uniform int uNoiseStyle;        // 0 fronts ; 1 isophones ; 2 météo ; 3 encre
 uniform vec3 uNoiseLow, uNoiseMid, uNoiseHigh;
 uniform vec3 uNoiseSteps;       // paliers (dB)
 uniform float uLineStep, uLineSpeed, uNoiseOpacity, uNoiseLines;
+uniform float uNoiseShow;  // 0 : nappe masquée ou océan sans navires (lueur, fronts et nappe retirés)
+uniform float uShipsShown; // 0 : océan sans navires (la terra incognita de l'AIS n'a plus d'objet)
 
 uniform vec2 uResolution;
 uniform vec2 uCenter;
@@ -438,10 +440,11 @@ void main() {
     // Compression douce : les zones très actives saturent sans brûler.
     lightW = uHasLevels * visibility * (1.0 - exp(-lightW));
     if (abs(lat) > uPolarCap || uNoiseStyle != 0) lightW = 0.0;
+    lightW *= uNoiseShow;
 
     // --- Lueur d'accumulation (style « fronts » seulement) : là où le bruit dure, l'océan s'illumine.
     vec3 glow = vec3(0.0);
-    if (uHasLevels > 0.5 && uNoiseStyle == 0) {
+    if (uHasLevels > 0.5 && uNoiseStyle == 0 && uNoiseShow > 0.5) {
       float A = sampleCubic(uLevels, uv, uLevelsTexel).r;
       float t = pow(smoothstep(uQuietDb, uSatDb, A), uGlowGamma);
       glow = uGlowColor * uGlowStrength * t;
@@ -449,7 +452,7 @@ void main() {
 
     // --- Bruit ajouté : nappe en paliers, isophones, ou voile sous l'encre.
     vec3 noisy = ocean;
-    if (uHasLevels > 0.5 && uNoiseStyle != 0) {
+    if (uHasLevels > 0.5 && uNoiseStyle != 0 && uNoiseShow > 0.5) {
       float dl = excessDb(uv) * step(abs(lat), uPolarCap);
       vec4 sheet = noiseSheet(dl, uNoiseStyle == 1 ? 0.6 : 0.0);
       if (uNoiseStyle == 3) sheet.a *= 0.45;
@@ -467,7 +470,7 @@ void main() {
 
     // --- Terra incognita : zones non observées par l'AIS (bruit sous-estimé). Hachures ancrées dans la
     // géographie, comme les blancs des cartes anciennes, distinctes du calme connu ; brouillard lent.
-    float observed = smoothstep(0.03, 0.4, texture(uCoverage, uv).r);
+    float observed = mix(1.0, smoothstep(0.03, 0.4, texture(uCoverage, uv).r), uShipsShown);
     vec3 known = noisy + glow + uWaveColor * lightW;
     vec2 fp = vec2(lon * cos(radians(lat)), lat) / uFogScale;
     float fog = fbm(fp + vec2(uTime * uFogDrift * 0.03, uTime * uFogDrift * 0.011));
@@ -608,7 +611,7 @@ export class FlatView {
       uNoiseStyle: { value: 1 },
       uNoiseLow: { value: v3() }, uNoiseMid: { value: v3() }, uNoiseHigh: { value: v3() },
       uNoiseSteps: { value: new THREE.Vector3(3, 10, 20) },
-      uLineStep: { value: 3 }, uLineSpeed: { value: 0.35 }, uNoiseOpacity: { value: 0.8 }, uNoiseLines: { value: 0.5 },
+      uLineStep: { value: 3 }, uLineSpeed: { value: 0.35 }, uNoiseOpacity: { value: 0.8 }, uNoiseLines: { value: 0.5 }, uNoiseShow: { value: 1 }, uShipsShown: { value: 1 },
       uUnknownDim: { value: 1 },
       uWaveTexel: { value: new THREE.Vector2() },
       uElevTexel: { value: new THREE.Vector2(1 / 4096, 1 / 2048) },
@@ -768,6 +771,8 @@ export class FlatView {
     u.uLineSpeed.value = n.lineSpeed;
     u.uNoiseOpacity.value = n.opacity;
     u.uNoiseLines.value = n.lines;
+    u.uNoiseShow.value = n.visible && cfg.scenario !== 'sans-navires' ? 1 : 0;
+    u.uShipsShown.value = cfg.scenario === 'sans-navires' ? 0 : 1;
     u.uDisplayPxPerDeg.value = view.zoom > 0 || this.displayPxPerDeg === null ? view.scale / this.pixelRatio : this.displayPxPerDeg;
     const naturalDb = naturalLevel(cfg.bands[bandIndex], cfg.ambient.windSpeedMs);
     if (!this.packedWave || this.packedWave.width !== field.width || this.packedWave.height !== field.height) {
