@@ -14,7 +14,7 @@ import type { Config, ShipSnapshot } from '@vacarme/shared';
 import { FLAG_ESTIMATED, HEADER_BYTES, SHIP_STRIDE } from '@vacarme/shared';
 import { hexToVec3 } from './fullscreen.ts';
 import type { FlatTransform } from './flat-view.ts';
-import type { Domain } from '../sim/wave-sim.ts';
+import type { PhysicsDomain } from '../sim/physics-sim.ts';
 import { physicsInjectMaterial } from '../sim/physics-sim.ts';
 
 const MAX_SHIPS = 70000;
@@ -27,51 +27,6 @@ vec2 deadReckon(vec2 latLon, vec2 motion, float dtSec) {
   float lat = latLon.x + degrees(dist * cos(cog) / 6371000.0);
   float lon = latLon.y + degrees(dist * sin(cog) / (6371000.0 * max(cos(radians(latLon.x)), 0.05)));
   return vec2(clamp(lat, -89.9, 89.9), lon);
-}`;
-
-const INJECT_VERT = /* glsl */ `
-precision highp float;
-in vec3 position;   // inutilisé (attribut obligatoire pour three.js)
-in vec2 aLatLon;
-in vec2 aMotion;    // sog (nœuds), cog (degrés)
-in float aAmp;      // amplitude 0..1
-in float aSeed;     // 0..1
-uniform float uDt;          // secondes simulées depuis l'instantané
-uniform float uClock;       // compteur de pas
-uniform float uPeriodSteps; // pas entre deux impulsions, pour un navire de référence
-uniform float uCarrier;     // période de la porteuse (pas)
-uniform float uCycles;
-uniform float uGain;
-uniform float uSplat;       // taille du point (cellules)
-uniform vec4 uDomain;       // emprise de la grille : centre lon, bord nord, étendue lon, étendue lat (degrés)
-out float vSignal;
-${DEAD_RECKON}
-const float PI = 3.141592653589793;
-void main() {
-  vec2 ll = deadReckon(aLatLon, aMotion, uDt);
-  float dLon = mod(ll.y - uDomain.x + 180.0, 360.0) - 180.0;
-  float x = dLon / (0.5 * uDomain.z);
-  float v = (uDomain.y - ll.x) / uDomain.w;
-  gl_Position = vec4(x, v * 2.0 - 1.0, 0.0, 1.0);
-  gl_PointSize = uSplat;
-
-  // Navires rapides : impulsions plus fréquentes ; dispersion individuelle par la graine.
-  float speedFactor = clamp(sqrt(max(aMotion.x, 0.5) / 12.0), 0.4, 1.8);
-  float period = uPeriodSteps / (speedFactor * (0.75 + 0.5 * aSeed));
-  float ph = mod(uClock + aSeed * period * 13.0, period);
-  float dur = uCycles * uCarrier;
-  float env = ph < dur ? pow(sin(PI * ph / dur), 2.0) : 0.0;
-  vSignal = uGain * aAmp * env * sin(2.0 * PI * ph / uCarrier);
-}`;
-
-const INJECT_FRAG = /* glsl */ `
-precision highp float;
-in float vSignal;
-out vec4 outColor;
-void main() {
-  vec2 d = gl_PointCoord - 0.5;
-  float w = exp(-dot(d, d) * 12.0);
-  outColor = vec4(vSignal * w, 0.0, 0.0, 1.0);
 }`;
 
 const DISPLAY_VERT = /* glsl */ `
@@ -143,9 +98,7 @@ export class ShipLayer {
   private readonly slBands = new Float32Array(MAX_SHIPS * 3);
   private count = 0;
 
-  private readonly injectMaterial: THREE.RawShaderMaterial;
   private readonly displayMaterial: THREE.RawShaderMaterial;
-  private readonly injectScene = new THREE.Scene();
   private readonly physicsScene = new THREE.Scene();
   private readonly physicsMaterial: THREE.RawShaderMaterial;
   private readonly displayScene = new THREE.Scene();
@@ -166,24 +119,6 @@ export class ShipLayer {
     this.geometry.setAttribute('aEstimated', new THREE.BufferAttribute(this.estimated, 1).setUsage(THREE.DynamicDrawUsage));
     this.geometry.setDrawRange(0, 0);
 
-    this.injectMaterial = new THREE.RawShaderMaterial({
-      glslVersion: THREE.GLSL3,
-      vertexShader: INJECT_VERT,
-      fragmentShader: INJECT_FRAG,
-      uniforms: {
-        uDt: { value: 0 },
-        uClock: { value: 0 },
-        uPeriodSteps: { value: 400 },
-        uCarrier: { value: 15 },
-        uCycles: { value: 1.5 },
-        uGain: { value: 1 },
-        uSplat: { value: 3 },
-        uDomain: { value: new THREE.Vector4(0, 90, 360, 180) },
-      },
-      blending: THREE.AdditiveBlending,
-      depthTest: false,
-      depthWrite: false,
-    });
     this.displayMaterial = new THREE.RawShaderMaterial({
       glslVersion: THREE.GLSL3,
       vertexShader: DISPLAY_VERT,
@@ -205,7 +140,6 @@ export class ShipLayer {
     });
     this.physicsMaterial = physicsInjectMaterial(DEAD_RECKON, 'deadReckon(aLatLon, aMotion, uDt)');
     for (const [scene, mat] of [
-      [this.injectScene, this.injectMaterial],
       [this.displayScene, this.displayMaterial],
       [this.physicsScene, this.physicsMaterial],
     ] as const) {
@@ -292,7 +226,8 @@ export class ShipLayer {
 
   /** Niveau source large bande → amplitude visuelle (paramètres artistiques). */
   recomputeAmplitudes(cfg: Config): void {
-    const { slMin, slMax, gamma } = cfg.waves.amplitude;
+    // Marker size only: this mapping never controls acoustic injection or wave visibility.
+    const slMin = 166, slMax = 192, gamma = 1.7;
     for (let i = 0; i < this.count; i++) {
       const t = Math.min(1, Math.max(0, (this.slBroad[i] - slMin) / (slMax - slMin)));
       const moored = this.motion[2 * i] < 0.5 ? 0.1 : 1;
@@ -301,36 +236,21 @@ export class ShipLayer {
     (this.geometry.getAttribute('aAmp') as THREE.BufferAttribute).needsUpdate = true;
   }
 
+  private sceneTimeMs: number | null = null;
+  setTime(timeMs: number): void { this.sceneTimeMs = timeMs; }
+
   /** Secondes simulées écoulées depuis l'instantané (pour l'extrapolation). */
   dtSim(now: number): number {
-    return ((now - this.receivedAt) * this.timeScale) / 1000;
+    return this.sceneTimeMs === null ? (Math.min(5000, Math.max(0, now - this.receivedAt)) * this.timeScale) / 1000 : (this.sceneTimeMs - this.snapTimeMs) / 1000;
   }
 
   /** Temps simulé courant (ms). */
   simTimeMs(now: number): number {
-    return this.snapTimeMs + (now - this.receivedAt) * this.timeScale;
-  }
-
-  /** Injecte les sources du pas courant dans la cible de la simulation. */
-  inject(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget, domain: Domain, splatCells: number, now: number, clock: number, cfg: Config, courant: number, stepsPerSecond: number): void {
-    const u = this.injectMaterial.uniforms;
-    const p = cfg.waves.pulse;
-    u.uDt.value = this.dtSim(now);
-    u.uClock.value = clock;
-    u.uCarrier.value = p.wavelengthCells / courant;
-    u.uCycles.value = p.cycles;
-    u.uPeriodSteps.value = stepsPerSecond / p.rate;
-    u.uGain.value = p.gain;
-    u.uSplat.value = splatCells;
-    (u.uDomain.value as THREE.Vector4).set(domain.lonCenter, domain.latTop, domain.lonSpan, domain.latSpan);
-    renderer.setRenderTarget(target);
-    renderer.setClearColor(0x000000, 0);
-    renderer.clear(true, false, false);
-    renderer.render(this.injectScene, this.camera);
+    return this.sceneTimeMs ?? this.snapTimeMs + Math.min(5000, Math.max(0, now - this.receivedAt)) * this.timeScale;
   }
 
   /** Injecte les sources acoustiques (trois bandes) dans la grille physique. */
-  injectPhysics(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget, domain: Domain, ocean: THREE.Texture, now: number, clock: number): void {
+  injectPhysics(renderer: THREE.WebGLRenderer, target: THREE.WebGLRenderTarget, domain: PhysicsDomain, ocean: THREE.Texture, now: number, clock: number): void {
     const u = this.physicsMaterial.uniforms;
     u.uDt.value = this.dtSim(now);
     u.uClock.value = clock;

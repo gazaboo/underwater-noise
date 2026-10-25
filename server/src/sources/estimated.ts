@@ -14,6 +14,7 @@
  */
 import {
   FLAG_ESTIMATED,
+  PhysicalSteps,
   FLAG_SYNTHETIC,
   KNOT_MS,
   SHIP_CLASS_INDEX,
@@ -77,6 +78,7 @@ export class EstimatedSource implements ShipSource {
   private cum: Float64Array[] = [];
   private targets: number[] = [];
   private simMs = Date.now();
+  private readonly steps = new PhysicalSteps();
   private nextId = 0;
   /** Le plafond `maxShips` a-t-il réduit l'effectif ? */
   capped = false;
@@ -230,6 +232,10 @@ export class EstimatedSource implements ShipSource {
   /** Avance la flotte de `simSec` secondes simulées. */
   advance(simSec: number): void {
     this.simMs += simSec * 1000;
+    this.steps.advance(simSec, 1, () => this.advanceFleet(1));
+  }
+
+  private advanceFleet(simSec: number): void {
     for (const ships of this.fleet) {
       for (const s of ships) {
         s.ageSec += simSec;
@@ -264,7 +270,7 @@ export class EstimatedSource implements ShipSource {
   }
 
   tick(realDtSec: number): void {
-    this.advance(Math.min(realDtSec, 5) * this.opts.timeScale);
+    this.advance(realDtSec * this.opts.timeScale);
   }
 
   ships(): readonly ShipRecord[] {

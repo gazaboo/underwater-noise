@@ -1,4 +1,4 @@
-import { acousticComponents, validationRegionAt, validationSummarySchema, type Config, type ScienceStatus, type SourceStatus, type ValidationSummary } from '@vacarme/shared';
+import { SOUND_SPEED_M_S, acousticComponents, validationRegionAt, validationSummarySchema, type Config, type ScienceStatus, type SourceStatus, type ValidationSummary } from '@vacarme/shared';
 
 /**
  * Panneau « Fiabilité » : niveaux calculés par le moteur mondial au curseur (navires, fond naturel,
@@ -7,6 +7,7 @@ import { acousticComponents, validationRegionAt, validationSummarySchema, type C
  */
 export class SciencePanel {
   readonly element = document.createElement('details');
+  private readonly propagation = document.createElement('div');
   private readonly summary = document.createElement('summary');
   private readonly message = document.createElement('p');
   private readonly reading = document.createElement('pre');
@@ -17,12 +18,19 @@ export class SciencePanel {
     this.element.id = 'science';
     this.summary.textContent = 'Fiabilité';
     const note = document.createElement('p');
-    note.textContent = 'Ondes et lueur [A] : représentation artistique. Niveaux [C] : calculs de modèle, en dB re 1 µPa (moyenne quadratique par bande).';
+    note.textContent = 'Fronts et niveaux [C] : même champ acoustique estimé, non validé en mer. Espacement des anneaux, visibilité et lueur [A] : conventions graphiques ; aucun seuil biologique. Domaine ±79°, grille de référence ≈ 39 km. Historique acoustique initial incomplet.';
     this.element.append(this.summary, this.message, note, this.reading, this.validation);
     for (const event of ['pointerdown', 'wheel', 'keydown']) this.element.addEventListener(event, e => e.stopPropagation());
-    document.body.append(this.element);
+    this.propagation.id = 'propagation';
+    this.propagation.setAttribute('aria-live', 'off');
+    document.body.append(this.element, this.propagation);
     void this.reload();
   }
+  updatePropagation(cfg: Config, scale: number, ageSec: number, stale: boolean): void {
+    const band = cfg.bands.find(b => b.id === cfg.waves.band)!;
+    this.propagation.textContent = `${band.fMin}–${band.fMax} Hz · Temps ×${scale} · c ≈ ${(SOUND_SPEED_M_S / 1000).toLocaleString('fr-FR')} km/s${cfg.physics.enabled ? '' : ' · champ désactivé'}\nOndes des navires : augmentation estimée du bruit · visibles au-delà de +1 dB\nHistorique acoustique incomplet (${Math.floor(ageSec / 60)} min simulées)${stale ? ' · données interrompues, scène arrêtée' : ''} · sombre ≠ silence`;
+  }
+
   get wantsLevels(): boolean { return this.element.open; }
   async reload(): Promise<void> {
     const request = ++this.request;
@@ -40,7 +48,7 @@ export class SciencePanel {
     }
   }
   update(geo: { lat: number; lon: number } | null, world: number[] | null, cfg: Config, source: SourceStatus | null): void {
-    this.summary.textContent = `Fiabilité : ${cfg.science.mode === 'experimental' ? 'profil expérimental' : this.data ? 'résultats historiques publiés' : 'non validé'}`;
+    this.summary.textContent = `Fiabilité : ${cfg.science.mode === 'experimental' ? 'profil expérimental' : this.data ? 'non validé · résultats historiques' : 'non validé'}`;
     if (!this.element.open || !geo) return;
     const position = `${geo.lat.toFixed(2)}°, ${geo.lon.toFixed(2)}°`;
     const format = (ships: number | null, ambient: number) => {
@@ -48,8 +56,8 @@ export class SciencePanel {
       return `navires ${ships === null ? 'énergie nulle' : `${ships.toFixed(0)} dB`} · fond ${ambient.toFixed(0)} dB\n  total ${c.totalDb.toFixed(0)} dB · augmentation ${c.excessDb.toFixed(1)} dB`;
     };
     const traffic = !source ? 'Source de trafic inconnue.' : source.shipsMode === 'estimated' ? 'Trafic synthétique estimé (GFW).' : source.shipsMode === 'mixed' ? 'AIS + trafic synthétique estimé.' : source.active === 'simulation' ? 'Trafic simulé.' : source.active === 'replay' ? 'AIS historique en replay.' : 'AIS observé ; couverture incomplète, positions éventuellement extrapolées.';
-    this.reading.textContent = `${position}\n${world ? cfg.bands.map((b, i) => `${b.fMin}–${b.fMax} Hz : ${format(world[i * 2] === -Infinity ? null : world[i * 2], world[i * 2 + 1])}`).join('\n') : 'Niveaux indisponibles (terre, hors domaine ou champ désactivé).'}\nMoyenne exponentielle τ = ${cfg.physics.energyTauSec} s (temps d’affichage). Vent uniforme : ${cfg.ambient.windSpeedMs} m/s [E], scénario.\n${traffic}`;
-    this.validation.textContent = validationText(this.data, geo, cfg.science.mode, source);
+    this.reading.textContent = `${position}\n${world ? cfg.bands.map((b, i) => `${b.fMin}–${b.fMax} Hz : ${format(world[i * 2] === -Infinity ? null : world[i * 2], world[i * 2 + 1])}`).join('\n') : 'Niveaux indisponibles (terre, hors domaine ou champ désactivé).'}\nMoyenne exponentielle τ = ${cfg.physics.energyTauSec} s (temps de la scène). Vent uniforme : ${cfg.ambient.windSpeedMs} m/s [E], scénario.\n${traffic}`;
+    this.validation.textContent = 'Comparaisons historiques de la loi au point ; elles ne valident pas les fronts ni ce champ GPU.\n' + validationText(this.data, geo, cfg.science.mode, source);
   }
 }
 

@@ -4,7 +4,7 @@
  * via le serveur (ils survivent donc au redémarrage).
  */
 import { Pane, type FolderApi } from 'tweakpane';
-import type { Config } from '@vacarme/shared';
+import type { Config, SourceStatus } from '@vacarme/shared';
 
 export class Panel {
   private pane: Pane | null = null;
@@ -19,6 +19,7 @@ export class Panel {
     private readonly getConfig: () => Config,
     private readonly onChange: (path: string) => void,
     private readonly onSave: () => Promise<string>,
+    private readonly getSourceStatus: () => SourceStatus | null = () => null,
   ) {}
 
   toggle(): void {
@@ -47,7 +48,7 @@ export class Panel {
     const on = (f: FolderApi | Pane, path: string) => f.on('change', () => this.onChange(path));
 
     const science = pane.addFolder({ title: 'Acoustique — hypothèses fixes', expanded: false });
-    const info = { profil: cfg.science.mode === 'reference' ? 'référence v1 (non validée)' : 'expérimental', vent: `${cfg.ambient.windSpeedMs} m/s (scénario mondial)`, propagation: 'mondiale simplifiée / régionale RAM', ondes: 'animation artistique' };
+    const info = { profil: cfg.science.mode === 'reference' ? 'référence v1 (non validée)' : 'expérimental', vent: `${cfg.ambient.windSpeedMs} m/s (scénario mondial)`, propagation: 'mondiale simplifiée / régionale RAM', ondes: 'champ acoustique estimé · 1 500 m/s' };
     for (const key of ['profil', 'vent', 'propagation', 'ondes'] as const) science.addBinding(info, key, { readonly: true });
 
     const disp = pane.addFolder({ title: 'Affichage' });
@@ -62,20 +63,22 @@ export class Panel {
       .addBinding(cfg.source, 'ships', { label: 'navires (N)', options: { réels: 'real', estimés: 'estimated', 'réels + estimés': 'mixed' } })
       .on('change', () => this.onChange('ships'));
 
-    const waves = pane.addFolder({ title: 'Ondes — apparence artistique' });
-    waves.addBinding(cfg.waves, 'courant', { label: 'vitesse', min: 0.05, max: 0.67, step: 0.01 });
-    waves.addBinding(cfg.waves, 'damping', { label: 'amortissement', min: 0, max: 0.05, step: 0.0005 });
-    waves.addBinding(cfg.waves, 'coastDamping', { label: 'absorption côtes', min: 0, max: 1, step: 0.01 });
-    waves.addBinding(cfg.waves.pulse, 'wavelengthCells', { label: 'longueur d\'onde', min: 3, max: 40, step: 0.5 });
-    waves.addBinding(cfg.waves.pulse, 'cycles', { label: 'cycles / impulsion', min: 0.5, max: 6, step: 0.1 });
-    waves.addBinding(cfg.waves.pulse, 'rate', { label: 'impulsions / s', min: 0.02, max: 3, step: 0.01 });
-    waves.addBinding(cfg.waves.pulse, 'gain', { label: 'gain', min: 0, max: 10, step: 0.05 });
-    waves.addBinding(cfg.waves.amplitude, 'slMin', { label: 'SL min (dB)', min: 120, max: 200, step: 1 });
-    waves.addBinding(cfg.waves.amplitude, 'slMax', { label: 'SL max (dB)', min: 140, max: 220, step: 1 });
-    waves.addBinding(cfg.waves.amplitude, 'gamma', { label: 'compression', min: 0.1, max: 5, step: 0.05 });
+    const source = this.getSourceStatus();
+    const live = source?.active === 'live' && source.shipsMode !== 'estimated';
+    const time = pane.addFolder({ title: 'Temps de la scène' });
+    const playback = live ? { timeScale: 1 } : cfg.playback;
+    time.addBinding(playback, 'timeScale', { label: 'vitesse du temps ×', min: 1, max: 100, step: 1, disabled: live || !source });
+    const timing = { état: live ? 'Direct : temps réel' : source ? 'Scène synchronisée' : 'En attente de la source de trafic' };
+    time.addBinding(timing, 'état', { readonly: true });
+    on(time, 'playback');
+
+    const waves = pane.addFolder({ title: 'Ondes — augmentation du bruit' });
+    waves.addBinding(cfg.waves, 'band', { label: 'bande affichée', options: Object.fromEntries(cfg.bands.map(b => [`${b.fMin}–${b.fMax} Hz`, b.id])) });
+    const waveInfo = { visibilité: '+1 → +10 dB (graphique)', portée: 'Estimation non validée' };
+    waves.addBinding(waveInfo, 'visibilité', { readonly: true });
+    waves.addBinding(waveInfo, 'portée', { readonly: true });
     waves.addBinding(cfg.waves, 'brightness', { label: 'luminosité', min: 0, max: 20, step: 0.1 });
     waves.addBinding(cfg.waves, 'relief', { label: 'relief / reflets', min: 0, max: 1, step: 0.01 });
-    waves.addBinding(cfg.waves, 'shallowSpeed', { label: 'réfraction (plateaux)', min: 0.2, max: 1, step: 0.01 });
     on(waves, 'waves');
 
     const acc = pane.addFolder({ title: 'Accumulation (bruit durable)' });
@@ -108,7 +111,6 @@ export class Panel {
     wh.addBinding(cfg.whales.space, 'contour', { label: 'contour', min: 0, max: 1, step: 0.01 });
     wh.addBinding(cfg.whales.space, 'softnessDb', { label: 'douceur (dB)', min: 0.5, max: 40, step: 0.5 });
     wh.addBinding(cfg.whales.space, 'markerSize', { label: 'taille des groupes', min: 0, max: 12, step: 0.1 });
-    wh.addBinding(cfg.whales, 'timeScale', { label: 'vitesse de nage ×', min: 0, max: 300, step: 1 });
     wh.addBinding(cfg.whales.links, 'enabled', { label: 'liens' });
     wh.addBinding(cfg.whales.links, 'intensity', { label: 'intensité des fils', min: 0, max: 4, step: 0.01 });
     wh.addBinding(cfg.whales.links, 'ghost', { label: 'trace fantôme', min: 0, max: 1, step: 0.01 });
@@ -191,7 +193,7 @@ export class Panel {
     ships.addBinding(cfg.ships, 'visible', { label: 'visibles' });
     ships.addBinding(cfg.ships, 'pointSize', { label: 'taille', min: 0, max: 6, step: 0.1 });
     ships.addBinding(cfg.ships, 'opacity', { label: 'opacité', min: 0, max: 1, step: 0.01 });
-    on(ships, 'ships');
+    on(ships, 'shipAppearance');
 
     pane.addBlade({ view: 'separator' });
     const status = { état: '' };

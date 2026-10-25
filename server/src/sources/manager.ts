@@ -42,6 +42,8 @@ export class SourceManager {
   /** Mode mixte : dernière mise à jour de la zone des navires estimés. */
   private lastRegion = -Infinity;
   private region: 'world' | 'uncovered' | null = null;
+  private timelineKey = '';
+  private timelineCounter = Math.floor(Math.random() * 0xffffffff);
   private active: Active = 'simulation';
   private liveHealthySince: number | null = null;
   private lastCoverageSave = Date.now();
@@ -62,7 +64,7 @@ export class SourceManager {
     // Le replay part de la couverture réelle connue (s'il y en a une), sinon de « tout observé ».
     const replayCoverage = new CoverageMap(existsSync(this.coveragePath) ? 0 : 1);
     if (existsSync(this.coveragePath)) replayCoverage.copyFrom(this.liveCoverage);
-    this.replay = new ReplaySource(this.resolvePath(cfg.replay.path), cfg.replay.speed, cfg.replay.loop, registryOptions(cfg), replayCoverage, covOpts);
+    this.replay = new ReplaySource(this.resolvePath(cfg.replay.path), cfg.playback.timeScale, cfg.replay.loop, registryOptions(cfg), replayCoverage, covOpts);
     this.applySimCoverage();
     if (this.live && cfg.source.mode !== 'replay' && cfg.source.mode !== 'simulation') this.live.start();
     this.active = this.choose(Date.now());
@@ -85,12 +87,14 @@ export class SourceManager {
   }
 
   configure(cfg: Config): void {
+    if (JSON.stringify([this.cfg.simulation.shipCount, this.cfg.simulation.seed, this.cfg.simulation.fishingFraction, this.cfg.estimated.seed]) !==
+        JSON.stringify([cfg.simulation.shipCount, cfg.simulation.seed, cfg.simulation.fishingFraction, cfg.estimated.seed])) this.timelineKey = '';
     this.cfg = cfg;
     const reg = registryOptions(cfg);
     this.live?.configure(reg, cfg.coverage);
     this.live?.setUrl(cfg.live.url);
     this.replay.configure(reg, cfg.coverage);
-    this.replay.setOptions(this.resolvePath(cfg.replay.path), cfg.replay.speed, cfg.replay.loop);
+    this.replay.setOptions(this.resolvePath(cfg.replay.path), cfg.playback.timeScale, cfg.replay.loop);
     this.recorder.setMinInterval(cfg.recorder.minIntervalSec);
     this.recorder.enabled = cfg.recorder.enabled;
     this.applySimCoverage();
@@ -107,7 +111,7 @@ export class SourceManager {
 
   private choose(now: number): Active {
     const mode = this.cfg.source.mode;
-    if (mode === 'live') return 'live';
+    if (mode === 'live') return this.live ? 'live' : 'simulation';
     if (mode === 'replay') return this.replay.available ? 'replay' : 'simulation';
     if (mode === 'simulation') return 'simulation';
     // auto
@@ -128,6 +132,16 @@ export class SourceManager {
   /** Source qui donne le temps des instantanés : les navires estimés en mode « estimés », sinon la source réelle. */
   get current(): ShipSource {
     return this.shipsMode === 'estimated' ? this.estimated! : this.source(this.active);
+  }
+
+  /** Included in the binary snapshot: no ordering dependency on JSON status messages. */
+  get timelineId(): number {
+    const key = `${this.current.name}/${this.shipsMode}/${this.current.name === 'replay' ? this.replay.revision : 0}`;
+    if (key !== this.timelineKey) {
+      this.timelineKey = key;
+      this.timelineCounter = (this.timelineCounter + 1) >>> 0;
+    }
+    return this.timelineCounter;
   }
 
   tick(realDtSec: number): void {
@@ -179,7 +193,7 @@ export class SourceManager {
         this.lastRegion = now;
       }
       // Même rythme que la source réelle (temps réel en direct, vitesse du replay).
-      est.advance(Math.min(realDtSec, 5) * this.current.timeScale());
+      est.advance(realDtSec * this.current.timeScale());
     }
   }
 

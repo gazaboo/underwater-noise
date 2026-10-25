@@ -17,9 +17,10 @@ describe('protocole binaire', () => {
       { id: 227006760, lat: 48.5, lon: -5.1, sog: 12.3, cog: 45, classIndex: 7, flags: 1, lengthM: 211, slLow: 180.5, slMid: 176, slHigh: 168, slBroad: 184 },
       { id: 1, lat: -33.9, lon: 179.9, sog: 0, cog: 359, classIndex: 0, flags: 0, lengthM: 30, slLow: 150, slMid: 155, slHigh: 150, slBroad: 160 },
     ];
-    const buf = encodeShips(ships, 1_700_000_000_000, 10);
+    const buf = encodeShips(ships, 1_700_000_000_000, 10, 42);
     const snap = decodeHeader(buf)!;
     expect(snap.count).toBe(2);
+    expect(snap.timelineId).toBe(42);
     expect(snap.timeScale).toBe(10);
     expect(snap.simTimeMs).toBe(1_700_000_000_000);
     const s = decodeShip(snap, 0);
@@ -28,6 +29,12 @@ describe('protocole binaire', () => {
     expect(s.lengthM).toBe(211);
     expect(s.slBroad).toBeCloseTo(184, 4);
     expect(decodeShip(snap, 1).lon).toBeCloseTo(179.9, 4);
+  });
+
+  it('rejette une horloge invalide avant la simulation', () => {
+    for (const rate of [NaN, Infinity, 0, 101]) expect(decodeHeader(encodeShips([], 0, rate))).toBeNull();
+    expect(decodeHeader(encodeShips([], NaN, 1))).toBeNull();
+    expect(decodeHeader(encodeShips([], 0, 1))?.timelineId).toBe(0);
   });
 
   it('rejette un message tronqué', () => {

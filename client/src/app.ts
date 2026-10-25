@@ -3,25 +3,23 @@
  * HUD et panneau de réglage.
  */
 import * as THREE from 'three';
-import { deepMerge, resolveForTarget, type Config, type DisplayTarget, type SourceStatus } from '@vacarme/shared';
+import { deepMerge, resolveForTarget, type Config, type DisplayTarget, type SourceStatus, type ShipSnapshot, PhysicalSteps } from '@vacarme/shared';
 import { loadOceanGrid, loadWorldAssets, type WorldAssets } from './assets.ts';
 import { ShipStream } from './net/ship-stream.ts';
 import { computeFlatTransform, FlatView, screenToGeo, worldTransform, type FlatTransform } from './render/flat-view.ts';
 import { GlobeController, GlobeView, globeCamera, pixelToGeo, viewToEarth, type GlobeMode } from './render/globe-view.ts';
 import { ShipLayer } from './render/ships.ts';
-import { DetailWaves } from './sim/detail.ts';
 import { PhysicsField, calibrate, type CalibrationResult } from './sim/physics-sim.ts';
 import { Whales } from './whales/whales.ts';
 import { FieldReader } from './whales/field-reader.ts';
 import { AudioEngine, flatListener, globeListener } from './audio/engine.ts';
-import { WaveSim } from './sim/wave-sim.ts';
+import { SceneClock } from './sim/scene-clock.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
 import { FlatNavigator } from './ui/navigation.ts';
 import { Panel } from './ui/panel.ts';
 import { SciencePanel } from './ui/science.ts';
 
-const CLOCK_WRAP = 1 << 20;
-const NOMINAL_FPS = 60;
+const SCENE_STEP_SEC = 0.1;
 
 export interface UrlOverrides {
   target?: DisplayTarget;
@@ -47,9 +45,7 @@ export class App {
   private readonly science: SciencePanel;
   private readonly nav: FlatNavigator;
   private readonly gpu: GpuTimer;
-  private wave: WaveSim;
   private readonly flat: FlatView;
-  private readonly detail: DetailWaves;
   private physics: PhysicsField;
   private physicsClock = 0;
   private readonly calibration: CalibrationResult;
@@ -68,8 +64,18 @@ export class App {
   /** Dernière projection globe (pour le curseur). */
   private lastGlobe: { mode: GlobeMode; cam: ReturnType<typeof globeCamera>; M: THREE.Matrix3; w: number; h: number } | null = null;
   private speciesKey = '';
-  private clock = 0;
+  private readonly sceneClock = new SceneClock();
+  private readonly physicsSteps = new PhysicalSteps();
+  private readonly sceneSteps = new PhysicalSteps();
+  private clockRevision = -1;
+  private sceneOriginMs = 0;
+  private sceneTicks = 0;
+  private sceneAgeSec = 0;
+  private timeWriteTimer: number | undefined;
+  private desiredTimeScale: number | null = null;
+  private writingTimeScale: number | null = null;
   private connected = false;
+  private panelSourceKnown = false;
   private sourceStatus: SourceStatus | null = null;
   /** Carte de couverture AIS (360 × 180, ligne 0 au nord). Pleine tant que le serveur n'a rien envoyé. */
   private readonly coverage = new THREE.DataTexture(new Uint8Array(360 * 180).fill(255), 360, 180, THREE.RedFormat, THREE.UnsignedByteType);
@@ -92,11 +98,8 @@ export class App {
     this.coverage.wrapS = THREE.RepeatWrapping;
     this.coverage.needsUpdate = true;
     this.gpu = new GpuTimer(this.renderer.getContext() as WebGL2RenderingContext);
-    this.wave = new WaveSim(assets.oceanWidth, assets.ocean);
-    this.wave.clear(this.renderer);
     this.flat = new FlatView(assets);
     this.science = new SciencePanel();
-    this.detail = new DetailWaves(assets);
     // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale.
     const t0 = performance.now();
     this.calibration = calibrate(this.renderer);
@@ -109,6 +112,7 @@ export class App {
       () => this.cfg,
       (path) => this.onPanelChange(path),
       () => this.save(),
+      () => this.sourceStatus,
     );
     this.applyConfig();
     this.resize();
@@ -126,11 +130,19 @@ export class App {
     }, (e) => console.error('[cétacés] initialisation impossible :', e));
 
     new ShipStream({
-      onSnapshot: (snap, at) => this.ships.update(snap, at, this.cfg),
+      onSnapshot: (snap, at) => this.onSnapshot(snap, at),
       onConfig: (c) => this.onServerConfig(c),
       onCoverage: (w, h, data) => this.onCoverage(w, h, data),
-      onSourceStatus: (st) => (this.sourceStatus = st),
-      onStatus: (ok) => (this.connected = ok),
+      onSourceStatus: (st) => {
+        const wasLive = this.sourceStatus?.active === 'live' && this.sourceStatus.shipsMode !== 'estimated';
+        this.sourceStatus = st;
+        if (wasLive !== (st.active === 'live' && st.shipsMode !== 'estimated') || !this.panelSourceKnown) this.panel.refresh();
+        this.panelSourceKnown = true;
+      },
+      onStatus: (ok) => {
+        this.connected = ok;
+        if (!ok) this.sceneClock.disconnect();
+      },
       onScienceStatus: () => { void this.science.reload(); },
     });
     requestAnimationFrame((t) => this.frame(t));
@@ -142,8 +154,27 @@ export class App {
     const raw = (await res.json()) as Config;
     const quality = overrides.quality ?? raw.display.quality;
     const profile = raw.qualityProfiles[quality];
-    const [assets, physicsOcean] = await Promise.all([loadWorldAssets(profile.visualSimWidth), loadOceanGrid(profile.physicsSimWidth)]);
+    const [assets, physicsOcean] = await Promise.all([loadWorldAssets(profile.physicsSimWidth), loadOceanGrid(profile.physicsSimWidth)]);
     return new App(raw, overrides, assets, canvas, physicsOcean);
+  }
+
+  private onSnapshot(snap: ShipSnapshot, at: number): void {
+    this.sceneClock.sync(snap, at);
+    this.ships.update(snap, at, this.cfg);
+  }
+
+  private resetHistory(timeMs: number): void {
+    this.sceneOriginMs = timeMs;
+    this.sceneAgeSec = 0;
+    this.sceneTicks = 0;
+    this.physicsClock = 0;
+    this.physicsSteps.reset();
+    this.sceneSteps.reset();
+    this.physics.clear(this.renderer);
+    this.physics.accumulate(this.renderer, 0, this.cfg);
+    this.field.reset();
+    this.whales?.repopulate(this.cfg);
+    this.audio.reset();
   }
 
   private resolve(raw: Config, target?: DisplayTarget): Config {
@@ -166,6 +197,7 @@ export class App {
     f.calibrationK = this.calibration.K;
     f.configure(this.cfg);
     f.clear(this.renderer);
+    f.accumulate(this.renderer, 0, this.cfg);
     this.flat.setLevels(f.levels.texture, f.width, f.height);
     return f;
   }
@@ -176,21 +208,24 @@ export class App {
     const key = JSON.stringify(this.cfg.whales.species);
     if (this.whales && key !== this.speciesKey) this.whales.repopulate(this.cfg);
     this.speciesKey = key;
-    this.wave.setParams(this.cfg.waves);
-    this.detail?.sim?.setParams(this.cfg.waves);
     this.ships.recomputeAmplitudes(this.cfg);
   }
 
   private onServerConfig(c: Config): void {
+    if (this.writingTimeScale === c.playback.timeScale) this.writingTimeScale = null;
+    if (this.writingTimeScale === null && this.desiredTimeScale === c.playback.timeScale) this.desiredTimeScale = null;
     this.raw = c;
     this.cfg = this.resolve(c, this.cfg.display.target);
+    if (this.desiredTimeScale !== null) this.cfg.playback.timeScale = this.desiredTimeScale;
     this.afterConfigChange();
     this.panel.refresh();
+    if (this.writingTimeScale === null && this.desiredTimeScale !== null) this.queuePlayback();
   }
 
   /** Navires réels / estimés / mixtes : réglage du serveur, appliqué aussitôt (et enregistré dans config/local.json5). */
   private setShipsMode(mode: Config['source']['ships']): void {
     this.cfg.source.ships = mode;
+    if (mode === this.raw.source.ships) return;
     void fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source: { ships: mode } }) }).then(
       async (res) => res.ok || console.error(`[navires] ${await res.text()}`),
       (e: Error) => console.error(`[navires] ${e.message}`),
@@ -199,6 +234,11 @@ export class App {
 
   private onPanelChange(path: string): void {
     if (path === 'ships') return this.setShipsMode(this.cfg.source.ships);
+    if (path === 'playback') {
+      this.desiredTimeScale = this.cfg.playback.timeScale;
+      this.queuePlayback();
+      return;
+    }
     if (path === 'view' || path === 'display') this.nav.forget();
     if (path === 'display') {
       // Changement de cible : on repart de la configuration serveur pour cette cible,
@@ -213,28 +253,46 @@ export class App {
     this.afterConfigChange();
   }
 
+  private queuePlayback(): void {
+    clearTimeout(this.timeWriteTimer);
+    this.timeWriteTimer = window.setTimeout(() => this.writePlayback(), 150);
+  }
+
+  private writePlayback(): void {
+    if (this.writingTimeScale !== null) return;
+    const scale = this.desiredTimeScale;
+    if (scale === null || scale === this.raw.playback.timeScale) {
+      this.desiredTimeScale = null;
+      return;
+    }
+    this.writingTimeScale = scale;
+    // Keep the write pending until the server config acknowledges it. A successful HTTP
+    // response precedes the file watch/broadcast and must not allow a duplicate request.
+    void fetch('/api/config', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ playback: { timeScale: scale } }) })
+      .then(async res => { if (!res.ok) throw new Error(await res.text()); })
+      .catch(error => {
+        this.writingTimeScale = null;
+        if (this.desiredTimeScale === scale) this.desiredTimeScale = null;
+        else if (this.desiredTimeScale !== null) this.queuePlayback();
+        console.error('[temps]', error);
+      });
+  }
+
   private afterConfigChange(): void {
     this.applyConfig();
     this.resize();
-    if (this.profile.visualSimWidth !== this.wave.width || this.profile.physicsSimWidth !== this.physics.width) void this.rebuildSim();
+    if (this.profile.physicsSimWidth !== this.physics.width) void this.rebuildSim();
   }
 
   private async rebuildSim(): Promise<void> {
     if (this.rebuilding) return;
     this.rebuilding = true;
     try {
-      const width = this.profile.visualSimWidth;
-      if (width !== this.wave.width) {
-        const ocean = await loadOceanGrid(width);
-        this.assets = { ...this.assets, ocean, oceanWidth: width };
-        this.wave.dispose();
-        this.wave = new WaveSim(width, ocean);
-        this.wave.clear(this.renderer);
-      }
       if (this.profile.physicsSimWidth !== this.physics.width) {
         const ocean = await loadOceanGrid(this.profile.physicsSimWidth);
         this.physics.dispose();
         this.physics = this.makePhysics(ocean);
+        this.resetHistory(this.sceneClock.read(performance.now()).timeMs);
       }
       this.applyConfig();
     } finally {
@@ -250,6 +308,7 @@ export class App {
       palette: c.palette,
       dayPalette: c.dayPalette,
       waves: c.waves,
+      playback: c.playback,
       ships: c.ships,
       accumulation: c.accumulation,
       incognita: c.incognita,
@@ -385,7 +444,12 @@ export class App {
     const t0 = performance.now();
     const cfg = this.themed();
     const r = this.renderer;
-    const steps = this.profile.visualSimSteps;
+    const scene = this.sceneClock.read(now);
+    if (this.clockRevision !== this.sceneClock.revision) {
+      this.clockRevision = this.sceneClock.revision;
+      this.resetHistory(scene.timeMs - scene.dtSec * 1000);
+    }
+    let steps = 0;
 
     this.gpu.begin();
     const size = r.getDrawingBufferSize(new THREE.Vector2());
@@ -393,40 +457,39 @@ export class App {
     const flatMode = mode === 'flat';
     this.nav.enabled = flatMode;
     const view = computeFlatTransform(cfg, size.x, size.y, flatMode ? this.nav.update(dt) : undefined);
-    const detail = this.detail.update(r, view, flatMode ? this.nav.zoom : 1, cfg, now, this.wave);
-    const splat = 3 * (this.wave.width / 2048);
-    for (let s = 0; s < steps; s++) {
-      this.ships.inject(r, this.wave.sourceTarget, this.wave.domain, splat, now, this.clock, cfg, this.wave.courant, steps * NOMINAL_FPS);
-      this.wave.step(r);
-      if (detail) {
-        this.ships.inject(r, detail.sourceTarget, detail.domain, 3, now, this.clock, cfg, detail.courant, steps * NOMINAL_FPS);
-        detail.step(r);
-      }
-      this.clock = (this.clock + 1) % CLOCK_WRAP;
-    }
-    // Champ physique : un pas par image, moyenne d'énergie, conversion en dB et accumulation.
     if (cfg.physics.enabled) {
       const ph = this.physics;
-      this.ships.injectPhysics(r, ph.sourceTarget, ph.domain, ph.ocean, now, this.physicsClock);
-      ph.step(r);
-      ph.updateEnergy(r, 1 - Math.exp(-dt / 1000 / cfg.physics.energyTauSec));
-      ph.accumulate(r, Math.min(dt, 250) / 1000, cfg);
-      this.physicsClock = (this.physicsClock + 1) % CLOCK_WRAP;
+      this.sceneSteps.advance(scene.dtSec, SCENE_STEP_SEC, () => {
+        this.sceneTicks++;
+        this.sceneAgeSec = this.sceneTicks * SCENE_STEP_SEC;
+        const stepTimeMs = this.sceneOriginMs + this.sceneAgeSec * 1000;
+        steps += this.physicsSteps.advance(SCENE_STEP_SEC, ph.stepSeconds, offset => {
+          this.ships.setTime(stepTimeMs - (SCENE_STEP_SEC - offset) * 1000);
+          this.ships.injectPhysics(r, ph.sourceTarget, ph.domain, ph.ocean, now, this.physicsClock);
+          ph.step(r);
+          ph.updateEnergy(r, 1 - Math.exp(-ph.stepSeconds / cfg.physics.energyTauSec));
+          ph.accumulate(r, ph.stepSeconds, cfg);
+          this.physicsClock++;
+          this.field.capture(r, ph);
+        });
+        this.whales?.update(this.field, cfg, stepTimeMs, SCENE_STEP_SEC);
+      });
       this.flat.setLevels(ph.levels.texture, ph.width, ph.height);
-      this.field.update(r, ph, now);
-      this.whales?.update(this.field, cfg, now, Math.min(dt, 250) / 1000);
     } else {
       this.flat.setLevels(null);
     }
+    this.ships.setTime(scene.timeMs);
+    const sceneSeconds = (scene.timeMs - this.sceneOriginMs) / 1000;
+    const interpolation = Math.min(1, this.physicsSteps.fraction / this.physics.stepSeconds);
     this.lastView = view;
     const levels = this.physics.levels.texture;
     let listener = flatListener(view);
     if (flatMode) {
       this.lastGlobe = null;
-      this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, view, cfg, now / 1000, detail ? { sim: detail, weight: this.detail.weight } : undefined);
+      this.flat.render(r, this.physics, interpolation, this.coverage, view, cfg, sceneSeconds);
       // Les points grossissent un peu quand on zoome, pour rester lisibles.
       this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
-      if (cfg.physics.enabled) this.whales?.draw(r, view, cfg, levels, this.coverage, now / 1000, r.getPixelRatio());
+      if (cfg.physics.enabled) this.whales?.draw(r, view, cfg, levels, this.coverage, sceneSeconds, r.getPixelRatio());
     } else {
       // Texture « monde » : composition complète en équirectangulaire, puis reprojection.
       const W = this.profile.worldTextureWidth;
@@ -443,27 +506,28 @@ export class App {
         });
       }
       const world = worldTransform(W);
-      this.flat.render(r, this.wave.texture, { x: this.wave.width, y: this.wave.height }, this.coverage, world, cfg, now / 1000, undefined, this.worldTarget);
+      this.flat.render(r, this.physics, interpolation, this.coverage, world, cfg, sceneSeconds, this.worldTarget);
       this.ships.draw(r, now, world, cfg, 1, this.worldTarget);
-      if (cfg.physics.enabled) this.whales?.draw(r, world, cfg, levels, this.coverage, now / 1000, 1, this.worldTarget);
-      this.globeCtl.update(cfg, Math.min(dt, 250) / 1000);
+      if (cfg.physics.enabled) this.whales?.draw(r, world, cfg, levels, this.coverage, sceneSeconds, 1, this.worldTarget);
+      this.globeCtl.update(cfg, scene.dtSec);
       const facingLat = this.globeCtl.facingLatFor(cfg);
       const M = viewToEarth(facingLat, this.globeCtl.facingLon);
       const gm = mode as GlobeMode;
       const cam = globeCamera(gm, cfg, size.x / size.y, this.globeCtl.zoom);
-      this.globe.render(r, this.worldTarget.texture, gm, cam, M, cfg, size.x, size.y, now / 1000);
+      this.globe.render(r, this.worldTarget.texture, gm, cam, M, cfg, size.x, size.y, sceneSeconds);
       this.lastGlobe = { mode: gm, cam, M, w: size.x, h: size.y };
       if (gm !== 'equirect') listener = globeListener(facingLat, this.globeCtl.facingLon);
     }
     this.gpu.end();
 
-    this.audio.update(now, cfg, listener, this.ships, this.field, this.whales?.drainEvents() ?? []);
+    this.audio.update(now, cfg, listener, this.ships, this.field, this.whales?.drainEvents() ?? [], scene.scale);
     if (now - this.lastCursorRead > 250) {
       this.lastCursorRead = now;
       if (this.hud.visible) this.cursorInfo = this.readCursor();
       const geo = this.cursorGeo();
       const world = geo && this.science.wantsLevels && cfg.physics.enabled ? this.physics.readComponents(r, geo.lat, geo.lon, cfg) : null;
       this.science.update(geo, world, cfg, this.sourceStatus);
+      this.science.updatePropagation(cfg, scene.scale, this.sceneAgeSec, scene.stale);
     }
     this.hud.frame(dt, performance.now() - t0, this.gpu.lastMs, () => ({
       calibration: `vérification numérique ${this.calibration.maxDeviationDb.toFixed(1)} dB d'écart à la loi en 1/r (ne valide pas les niveaux en mer)${cfg.physics.enabled ? '' : ' (champ désactivé)'}   B : ${['rendu', 'indice visuel accumulé', 'basse', 'moyenne', 'haute'][this.flat.debugField]}`,
@@ -473,9 +537,9 @@ export class App {
       status: this.sourceStatus,
       connected: this.connected,
       ships: this.ships.shipCount,
-      simTime: new Date(this.ships.simTimeMs(now)),
-      timeScale: this.ships.currentTimeScale,
-      simSize: `${this.wave.width}×${this.wave.height}${this.detail.sim ? ` + détail ${this.detail.sim.width}×${this.detail.sim.height} (${(this.detail.sim.domain.lonSpan / this.detail.sim.width * 111).toFixed(1)} km/cellule)` : ''}`,
+      simTime: new Date(scene.timeMs),
+      timeScale: scene.scale,
+      simSize: `${this.physics.width}×${this.physics.height} · ${(this.physics.cellMeters / 1000).toFixed(1)} km/cellule · pas ${this.physics.stepSeconds.toFixed(2)} s simulées`,
       steps,
       canvas: flatMode
         ? `${size.x}×${size.y}   carte plate, zoom ×${this.nav.zoom.toFixed(1)} (${view.centerLon.toFixed(1)}°, ${view.centerLat.toFixed(1)}°)`

@@ -19,6 +19,8 @@ export interface CallOptions {
   clarity: number;
   /** Facteur de transposition des fréquences. */
   transpose: number;
+  /** Scene seconds per real second; envelopes and cadence share the scene clock. */
+  timeScale?: number;
 }
 
 function env(g: GainNode, t0: number, attack: number, hold: number, release: number, peak: number): number {
@@ -41,9 +43,17 @@ function fragment(g: GainNode, t0: number, dur: number, clarity: number): void {
   }
 }
 
-export function playCall(ctx: AudioContext, dest: AudioNode, o: CallOptions): void {
+export function playCall(ctx: AudioContext, dest: AudioNode, o: CallOptions): { endTime: number; stop(): void } {
   const t0 = ctx.currentTime + 0.02;
   const k = o.transpose;
+  const scale = o.timeScale ?? 1;
+  const time = (virtual: number) => t0 + (virtual - t0) / scale;
+  const nodes: OscillatorNode[] = [];
+  const oscillator = (options: OscillatorOptions) => {
+    const node = new OscillatorNode(ctx, options);
+    nodes.push(node);
+    return node;
+  };
   const c = Math.max(0, Math.min(1, o.clarity));
   // Chaîne commune : filtre de masquage → hachage → volume.
   const lp = new BiquadFilterNode(ctx, { type: 'lowpass', frequency: 400 + 9000 * c * c, Q: 0.7 });
@@ -52,12 +62,12 @@ export function playCall(ctx: AudioContext, dest: AudioNode, o: CallOptions): vo
   lp.connect(chop).connect(out).connect(dest);
   let end = t0;
   const tone = (type: OscillatorType, f: (t: number) => [number, number][], start: number, dur: number, peak: number, attack = 0.3, release = 0.6) => {
-    const osc = new OscillatorNode(ctx, { type });
+    const osc = oscillator({ type });
     const g = new GainNode(ctx, { gain: 0 });
-    f(start).forEach(([t, freq], i) => (i === 0 ? osc.frequency.setValueAtTime(freq, t) : osc.frequency.linearRampToValueAtTime(freq, t)));
+    f(start).forEach(([t, freq], i) => (i === 0 ? osc.frequency.setValueAtTime(freq, time(t)) : osc.frequency.linearRampToValueAtTime(freq, time(t))));
     osc.connect(g).connect(lp);
-    const stop = env(g, start, attack, Math.max(0, dur - attack - release), release, peak);
-    osc.start(start);
+    const stop = env(g, time(start), attack / scale, Math.max(0, dur - attack - release) / scale, release / scale, peak);
+    osc.start(time(start));
     osc.stop(stop + 0.05);
     end = Math.max(end, stop);
     return osc;
@@ -67,14 +77,14 @@ export function playCall(ctx: AudioContext, dest: AudioNode, o: CallOptions): vo
     case 'blue': {
       // Appel A : tonal pulsé ~16 Hz (8 s), puis appel B : glissé 18 → 16 Hz (10 s).
       const a = tone('sine', (t) => [[t, 16 * k], [t + 8, 15.5 * k]], t0, 8, 0.9, 1.5, 2);
-      const trem = new OscillatorNode(ctx, { frequency: 1.6 });
+      const trem = oscillator({ frequency: 1.6 * scale });
       const depth = new GainNode(ctx, { gain: 0.5 });
       const am = new GainNode(ctx, { gain: 0.5 });
       a.disconnect();
       a.connect(am).connect(lp);
       trem.connect(depth).connect(am.gain);
       trem.start(t0);
-      trem.stop(t0 + 8.1);
+      trem.stop(time(t0 + 8.1));
       tone('sine', (t) => [[t, 18 * k], [t + 10, 16 * k]], t0 + 9, 10, 0.8, 2, 3);
       tone('sine', (t) => [[t, 36 * k], [t + 10, 32 * k]], t0 + 9, 10, 0.25, 2, 3);
       break;
@@ -111,16 +121,16 @@ export function playCall(ctx: AudioContext, dest: AudioNode, o: CallOptions): vo
       const regular = Math.random() < 0.5;
       let t = t0;
       for (let i = 0; i < n; i++) {
-        const osc = new OscillatorNode(ctx, { type: 'square', frequency: (2500 + Math.random() * 1500) * k });
+        const osc = oscillator({ type: 'square', frequency: (2500 + Math.random() * 1500) * k });
         const bp = new BiquadFilterNode(ctx, { type: 'bandpass', frequency: 5000 * k, Q: 1.5 });
         const g = new GainNode(ctx, { gain: 0 });
         osc.connect(bp).connect(g).connect(lp);
-        g.gain.setValueAtTime(0, t);
-        g.gain.linearRampToValueAtTime(1, t + 0.001);
-        g.gain.exponentialRampToValueAtTime(0.001, t + 0.012);
-        osc.start(t);
-        osc.stop(t + 0.02);
-        end = Math.max(end, t + 0.02);
+        g.gain.setValueAtTime(0, time(t));
+        g.gain.linearRampToValueAtTime(1, time(t + 0.001));
+        g.gain.exponentialRampToValueAtTime(0.001, time(t + 0.012));
+        osc.start(time(t));
+        osc.stop(time(t + 0.02));
+        end = Math.max(end, time(t + 0.02));
         t += regular ? 0.18 : i < 2 ? 0.3 : 0.12;
       }
       break;
@@ -130,17 +140,24 @@ export function playCall(ctx: AudioContext, dest: AudioNode, o: CallOptions): vo
       const dur = 0.8 + Math.random() * 0.8;
       const f = (1100 + Math.random() * 400) * k;
       const car = tone('sawtooth', (s) => [[s, f], [s + dur * 0.7, f * 1.15], [s + dur, f * 0.7]], t0, dur, 0.35, 0.05, 0.25);
-      const pr = new OscillatorNode(ctx, { type: 'square', frequency: 280 + Math.random() * 80 });
+      const pr = oscillator({ type: 'square', frequency: Math.min(16000, (280 + Math.random() * 80) * scale) });
       const depth = new GainNode(ctx, { gain: 0.45 });
       const am = new GainNode(ctx, { gain: 0.55 });
       car.disconnect();
       car.connect(am).connect(lp);
       pr.connect(depth).connect(am.gain);
       pr.start(t0);
-      pr.stop(t0 + dur + 0.1);
+      pr.stop(time(t0 + dur + 0.1));
       break;
     }
   }
   fragment(chop, t0, end - t0, c);
-  setTimeout(() => out.disconnect(), (end - ctx.currentTime + 1) * 1000);
+  const timer = setTimeout(() => out.disconnect(), (end - ctx.currentTime + 1) * 1000);
+  return { endTime: end, stop() {
+    clearTimeout(timer);
+    out.gain.cancelScheduledValues(ctx.currentTime);
+    out.gain.setTargetAtTime(0, ctx.currentTime, 0.005);
+    for (const node of nodes) { try { node.stop(ctx.currentTime + 0.03); } catch { /* already ended */ } }
+    setTimeout(() => out.disconnect(), 50);
+  } };
 }

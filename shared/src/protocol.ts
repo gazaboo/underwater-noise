@@ -7,7 +7,7 @@
  *     u32 nombre de navires
  *     f64 temps simulé de l'instantané (ms depuis l'époque Unix)
  *     f32 facteur d'échelle temporelle (temps simulé / temps réel)
- *     u32 réservé
+ *     u32 identifiant de la chronologie (change à chaque reprise/source)
  *   puis, par navire (SHIP_STRIDE = 40 octets, little-endian)
  *     u32 id (MMSI ou identifiant synthétique)
  *     f32 lat, f32 lon (degrés)
@@ -50,6 +50,7 @@ export interface ShipRecord {
 }
 
 export interface ShipSnapshot {
+  timelineId: number;
   simTimeMs: number;
   timeScale: number;
   count: number;
@@ -57,7 +58,7 @@ export interface ShipSnapshot {
   view: DataView;
 }
 
-export function encodeShips(ships: readonly ShipRecord[], simTimeMs: number, timeScale: number): ArrayBuffer {
+export function encodeShips(ships: readonly ShipRecord[], simTimeMs: number, timeScale: number, timelineId = 0): ArrayBuffer {
   const buf = new ArrayBuffer(HEADER_BYTES + ships.length * SHIP_STRIDE);
   const v = new DataView(buf);
   v.setUint8(0, MSG_SHIPS);
@@ -65,6 +66,7 @@ export function encodeShips(ships: readonly ShipRecord[], simTimeMs: number, tim
   v.setUint32(4, ships.length, true);
   v.setFloat64(8, simTimeMs, true);
   v.setFloat32(16, timeScale, true);
+  v.setUint32(20, timelineId, true);
   let o = HEADER_BYTES;
   for (const s of ships) {
     v.setUint32(o, s.id >>> 0, true);
@@ -90,7 +92,8 @@ export function decodeHeader(buf: ArrayBuffer): ShipSnapshot | null {
   if (view.getUint8(0) !== MSG_SHIPS || view.getUint8(1) !== PROTOCOL_VERSION) return null;
   const count = view.getUint32(4, true);
   if (buf.byteLength < HEADER_BYTES + count * SHIP_STRIDE) return null;
-  return { simTimeMs: view.getFloat64(8, true), timeScale: view.getFloat32(16, true), count, view };
+  if (!Number.isFinite(view.getFloat64(8, true)) || !Number.isFinite(view.getFloat32(16, true)) || view.getFloat32(16, true) < 1 || view.getFloat32(16, true) > 100) return null;
+  return { timelineId: view.getUint32(20, true), simTimeMs: view.getFloat64(8, true), timeScale: view.getFloat32(16, true), count, view };
 }
 
 export function decodeShip(snap: ShipSnapshot, i: number): ShipRecord {

@@ -26,15 +26,23 @@ bande) :
 Le fond n’inclut ni trafic lointain ajouté arbitrairement, ni pluie, ni biologie. Les navires absents
 de l’AIS sous-estiment le bruit. Une augmentation acoustique n’est pas une mesure de dommage biologique.
 
+## Correction des fronts (16 octobre 2026)
+
+Le moteur numérique et son horloge ont changé ; les sources et paramètres de la loi v1 sont conservés.
+Les comparaisons historiques ci-dessous concernent la loi au point, pas une validation du nouveau champ
+ni de ses transitoires. Le test ancien reste figé. Voir [PROPAGATION.md](PROPAGATION.md).
+
 ## Profils et affichage
 
 - `science.mode: 'reference'` : profil `north-sea-reference-v1`. Les anciennes surcharges locales de
   `physics`, `bands`, `ambient` et de résolution physique sont neutralisées au chargement ; l’API refuse
-  de les modifier. Vent uniforme de scénario 5 m/s, moyenne exponentielle τ = 6 s en temps d’affichage,
+  de les modifier. Vent uniforme de scénario 5 m/s, moyenne exponentielle τ = 6 s en temps de scène depuis la correction des fronts (voir PROPAGATION.md),
   grille mondiale 1024 × 512, domaine numérique ±79°.
 - `science.mode: 'experimental'` (dans `config/local.json5`) permet des variantes physiques, signalées
   comme expérimentales ; aucun écart mesuré n’est alors affiché.
-- Ondes, palette et accumulation sont artistiques. Les lectures utilisent directement l’énergie
+- Les fronts utilisent désormais le champ physique et une visibilité liée à l’augmentation du bruit ;
+  leur espacement et le transfert de luminosité sont graphiques. Palette et accumulation restent
+  artistiques. Les lectures utilisent directement l’énergie
   calculée, indépendamment de la lueur, de sa mémoire et de ses pondérations.
 - `GET /api/science` renvoie le statut et le résumé de validation, refusé s’il est invalide, hors de
   `data/science/` ou d’un autre profil physique.

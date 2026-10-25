@@ -4,7 +4,7 @@
  * Placement initial : observations OBIS récentes quand elles existent (et `useSightings`),
  * sinon tirage pondéré par la probabilité d'habitat AquaMaps. Un déplacement qui sortirait de
  * l'habitat, passerait à terre ou dans une eau trop peu profonde pour l'espèce est refusé : le
- * groupe tourne. La vitesse est artistique (`whales.timeScale`).
+ * groupe tourne. La vitesse en km/h utilise le temps commun de la scène.
  */
 import { DEG, bandCenter, callNoise, communicationRange, destination, lossRateDbPerKm, naturalLevel, type Config } from '@vacarme/shared';
 import type { OceanCpu, SpeciesData } from './geo-grids.ts';
@@ -162,7 +162,7 @@ export class WhaleAgents {
     const th = cfg.whales.habitatThreshold;
     for (const g of this.groups) {
       g.callPhase = (g.callPhase + dtSec / g.species.callIntervalSec) % 1;
-      const distM = (g.species.speedKmh / 3.6) * dtSec * cfg.whales.timeScale;
+      const distM = (g.species.speedKmh / 3.6) * dtSec;
       if (distM <= 0) continue;
       // Marche corrélée : petite rotation aléatoire à chaque pas.
       g.heading = (g.heading + (this.rand() - 0.5) * 40 * Math.min(1, dtSec * 2) + 360) % 360;

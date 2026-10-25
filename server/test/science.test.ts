@@ -18,7 +18,7 @@ describe('scientific configuration and unavailable data', () => {
   it('locks reference physics but allows appearance and an explicit experimental profile', () => {
     const { store } = setup();
     expect(() => store.saveLocal({ physics: { extraLossDbPerKm: .08 } })).toThrow(/experimental/);
-    expect(() => store.saveLocal({ accumulation: { bandWeights: { low: .1 } }, waves: { damping: .04 } })).not.toThrow();
+    expect(() => store.saveLocal({ accumulation: { bandWeights: { low: .1 } }, waves: { brightness: 4 } })).not.toThrow();
     expect(() => store.saveLocal({ science: { mode: 'experimental' }, physics: { extraLossDbPerKm: .08 } })).not.toThrow();
   });
   it('neutralizes old local overrides when starting in reference mode', () => {

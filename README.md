@@ -46,7 +46,7 @@ npm run build && npm start   # http://localhost:8787
 | Paramètre | Valeurs | Effet |
 |---|---|---|
 | `display` | `screen` (défaut), `projector` | cible d'affichage : écran du portable ou Epson EB-990U |
-| `quality` | `expo` (défaut), `light` | profil de qualité (taille de la simulation, pas par image) |
+| `quality` | `expo` (défaut), `light` | qualité du rendu (la grille physique de référence reste fixe) |
 | `hud` | (présent) | affiche le diagnostic au démarrage |
 | `scene` | `duo` | scène de test des liens (deux groupes en mer Ligure) |
 | `mode` | `flat`, `globe`, `hemisphere`, `equirect`, `fisheye` | mode de rendu |
@@ -71,10 +71,9 @@ npm run build && npm start   # http://localhost:8787
 | flèches, `+` / `-` | déplacer, zoomer au clavier |
 | double-clic, `R`, `0` | revenir au cadrage initial |
 
-Au-delà d'un zoom ×2,5 (`view.detail.minZoom`), une **grille d'ondes de détail** couvre la zone
-visible (≈ 6 km par cellule au zoom ×7, contre ≈ 20 km pour la grille mondiale) : les fronts d'onde
-restent fins quand on explore une mer ou un détroit. Elle est recalculée quand on sort de son emprise,
-en reprenant l'état des ondes de l'ancienne grille : le déplacement ne fait pas sursauter les fronts.
+Le zoom interpole le **même champ acoustique mondial**, de résolution ≈ 39 km par cellule dans
+le profil de référence. Il ne crée plus de grille d’ondes indépendante : vitesse et portée ne changent
+pas avec le cadrage ou le profil de rendu. Les petits détroits restent insuffisamment résolus.
 
 Le curseur disparaît après deux secondes d'immobilité.
 
@@ -84,7 +83,7 @@ Le curseur disparaît après deux secondes d'immobilité.
 |---|---|
 | `auto` (défaut) | direct si la clé est présente et le flux en bonne santé ; sinon replay ; sinon simulation |
 | `live` | aisstream.io uniquement |
-| `replay` | fichiers de `replay.path` (en boucle, vitesse `replay.speed`) |
+| `replay` | fichiers de `replay.path` (en boucle, vitesse commune `playback.timeScale`) |
 | `simulation` | navires synthétiques sur les grandes routes (`simulation.*`) |
 
 - **Direct** : la clé est lue dans `.env` (`AISSTREAM_API_KEY`), jamais dans le code ni dans le
@@ -146,24 +145,30 @@ les hypothèses acoustiques ; `science.mode: 'experimental'` permet les variante
   courante (`targets.screen` ou `targets.projector`), la palette et les ondes pour toutes les cibles.
 - `config/expo.json5` s'applique en plus quand le serveur est lancé avec `VACARME_MODE=expo`.
 
-Repères pour régler les ondes :
+Le dossier **« Temps de la scène »** propose un facteur unique ×1–×100 (`playback.timeScale`).
+À ×1, le modèle propage le son à environ **1,5 km/s** ; le même facteur accélère navires, cétacés,
+appels, liens et accumulation. Le direct AIS impose ×1. Le curseur est appliqué et enregistré sur
+le serveur ; une modification du facteur ne redémarre pas la scène.
 
-| Paramètre | Effet |
-|---|---|
-| `waves.damping` | persistance des fronts. Trop bas (≈ 0,004) : tout l'océan sature, plus de contraste. |
-| `waves.amplitude.slMin` / `gamma` | quels navires « marquent » : monter `slMin` éteint les petits bateaux |
-| `waves.brightness`, `waves.relief` | luminosité des crêtes ; part de reflets « en relief » |
-| `waves.pulse.*` | longueur d'onde, nombre de cycles par impulsion, cadence |
-| `render.blackLift` | plancher de noir (utile au projecteur, dont le noir est gris) |
+Les fronts visibles viennent du **champ acoustique à trois bandes**. Le panneau conserve seulement
+la bande affichée (`waves.band`, 10–40 Hz par défaut), la luminosité et le relief. Leur enveloppe suit
+l’augmentation du niveau sur le fond naturel modélisé : invisible jusqu’à +1 dB, transition douce
+jusqu’à +10 dB. Ce sont des **conventions de lisibilité**, pas des seuils biologiques. Augmenter la
+luminosité ne révèle pas les zones sous ce seuil. L’espacement des anneaux reste numérique.
+
+Les anciens réglages de vitesse, amortissement, impulsions, réfraction et amplitudes visuelles sont
+ignorés au chargement. Les accélérations séparées des sources et des cétacés sont également ignorées.
+La correction ne valide pas les portées en mer : le profil v1 est conservé avec ses limites publiées.
+Les contrôles et la méthode sont décrits dans [`docs/PROPAGATION.md`](docs/PROPAGATION.md).
 
 ## Ce que l'on voit
 
-- **Ondes** (grille visuelle) : chaque navire émet des fronts d'onde ; ils interfèrent, se réfractent
-  sur les plateaux continentaux et s'arrêtent sur les côtes.
+- **Ondes des navires** : fronts du champ acoustique, atténués selon les pertes du modèle et leur
+  contribution au bruit naturel dans la bande affichée. La réfraction artistique a été retirée.
 - **Lueur d'accumulation** (grille physique, calibrée en dB re 1 µPa) : là où le bruit dure,
   l'océan s'illumine lentement ; quand le trafic s'en va, la lueur s'efface plus lentement encore.
 - **Terra incognita** : les zones où l'AIS ne voit rien sont dans l'ombre, sous un brouillard lent et
-  un grain fin — distinctes du calme connu (noir net, relief du fond à peine perceptible).
+  un grain fin — distinctes des zones calculées sous le seuil graphique. Une zone sombre ne prouve pas le silence.
 - **Cétacés** (lumière chaude, pâle) : rorquals bleus et communs, baleines à bosse, cachalots, orques,
   en groupes placés dans leurs habitats (AquaMaps) et près d'observations réelles (OBIS).
   - **Espace de communication** : autour de chaque groupe, la zone où son appel reste audible, calculée
@@ -205,10 +210,10 @@ data/     grilles terre/mer et bathymétrie, routes maritimes
 docs/     sources et licences ; modèle physique (J3) ; guide d'exposition (J6)
 ```
 
-- **Simulation d'ondes** (`client/src/sim/wave-sim.ts`) : équation des ondes 2D amortie, calculée sur
-  la sphère en équirectangulaire (laplacien sphérique, stabilité locale près des pôles), les terres
-  forment une frontière. Les navires y injectent des impulsions dont l'amplitude dépend de leur
-  niveau source.
+- **Champ et fronts acoustiques** (`client/src/sim/physics-sim.ts`) : équation des ondes 2D amortie
+  sur la sphère ; pas en secondes physiques, différences d’ordre 4 en mer et d’ordre 2 au voisinage
+  de la terre. Les sources et les pertes sont communes aux fronts et aux lectures en dB. Les navires
+  injectent un signal numérique incohérent dont la longueur d’onde ne représente pas le spectre réel.
 - **Niveaux sources** (`shared/src/acoustics/jomopans-echo.ts`) : modèle JOMOPANS-ECHO
   (MacGillivray & de Jong, 2021), 13 classes de navires, vitesse et longueur ; testé contre la figure 7
   de l'article.
@@ -231,3 +236,7 @@ npm run typecheck
 - [x] **J4** cétacés, espace de communication, liens entre groupes
 - [x] **J5** son (sans spatialisation)
 - [x] **J6** globe, demi-sphère avec un projecteur, mode exposition
+
+Contrôles numériques et interface sous **Chromium** (serveurs temporaires isolés, aucun AIS réel,
+aucun changement de `config/local.json5`) : `npm run test:propagation`. Chromium doit être installé ;
+`CHROMIUM_PATH` permet de préciser son exécutable. Résultats dans `/tmp/vacarme-propagation-results`.

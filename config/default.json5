@@ -23,9 +23,9 @@
   },
 
   qualityProfiles: {
-    // Radeon 780M : 60 images/s visées en 1920×1200 comme en 2256×1504.
-    expo: { visualSimWidth: 2048, visualSimSteps: 3, detailSimWidth: 1024, physicsSimWidth: 1024, worldTextureWidth: 2048 },
-    light: { visualSimWidth: 1536, visualSimSteps: 2, detailSimWidth: 768, physicsSimWidth: 768, worldTextureWidth: 1536 },
+    // La qualité change le rendu ; le profil de référence fixe la grille physique à 1024×512.
+    expo: { physicsSimWidth: 1024, worldTextureWidth: 2048 },
+    light: { physicsSimWidth: 768, worldTextureWidth: 1536 },
   },
 
   view: {
@@ -36,8 +36,7 @@
       fit: 'cover', // 'cover' remplit l'écran (rogne les bords en longitude), 'contain' montre tout
     },
     // Exploration : molette = zoom, glisser = déplacer, double-clic ou R = recadrer.
-    // Au-delà de minZoom, une grille d'ondes fine couvre la zone visible (marge comprise).
-    detail: { enabled: true, minZoom: 2.5, margin: 1.35 },
+    // Le zoom interpole la grille physique commune ; il ne lance aucune simulation indépendante.
   },
 
   // Globe : la Terre tourne lentement sous un regard fixe (modes globe, hemisphere, fisheye).
@@ -125,26 +124,16 @@
     },
   },
 
-  // Ondes visibles (grille visuelle). Paramètres purement artistiques.
+  // Une seule horloge pour le replay, les sources synthétiques, les fronts et les cétacés.
+  // Le direct impose toujours ×1 ; le facteur choisi est conservé pour le replay/la simulation.
+  playback: { timeScale: 1 },
+
+  // Fronts du champ acoustique : augmentation sur le fond dans la bande sélectionnée.
+  // Visibilité nulle ≤ +1 dB, pleine à +10 dB (convention graphique, pas un seuil biologique).
   waves: {
-    courant: 0.45, // vitesse des fronts (cellules par pas à l'équateur) ; max stable ≈ 0,67
-    damping: 0.016, // persistance : plus petit = fronts qui voyagent plus loin (0,004 : tout l'océan sature)
-    coastDamping: 0.35, // 0 = côtes réfléchissantes, 1 = côtes absorbantes
-    polarCapLat: 79, // au-delà : banquise (mur)
-    pulse: {
-      wavelengthCells: 7, // longueur d'onde des fronts (cellules)
-      cycles: 1.5, // cycles par impulsion : 1 à 2 donnent des anneaux nets
-      rate: 0.35, // impulsions par seconde pour un navire de référence
-      gain: 0.8,
-    },
-    amplitude: {
-      slMin: 166, // niveau source large bande (dB re 1 µPa·m) qui donne une amplitude nulle
-      slMax: 192, // niveau qui donne l'amplitude maximale
-      gamma: 1.7, // compression : seuls les navires bruyants marquent fortement
-    },
-    brightness: 2.8,
-    shallowSpeed: 0.6, // réfraction : les fronts ralentissent et se courbent sur les plateaux (1 = aucun effet)
-    relief: 0.25, // part de l'éclairage « relief » (reflets) dans le rendu des ondes
+    band: 'low', // 'low' : 10–40 Hz ; 'mid' : 100–500 Hz ; 'high' : 1–10 kHz
+    brightness: 2.8, // luminosité, sans modifier le seuil de visibilité
+    relief: 0.25,
   },
 
   ships: {
@@ -209,7 +198,7 @@
   // Mode simulation (navires synthétiques sur les routes maritimes).
   simulation: {
     shipCount: 5000,
-    timeScale: 20, // temps simulé / temps réel : 20 → un navire à 15 nœuds traverse l'Atlantique en ~8 h
+    // Vitesse du temps : playback.timeScale (commun à toute la scène).
     fishingFraction: 0.12, // part de navires de pêche (errance près des côtes)
     laneWidthKm: 25, // dispersion latérale autour des routes
     seed: 42,
@@ -234,7 +223,7 @@
   // Statut des valeurs : docs/REVUE_SCIENTIFIQUE.md (navires estimés).
   estimated: {
     dir: 'data/density',
-    timeScale: 20, // comme la simulation (choix d'affichage)
+    // Vitesse du temps : playback.timeScale.
     maxShips: 60000, // plafond technique (≈ 51 000 en route en moyenne sur oct. 2026 ; le client en affiche 70 000 au plus) ; s'il est atteint, le diagnostic le signale
     lifetimeHours: 24, // empirique : un navire renaît ailleurs au bout d'un jour simulé en moyenne (renouvelle la répartition)
     lookAheadKm: 30, // empirique : distance d'anticipation pour suivre les couloirs de densité
@@ -263,7 +252,7 @@
   // Replay de fichiers enregistrés (.ndjson.gz) — enregistrements du serveur ou archives converties (tools/convert_ais.py).
   replay: {
     path: 'data/replays', // fichier ou dossier ; pour rejouer vos propres enregistrements : 'data/recordings'
-    speed: 10, // ×10 : une heure d'archive en 6 minutes
+    // Vitesse du temps : playback.timeScale.
     loop: true,
   },
 
@@ -286,7 +275,7 @@
   // Statut de chaque valeur (sourcée, empirique, artistique) : docs/REVUE_SCIENTIFIQUE.md §6.
   whales: {
     enabled: true,
-    timeScale: 30, // les groupes se déplacent 30 fois plus vite qu'en vrai (sinon immobiles à l'œil)
+    // Vitesse du temps : playback.timeScale ; vitesses physiques en speedKmh ci-dessous.
     habitatThreshold: 0.35,
     useSightings: true,
     color: '#f2dcc2', // teinte chaude et pâle : le vivant, distinct de la lumière froide du bruit

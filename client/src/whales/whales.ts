@@ -86,6 +86,9 @@ export class Whales {
 
   repopulate(cfg: Config): void {
     this.agents.populate(cfg, this.scene);
+    this.events = [];
+    this.calls = { answered: 0, unanswered: 0 };
+    this.lastGeometry = -1e9;
     this.prevPhase.clear();
     this.pendingAnswers = [];
     this.links.clear();

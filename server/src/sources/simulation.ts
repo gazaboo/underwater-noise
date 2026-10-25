@@ -10,6 +10,7 @@
 import { readFileSync } from 'node:fs';
 import {
   CLASS_PARAMS,
+  PhysicalSteps,
   FLAG_SYNTHETIC,
   KNOT_MS,
   SHIP_CLASS_INDEX,
@@ -129,6 +130,7 @@ export class SimulationSource implements ShipSource {
   private readonly routesByPort = new Map<string, number[]>();
   private readonly fleet: SimShip[] = [];
   private simMs = Date.now();
+  private readonly steps = new PhysicalSteps();
 
   constructor(
     routesPath: string,
@@ -268,8 +270,13 @@ export class SimulationSource implements ShipSource {
   }
 
   tick(realDtSec: number): void {
-    const dt = realDtSec * this.opts.timeScale; // secondes simulées
+    const dt = realDtSec * this.opts.timeScale;
     this.simMs += dt * 1000;
+    this.steps.advance(dt, 1, () => this.advance(1));
+  }
+
+  /** Fixed source-time integration keeps turns/arrivals independent of the acceleration. */
+  private advance(dt: number): void {
     for (const s of this.fleet) {
       const st = s.state;
       const distKm = (s.speedKn * KNOT_MS * dt) / 1000;

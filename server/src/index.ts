@@ -43,18 +43,18 @@ try {
   /* pas de .env : le direct sera désactivé */
 }
 
-const store = new ConfigStore(join(ROOT, 'config'));
+const store = new ConfigStore(resolve(ROOT, process.env.VACARME_CONFIG_DIR ?? 'config'));
 const science = new ScienceStore(ROOT);
 store.watch();
 
 function simOptions(cfg: Config): SimulationOptions {
-  return { ...cfg.simulation, bands: cfg.bands };
+  return { ...cfg.simulation, timeScale: cfg.playback.timeScale, bands: cfg.bands };
 }
 
 const grid = new OceanGrid(join(DATA_DIR, 'grid', 'ocean_1024.png'));
 const simulation = new SimulationSource(join(DATA_DIR, 'routes.json'), grid, simOptions(store.config));
 function estOptions(cfg: Config): EstimatedOptions {
-  return { ...cfg.estimated, bands: cfg.bands };
+  return { ...cfg.estimated, timeScale: cfg.playback.timeScale, bands: cfg.bands };
 }
 
 // Navires estimés : densité Global Fishing Watch (uv run tools/build_presence.py), facultative.
@@ -142,7 +142,7 @@ function sendSnapshot(ws: WebSocket, buf: ArrayBuffer): void {
 function shipsBuffer(): { buf: ArrayBuffer; count: number } {
   const ships = sources.ships();
   const src = sources.current;
-  return { buf: encodeShips(ships, src.simTimeMs(), src.timeScale()), count: ships.length };
+  return { buf: encodeShips(ships, src.simTimeMs(), src.timeScale(), sources.timelineId), count: ships.length };
 }
 
 function coverageBuffer(): ArrayBuffer {
@@ -158,10 +158,23 @@ wss.on('connection', (ws) => {
 });
 
 store.on('change', (cfg: Config) => {
+  // Close the interval at the OLD rate before replacing it. Otherwise a speed change
+  // retroactively accelerates the time since the previous network snapshot.
+  const now = performance.now();
+  sources.tick((now - last) / 1000);
+  last = now;
   simulation.configure(simOptions(cfg));
   estimated?.configure(estOptions(cfg));
   sources.configure(cfg);
-  for (const ws of wss.clients) sendConfig(ws);
+  sources.tick(0);
+  const { buf, count } = shipsBuffer();
+  const status = JSON.stringify({ type: 'status', status: sources.status(count) });
+  for (const ws of wss.clients) {
+    sendConfig(ws);
+    // Announce the new derivative immediately, at the unchanged source time.
+    sendSnapshot(ws, buf);
+    if (ws.readyState === ws.OPEN) ws.send(status);
+  }
   restartTicker();
 });
 

@@ -75,9 +75,6 @@ export function globeListener(facingLat: number, facingLon: number): Listener {
   };
 }
 
-/** Durée approximative d'un appel (s), pour limiter la polyphonie des cétacés. */
-const CALL_DURATION: Record<string, number> = { blue: 20, fin: 3, humpback: 8, sperm: 2, orca: 2 };
-
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private output: AudioOutput | null = null;
@@ -85,7 +82,8 @@ export class AudioEngine {
   private pink: AudioBuffer | null = null;
   private readonly voices = new Map<number, ShipVoice>();
   private active = new Set<number>();
-  private callsUntil: number[] = [];
+  private playingCalls: ReturnType<typeof playCall>[] = [];
+  private timeScale = 1;
   private lastUpdate = 0;
   private readonly sample: ShipSample = { id: 0, lat: 0, lon: 0, sog: 0, classIndex: 0, lengthM: 0, slBroad: 0 };
   muted = false;
@@ -124,7 +122,22 @@ export class AudioEngine {
     this.muted = !this.muted;
   }
 
-  update(now: number, cfg: Config, listener: Listener, ships: ShipLayer, field: FieldReader, calls: CallEvent[]): void {
+  reset(): void {
+    for (const call of this.playingCalls) call.stop();
+    this.playingCalls = [];
+    for (const voice of this.voices.values()) voice.release();
+    this.voices.clear();
+    this.active.clear();
+    this.bedIntensity = 0;
+  }
+
+  update(now: number, cfg: Config, listener: Listener, ships: ShipLayer, field: FieldReader, calls: CallEvent[], timeScale = 1): void {
+    if (timeScale !== this.timeScale) {
+      // Cancel calls scheduled at the old rate rather than leaving a second biological clock running.
+      for (const call of this.playingCalls) call.stop();
+      this.playingCalls = [];
+      this.timeScale = timeScale;
+    }
     const ctx = this.ctx;
     if (!ctx || !this.output || ctx.state !== 'running') {
       if (ctx?.state === 'suspended') this.status = 'son : en attente d\'un clic ou d\'une touche';
@@ -135,21 +148,22 @@ export class AudioEngine {
 
     // Cétacés : à chaque image, pour ne pas décaler les appels.
     const t = ctx.currentTime;
-    this.callsUntil = this.callsUntil.filter((e) => e > t);
+    this.playingCalls = this.playingCalls.filter(call => call.endTime > t);
     for (const ev of calls) {
-      if (!a.enabled || this.callsUntil.length >= a.whales.voices) continue;
+      if (!a.enabled || this.playingCalls.length >= a.whales.voices) continue;
       const g = ev.group;
       const d = listener.distance(g.lat, g.lon);
       if (!Number.isFinite(d)) continue;
       const clarity = g.rangeM / Math.max(1, g.quietRangeM);
-      playCall(ctx, this.output.input, {
+      const call = playCall(ctx, this.output.input, {
+        timeScale,
         species: g.species.id,
         // Même atténuation centre → bord que les navires ; niveau de base modéré (les appels se superposent).
         gain: a.whales.volume * Math.pow(10, (-a.ships.edgeAttenuationDb * d) / 20) * 0.2,
         clarity,
         transpose: a.whales.transpose[g.species.id] ?? 1,
       });
-      this.callsUntil.push(t + (CALL_DURATION[g.species.id] ?? 3));
+      this.playingCalls.push(call);
     }
 
     // Navires et nappe : dix fois par seconde suffit.
@@ -229,6 +243,6 @@ export class AudioEngine {
     const peak = this.output.peakDb();
     this.status = this.muted
       ? 'son : coupé (M)'
-      : `son : ${this.active.size} navires · ${this.callsUntil.length} appels en cours · nappe ${(100 * this.bedIntensity).toFixed(0)} % · crête ${Number.isFinite(peak) ? peak.toFixed(1) : '−∞'} dBFS · limiteur ${this.output.reductionDb.toFixed(1)} dB`;
+      : `son : ${this.active.size} navires · ${this.playingCalls.length} appels en cours · nappe ${(100 * this.bedIntensity).toFixed(0)} % · crête ${Number.isFinite(peak) ? peak.toFixed(1) : '−∞'} dBFS · limiteur ${this.output.reductionDb.toFixed(1)} dB`;
   }
 }

@@ -27,6 +27,11 @@ export class FullscreenPass {
     renderer.setRenderTarget(target);
     renderer.render(this.scene, this.camera);
   }
+
+  dispose(): void {
+    this.mesh.geometry.dispose();
+    this.material.dispose();
+  }
 }
 
 export function rawMaterial(fragmentShader: string, uniforms: Record<string, THREE.IUniform>, extra: Partial<THREE.ShaderMaterialParameters> = {}): THREE.RawShaderMaterial {

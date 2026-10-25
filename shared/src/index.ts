@@ -9,3 +9,5 @@ export * from './acoustics/sonar.ts';
 export * from './whales/links.ts';
 export * from './acoustics/ambient.ts';
 export * from './acoustics/scientific.ts';
+
+export * from './acoustics/dynamics.ts';

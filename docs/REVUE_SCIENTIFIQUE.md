@@ -61,7 +61,7 @@ Règle de lecture : seul ce qui est **[S]** ou **[C]** peut être présenté au 
 ### Ce qu'il ne faut pas dire (ou seulement avec la mise en garde)
 
 - « Ce sont les vraies ondes sonores » : **non.** Les cercles lumineux sont une **image** (grille
-  visuelle, §7.1) ; leur vitesse, leur longueur d'onde et leur persistance sont artistiques. **[A]**
+  visuelle, §7.1) ; leur espacement reste numérique ; leur vitesse et leur atténuation suivent désormais le modèle (§7.1), sans validation des portées en mer.
 - « Voici le niveau de bruit mesuré ici » : **non.** Ce sont des **estimations de modèle** ;
   leur écart aux hydrophones est publié dans [VALIDATION.md](VALIDATION.md), pour les seuls sites, jours
   et bandes du protocole [C]. Cela évalue la loi au point exact, pas entièrement le rendu GPU (§4.4).
@@ -191,6 +191,11 @@ Niveau de bande = somme énergétique des décidécades dont le centre est dans 
 Fréquence représentative pour l'absorption : moyenne géométrique des bornes (20, 224, 3 162 Hz). [E]
 
 ### 4.4 Propagation (`client/src/sim/physics-sim.ts`, `shared/src/acoustics/propagation.ts`)
+
+> **État historique de la campagne du 15 octobre 2026.** Les valeurs numériques de ce tableau
+> (pas, cohérence, calibration, fluctuations) précèdent la correction des fronts du 16 octobre.
+> Le profil de sources et pertes v1 reste actif ; les contrôles du nouveau solveur figurent au §7.1
+> et dans [PROPAGATION.md](PROPAGATION.md). Les résultats de campagne restent figés.
 
 **Loi visée** : TL(r) = 20·log10(r_t) + 10·log10(r/r_t) + α·r (sphérique jusqu'à r_t, puis
 cylindrique). **[L]** (approximation classique de manuel, p. ex. Urick, *Principles of Underwater
@@ -442,18 +447,23 @@ ne met pas 3 s à parcourir des centaines de kilomètres (~1 500 m/s : ~10 min p
 
 ## 7. Couche visuelle
 
-### 7.1 Ondes visibles (grille visuelle) — **[A] intégralement**
+### 7.1 Fronts du champ acoustique — correction du 16 octobre 2026
 
-Équation des ondes sur une grille de 2048×1024 (≈ 20 km), même méthode numérique que le champ physique,
-mais **paramètres purement artistiques** : vitesse (0,45 cellule/pas, soit environ une traversée de
-l'Atlantique en quelques secondes), longueur d'onde (7 cellules ≈ 140 km), impulsions (0,35 par
-seconde), amortissement (persistance), amplitude selon le niveau source large bande (166–192 dB → 0–1,
-compression ^1,7). L'interférence est une vraie interférence **entre ces ondes fictives**. La
-« réfraction » sur les plateaux (vitesse réduite à 60 % en eau peu profonde) est une **analogie
-visuelle** (elle ressemble à la réfraction des vagues, pas du son). **Rien de cette couche n'est un son
-réel.**
+L’ancienne grille visuelle artistique et sa grille de détail ont été retirées. Les fronts utilisent
+le même champ à trois bandes que les niveaux : célérité de référence 1 500 m/s [E, approximation],
+horloge physique commune [C], sources et pertes du profil v1 conservées. Le pas de Courant vaut
+0,14 [C, stabilité sur ±79°] ; différences d’ordre 4 en mer, d’ordre 2 près de la terre pour empêcher
+le franchissement d’une barrière d’une cellule. Calibration K recalculée au démarrage.
 
-Grille de détail au zoom (≈ 6 km par cellule à ×7) : même statut.
+Le niveau choisi est comparé au fond naturel modélisé. Visibilité nulle jusqu’à +1 dB, pleine à
++10 dB [A, conventions graphiques sans sens biologique]. Luminosité, couleur, relief et espacement des
+anneaux restent [A]. Le rendu n’est ni une image des vraies oscillations ni une mesure de dommage.
+
+**Le tableau numérique du §4.4 décrit l’état utilisé lors de la campagne historique.** Les anciennes
+valeurs de Courant, durée de cohérence et écarts de calibration qu’il contient ne décrivent pas le
+solveur corrigé. Les mesures et résultats de validation ne sont pas réécrits. Les contrôles nouveaux,
+leurs conditions et les limites figurent dans [PROPAGATION.md](PROPAGATION.md). Ils ne valident pas
+les niveaux absolus, les portées en mer ou le trafic synthétique.
 
 ### 7.2 Lueur d'accumulation — mapping [A] d'un champ [C]
 

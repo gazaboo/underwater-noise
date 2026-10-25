@@ -6,10 +6,10 @@
  *   → terres et trait de côte → vignettage, exposition, gamma, plancher de noir, tramage.
  */
 import * as THREE from 'three';
-import type { Config } from '@vacarme/shared';
+import { naturalLevel, PHYS_POLAR_CAP_DEG, WAVE_VISIBLE_DB, WAVE_FULL_DB, type Config } from '@vacarme/shared';
 import type { WorldAssets } from '../assets.ts';
 import { FullscreenPass, hexToVec3, rawMaterial } from './fullscreen.ts';
-import type { WaveSim } from '../sim/wave-sim.ts';
+import type { PhysicsField } from '../sim/physics-sim.ts';
 
 /** Transformation écran ↔ géographie de la carte plate (pixels du tampon de rendu). */
 export interface FlatTransform {
@@ -72,10 +72,7 @@ uniform sampler2D uWave;    // R = u
 uniform sampler2D uCoverage; // R = couverture AIS (0 = jamais observé)
 uniform float uUnknownDim;
 uniform vec2 uWaveTexel;
-uniform sampler2D uDetail;     // grille de détail (zoom)
-uniform vec4 uDetailDomain;    // centre lon, bord nord, étendue lon, étendue lat (degrés)
-uniform vec2 uDetailTexel;
-uniform float uDetailWeight;
+uniform float uWaveMix;
 uniform vec2 uElevTexel;
 uniform sampler2D uLevels;      // R = niveau affiché accumulé (dB), G/B/A = niveaux par bande (dB re 1 µPa)
 uniform vec2 uLevelsTexel;
@@ -121,7 +118,7 @@ float altitude(vec2 uv) {
 }
 
 // Catmull-Rom en 9 lectures bilinéaires (d'après J. Jimenez) : ondes douces même de près.
-float sampleCubic(sampler2D tex, vec2 uv, vec2 texel) {
+vec4 sampleCubic(sampler2D tex, vec2 uv, vec2 texel) {
   vec2 size = 1.0 / texel;
   vec2 pos = uv * size;
   vec2 c = floor(pos - 0.5) + 0.5;
@@ -135,25 +132,32 @@ float sampleCubic(sampler2D tex, vec2 uv, vec2 texel) {
   vec2 t0 = (c - 1.0) * texel;
   vec2 t3 = (c + 2.0) * texel;
   vec2 t12 = (c + o12) * texel;
-  float r = 0.0;
-  r += texture(tex, vec2(t0.x, t0.y)).r * w0.x * w0.y;
-  r += texture(tex, vec2(t12.x, t0.y)).r * w12.x * w0.y;
-  r += texture(tex, vec2(t3.x, t0.y)).r * w3.x * w0.y;
-  r += texture(tex, vec2(t0.x, t12.y)).r * w0.x * w12.y;
-  r += texture(tex, vec2(t12.x, t12.y)).r * w12.x * w12.y;
-  r += texture(tex, vec2(t3.x, t12.y)).r * w3.x * w12.y;
-  r += texture(tex, vec2(t0.x, t3.y)).r * w0.x * w3.y;
-  r += texture(tex, vec2(t12.x, t3.y)).r * w12.x * w3.y;
-  r += texture(tex, vec2(t3.x, t3.y)).r * w3.x * w3.y;
+  vec4 r = vec4(0.0);
+  r += texture(tex, vec2(t0.x, t0.y)) * w0.x * w0.y;
+  r += texture(tex, vec2(t12.x, t0.y)) * w12.x * w0.y;
+  r += texture(tex, vec2(t3.x, t0.y)) * w3.x * w0.y;
+  r += texture(tex, vec2(t0.x, t12.y)) * w0.x * w12.y;
+  r += texture(tex, vec2(t12.x, t12.y)) * w12.x * w12.y;
+  r += texture(tex, vec2(t3.x, t12.y)) * w3.x * w12.y;
+  r += texture(tex, vec2(t0.x, t3.y)) * w0.x * w3.y;
+  r += texture(tex, vec2(t12.x, t3.y)) * w12.x * w3.y;
+  r += texture(tex, vec2(t3.x, t3.y)) * w3.x * w3.y;
   return r;
 }
 
 // Valeur (bicubique) et gradient (différences centrées) d'un champ d'ondes.
-vec3 waveAt(sampler2D tex, vec2 uv, vec2 texel) {
-  float w = sampleCubic(tex, uv, texel);
-  float wx = texture(tex, uv + vec2(texel.x, 0.0)).r - texture(tex, uv - vec2(texel.x, 0.0)).r;
-  float wy = texture(tex, uv - vec2(0.0, texel.y)).r - texture(tex, uv + vec2(0.0, texel.y)).r;
-  return vec3(w, wx, wy);
+float signalAt(vec2 uv) {
+  vec2 w = sampleCubic(uWave, uv, uWaveTexel).rg;
+  return mix(w.x, w.y, uWaveMix);
+}
+float directSignalAt(vec2 uv) {
+  vec2 w = texture(uWave, uv).rg;
+  return mix(w.x, w.y, uWaveMix);
+}
+vec3 waveAt(vec2 uv) {
+  return vec3(signalAt(uv),
+    directSignalAt(uv + vec2(uWaveTexel.x, 0.0)) - directSignalAt(uv - vec2(uWaveTexel.x, 0.0)),
+    directSignalAt(uv - vec2(0.0, uWaveTexel.y)) - directSignalAt(uv + vec2(0.0, uWaveTexel.y)));
 }
 
 // Bruit de valeur et fbm, pour le brouillard de la terra incognita.
@@ -212,14 +216,11 @@ void main() {
     ocean = max(ocean, vec3(0.0));
 
     // --- Ondes : intensité de crête et éclairage « relief » des fronts.
-    vec3 wg = waveAt(uWave, uv, uWaveTexel);
-    // Grille de détail (zoom) : fondue sur ses bords et à son démarrage.
-    if (uDetailWeight > 0.0) {
-      float dLon = mod(lon - uDetailDomain.x + 180.0, 360.0) - 180.0;
-      vec2 duv = vec2(dLon / uDetailDomain.z + 0.5, (uDetailDomain.y - lat) / uDetailDomain.w);
-      float edge = smoothstep(0.0, 0.08, min(min(duv.x, 1.0 - duv.x), min(duv.y, 1.0 - duv.y)));
-      if (edge > 0.0) wg = mix(wg, waveAt(uDetail, duv, uDetailTexel), edge * uDetailWeight);
-    }
+    // R/G: normalized previous/current signal; B: ship/natural energy ratio.
+    float ratio = max(texture(uWave, uv).b, 0.0);
+    float excess = 10.0 * log(1.0 + ratio) / log(10.0);
+    float visibility = smoothstep(${WAVE_VISIBLE_DB.toFixed(1)}, ${WAVE_FULL_DB.toFixed(1)}, excess);
+    vec3 wg = waveAt(uv);
     float w = wg.x;
     float wx = wg.y;
     float wy = wg.z;
@@ -229,13 +230,13 @@ void main() {
     float crest = pow(max(w, 0.0), 1.3) + 0.15 * max(-w, 0.0);
     float lightW = uWaveBrightness * ((1.0 - uWaveRelief) * crest + uWaveRelief * glint);
     // Compression douce : les zones très actives saturent sans brûler.
-    lightW = 1.0 - exp(-lightW);
+    lightW = uHasLevels * visibility * (1.0 - exp(-lightW));
     if (abs(lat) > uPolarCap) lightW = 0.0;
 
     // --- Lueur d'accumulation : là où le bruit dure, l'océan s'illumine.
     vec3 glow = vec3(0.0);
     if (uHasLevels > 0.5) {
-      float A = sampleCubic(uLevels, uv, uLevelsTexel);
+      float A = sampleCubic(uLevels, uv, uLevelsTexel).r;
       float t = pow(smoothstep(uQuietDb, uSatDb, A), uGlowGamma);
       glow = uGlowColor * uGlowStrength * t;
     }
@@ -280,7 +281,29 @@ void main() {
   outColor = vec4(col, 1.0);
 }`;
 
+// Display preparation runs only when the physical state or selected band changes.
+// Half-float output gives cheap native interpolation without altering the solver's textures.
+const PACK_WAVE_FRAG = /* glsl */ `
+in vec2 vUv;
+out vec4 outColor;
+uniform sampler2D uCurrent, uPrevious, uEnergy;
+uniform vec3 uBand;
+uniform float uRatioScale;
+void main() {
+  float e = max(dot(texture(uEnergy, vUv).rgb, uBand), 0.0);
+  float norm = max(sqrt(2.0 * e), 1e-12);
+  float previous = dot(texture(uPrevious, vUv).rgb, uBand) / norm;
+  float current = dot(texture(uCurrent, vUv).rgb, uBand) / norm;
+  outColor = vec4(clamp(previous, -4.0, 4.0), clamp(current, -4.0, 4.0), min(e * uRatioScale, 60000.0), 1.0);
+}`;
+
 export class FlatView {
+  private packedWave: THREE.WebGLRenderTarget | null = null;
+  private packedKey = '';
+  private readonly wavePass = new FullscreenPass(rawMaterial(PACK_WAVE_FRAG, {
+    uCurrent: { value: null }, uPrevious: { value: null }, uEnergy: { value: null },
+    uBand: { value: new THREE.Vector3(1, 0, 0) }, uRatioScale: { value: 1 },
+  }));
   private readonly pass: FullscreenPass;
   readonly uniforms: Record<string, THREE.IUniform>;
 
@@ -291,10 +314,7 @@ export class FlatView {
       uElevL: { value: assets.elevationLinear },
       uWave: { value: null },
       uCoverage: { value: null },
-      uDetail: { value: null },
-      uDetailDomain: { value: new THREE.Vector4(0, 90, 360, 180) },
-      uDetailTexel: { value: new THREE.Vector2(1, 1) },
-      uDetailWeight: { value: 0 },
+      uWaveMix: { value: 1 },
       uLevels: { value: null },
       uLevelsTexel: { value: new THREE.Vector2(1, 1) },
       uHasLevels: { value: 0 },
@@ -351,17 +371,16 @@ export class FlatView {
 
   render(
     renderer: THREE.WebGLRenderer,
-    wave: THREE.Texture,
-    waveSize: THREE.Vector2Like,
+    field: PhysicsField,
+    interpolation: number,
     coverage: THREE.Texture,
     view: FlatTransform,
     cfg: Config,
     time: number,
-    detail?: { sim: WaveSim; weight: number },
     target: THREE.WebGLRenderTarget | null = null,
   ): void {
     const u = this.uniforms;
-    if (!u.uLevels.value) u.uLevels.value = wave; // texture valide même sans champ physique
+    if (!u.uLevels.value) u.uLevels.value = field.levels.texture; // texture valide même sans champ physique
     const acc = cfg.accumulation;
     u.uQuietDb.value = acc.quietDb;
     u.uSatDb.value = acc.saturationDb;
@@ -376,25 +395,37 @@ export class FlatView {
     u.uGrain.value = inc.grain;
     u.uWaveKeep.value = inc.waveKeep;
     u.uDebugField.value = this.debugField;
-    if (detail && detail.weight > 0) {
-      const d = detail.sim.domain;
-      u.uDetail.value = detail.sim.texture;
-      (u.uDetailDomain.value as THREE.Vector4).set(d.lonCenter, d.latTop, d.lonSpan, d.latSpan);
-      (u.uDetailTexel.value as THREE.Vector2).set(1 / detail.sim.width, 1 / detail.sim.height);
-      u.uDetailWeight.value = detail.weight;
-    } else {
-      u.uDetail.value = wave; // jamais échantillonnée (poids nul), mais il faut une texture valide
-      u.uDetailWeight.value = 0;
+    const bandIndex = { low: 0, mid: 1, high: 2 }[cfg.waves.band];
+    const naturalDb = naturalLevel(cfg.bands[bandIndex], cfg.ambient.windSpeedMs);
+    if (!this.packedWave || this.packedWave.width !== field.width || this.packedWave.height !== field.height) {
+      this.packedWave?.dispose();
+      this.packedWave = new THREE.WebGLRenderTarget(field.width, field.height, {
+        type: THREE.HalfFloatType, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter,
+        wrapS: THREE.RepeatWrapping, wrapT: THREE.ClampToEdgeWrapping, depthBuffer: false,
+      });
+      this.packedKey = '';
     }
-    u.uWave.value = wave;
+    const key = `${field.texture.id}/${field.revision}/${bandIndex}/${naturalDb}/${field.offsetDb}`;
+    if (this.packedKey !== key) {
+      const w = this.wavePass.material.uniforms;
+      w.uCurrent.value = field.texture;
+      w.uPrevious.value = field.previousTexture;
+      w.uEnergy.value = field.energyTarget.texture;
+      (w.uBand.value as THREE.Vector3).set(bandIndex === 0 ? 1 : 0, bandIndex === 1 ? 1 : 0, bandIndex === 2 ? 1 : 0);
+      w.uRatioScale.value = 10 ** ((field.offsetDb - naturalDb) / 10);
+      this.wavePass.render(renderer, this.packedWave);
+      this.packedKey = key;
+    }
+    u.uWave.value = this.packedWave.texture;
+    u.uWaveMix.value = interpolation;
     u.uCoverage.value = coverage;
     u.uUnknownDim.value = cfg.palette.unknownDim;
-    (u.uWaveTexel.value as THREE.Vector2).set(1 / waveSize.x, 1 / waveSize.y);
+    (u.uWaveTexel.value as THREE.Vector2).set(1 / field.width, 1 / field.height);
     (u.uResolution.value as THREE.Vector2).set(view.width, view.height);
     (u.uCenter.value as THREE.Vector2).set(view.centerLon, view.centerLat);
     u.uScale.value = view.scale;
     (u.uLatRange.value as THREE.Vector2).set(view.latMin, view.latMax);
-    u.uPolarCap.value = cfg.waves.polarCapLat;
+    u.uPolarCap.value = PHYS_POLAR_CAP_DEG;
     const p = cfg.palette;
     hexToVec3(p.background, u.uBackground.value);
     hexToVec3(p.oceanShallow, u.uOceanShallow.value);
