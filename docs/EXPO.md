@@ -89,6 +89,7 @@ simulation s'il n'y a pas de fichier). Toutes les données nécessaires sont loc
 | `B` | champ physique en dB (diagnostic) |
 | `V` | représentation du bruit : isophones → météo → encre → fronts bruts → nappe masquée |
 | `S` | scénario : trafic actuel ↔ océan sans navires (calculé) |
+| clic sur un cétacé | fiche de l'espèce : photo, portée du groupe, faits sourcés, vrais enregistrements (`Échap` ferme) |
 
 ## 8. Performances mesurées (780M, Chromium + Vulkan)
 

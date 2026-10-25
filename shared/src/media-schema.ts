@@ -98,6 +98,30 @@ export const fact = z.object({
 });
 export type Fact = z.infer<typeof fact>;
 
+/** Rubriques d'une fiche espèce, dans l'ordre d'affichage. */
+export const FACT_LABELS = {
+  longueur: 'Longueur',
+  masse: 'Masse',
+  longevite: 'Longévité',
+  groupe: 'Groupes',
+  regime: 'Alimentation',
+  migration: 'Déplacements',
+  statutUicn: 'Liste rouge UICN',
+  effectif: 'Effectif',
+  menaces: 'Menaces',
+} as const;
+
+/** Sens des statuts, pour l'infobulle des badges. */
+export const STATUS_LABELS: Record<ValueStatus, string> = {
+  S: 'sourcé',
+  'S-r': 'source repérée, à confirmer',
+  O: 'ordre de grandeur',
+  C: 'calculé par le modèle',
+  E: 'choix empirique',
+  A: 'choix artistique',
+  L: 'littérature générale',
+};
+
 export const speciesCard = z.object({
   /** whales.species[].id */
   id: text,
@@ -109,7 +133,7 @@ export const speciesCard = z.object({
   photos: z.array(text),
 });
 
-export const speciesCards = z.object({ species: z.array(speciesCard) });
+export const speciesCards = z.object({ about: z.string().optional(), species: z.array(speciesCard) });
 export type SpeciesCard = z.infer<typeof speciesCard>;
 
 /**

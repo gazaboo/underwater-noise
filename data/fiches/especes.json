@@ -1,0 +1,95 @@
+{
+ "about": "Fiches espèces (lot 4, 25 oct. 2026). Chaque valeur porte son statut (S sourcé, S-r source repérée à confirmer, O ordre de grandeur) et sa source. NOAA Fisheries : pages « Species Directory », domaine public, unités converties (1 ft = 0,3048 m ; tonne courte US = 0,907 t). Statuts UICN lus sur Wikidata (P141), à confirmer sur iucnredlist.org.",
+ "species": [
+  {
+   "id": "blue",
+   "name": "Rorqual bleu",
+   "latin": "Balaenoptera musculus",
+   "facts": {
+    "longueur": { "value": "jusqu'à 33 m (Antarctique) ; environ 27 m dans le Pacifique et l'Atlantique Nord", "status": "S", "source": "NOAA Fisheries, Blue Whale (« up to 110 feet » ; « about 90 feet »)" },
+    "masse": { "value": "jusqu'à 150 t", "status": "S", "source": "NOAA Fisheries, Blue Whale (« up to 330,000 pounds »)" },
+    "longevite": { "value": "80 à 90 ans (estimation)", "status": "S", "source": "NOAA Fisheries, Blue Whale" },
+    "groupe": { "value": "seul ou en paire, parfois en petits groupes", "status": "S", "source": "NOAA Fisheries, Blue Whale" },
+    "regime": { "value": "krill surtout ; jusqu'à 6 t par jour pour les plus grands", "status": "S", "source": "NOAA Fisheries, Blue Whale" },
+    "migration": { "value": "entre les zones d'alimentation polaires (été) et les zones de reproduction (hiver) ; certains ne migrent pas", "status": "S", "source": "NOAA Fisheries, Blue Whale" },
+    "statutUicn": { "value": "En danger (évaluation 2018)", "status": "S-r", "source": "Liste rouge UICN via Wikidata Q42196 (P141) et SeaLifeBase (« Date assessed: 16 March 2018 ») ; à confirmer sur iucnredlist.org" },
+    "effectif": { "value": "5 000 à 15 000 individus matures, soit 3 à 11 % de l'effectif de 1926", "status": "S-r", "source": "Cooke 2018 (Liste rouge UICN), cité par le NY State Species Status Assessment ; à confirmer sur iucnredlist.org" },
+    "menaces": { "value": "collisions avec les navires, prises dans les engins de pêche ; aussi bruit océanique, pollution, dérangement, changement climatique", "status": "S", "source": "NOAA Fisheries, Blue Whale" }
+   },
+   "sounds": ["blue-ab-mars-20171101"],
+   "photos": ["photo-blue"]
+  },
+  {
+   "id": "fin",
+   "name": "Rorqual commun",
+   "latin": "Balaenoptera physalus",
+   "facts": {
+    "longueur": { "value": "23 à 26 m", "status": "S", "source": "NOAA Fisheries, Fin Whale (« 75 to 85 feet »)" },
+    "masse": { "value": "36 à 73 t", "status": "S", "source": "NOAA Fisheries, Fin Whale (« 40 to 80 tons », tonnes courtes US)" },
+    "longevite": { "value": "80 à 90 ans", "status": "S", "source": "NOAA Fisheries, Fin Whale" },
+    "groupe": { "value": "souvent 2 à 7 individus ; liens durables rares", "status": "S", "source": "NOAA Fisheries, Fin Whale (« social groups of two to seven individuals »)" },
+    "regime": { "value": "krill, petits poissons en bancs (hareng, capelan, lançon), calmars ; jusqu'à 2 t par jour", "status": "S", "source": "NOAA Fisheries, Fin Whale" },
+    "migration": { "value": "des zones d'alimentation polaires (été) vers des zones de reproduction encore inconnues (hiver)", "status": "S", "source": "NOAA Fisheries, Fin Whale" },
+    "statutUicn": { "value": "Vulnérable (évaluation 2018, effectif en hausse)", "status": "S-r", "source": "Liste rouge UICN via Wikidata Q179020 (P141) ; date et tendance : SeaLifeBase, NY State SSA (Cooke et al. 2018) ; à confirmer sur iucnredlist.org" },
+    "effectif": { "value": "pas d'estimation mondiale fiable ; environ 70 000 dans l'Atlantique Nord (2015)", "status": "S-r", "source": "Cooke et al. 2018 (Liste rouge UICN), cité par le NY State Species Status Assessment ; à confirmer" },
+    "menaces": { "value": "collisions avec les navires (menace principale), prises dans les engins de pêche, manque de proies, bruit océanique, changement climatique", "status": "S", "source": "NOAA Fisheries, Fin Whale (« the major threat … comes from vessel strikes »)" }
+   },
+   "sounds": ["fin-mars-20231201"],
+   "photos": ["photo-fin"]
+  },
+  {
+   "id": "humpback",
+   "name": "Baleine à bosse",
+   "latin": "Megaptera novaeangliae",
+   "facts": {
+    "longueur": { "value": "jusqu'à 18 m environ", "status": "S", "source": "NOAA Fisheries, Humpback Whale (« up to about 60 feet »)" },
+    "masse": { "value": "jusqu'à 36 t environ", "status": "S", "source": "NOAA Fisheries, Humpback Whale (« up to about 40 tons », tonnes courtes US)" },
+    "longevite": { "value": "80 à 90 ans", "status": "S", "source": "NOAA Fisheries, Humpback Whale" },
+    "groupe": { "value": "pas de taille de groupe chiffrée dans les sources retenues ; le petit reste près de sa mère jusqu'à un an ; pêche collective au « filet de bulles »", "status": "S", "source": "NOAA Fisheries, Humpback Whale" },
+    "regime": { "value": "petits crustacés (surtout du krill) et petits poissons", "status": "S", "source": "NOAA Fisheries, Humpback Whale" },
+    "migration": { "value": "jusqu'à 8 000 km entre les zones d'alimentation des hautes latitudes et les zones de reproduction tropicales", "status": "S", "source": "NOAA Fisheries, Humpback Whale (« 5,000 miles »)" },
+    "statutUicn": { "value": "Préoccupation mineure (évaluation 2018) ; certaines sous-populations restent menacées", "status": "S-r", "source": "Liste rouge UICN via Wikidata Q132905 (P141) ; date : SeaLifeBase ; à confirmer sur iucnredlist.org" },
+    "effectif": { "value": "pas de chiffre mondial retenu ici ; en hausse dans la plupart des régions, après une baleine chassée à plus de 95 % dans la plupart des populations", "status": "S", "source": "NOAA Fisheries, Humpback Whale" },
+    "menaces": { "value": "prises dans les engins de pêche et les débris, collisions avec les navires, dérangement, bruit océanique, changement climatique", "status": "S", "source": "NOAA Fisheries, Humpback Whale" }
+   },
+   "sounds": ["humpback-mars-20151207"],
+   "photos": ["photo-humpback"]
+  },
+  {
+   "id": "sperm",
+   "name": "Cachalot",
+   "latin": "Physeter macrocephalus",
+   "facts": {
+    "longueur": { "value": "12 m (femelles) à 16 m (mâles)", "status": "S", "source": "NOAA Fisheries, Sperm Whale (« 40 feet (females) to 52 feet (males) »)" },
+    "masse": { "value": "14 t (femelles) à 41 t (mâles)", "status": "S", "source": "NOAA Fisheries, Sperm Whale (« 15 tons (females) to 45 tons (males) », tonnes courtes US)" },
+    "longevite": { "value": "jusqu'à 60 ans", "status": "S", "source": "NOAA Fisheries, Sperm Whale" },
+    "groupe": { "value": "unités sociales d'environ 12 femelles et leurs petits ; les jeunes mâles partent entre 4 et 21 ans et forment des groupes de célibataires", "status": "S", "source": "NOAA Fisheries, Sperm Whale" },
+    "regime": { "value": "calmars, requins, raies et poissons des grandes profondeurs ; 3 à 3,5 % de sa masse par jour", "status": "S", "source": "NOAA Fisheries, Sperm Whale" },
+    "migration": { "value": "moins régulière que chez les rorquals : les mâles adultes vont vers les eaux tempérées, femelles et jeunes restent dans les eaux tropicales", "status": "S", "source": "NOAA Fisheries, Sperm Whale" },
+    "statutUicn": { "value": "Vulnérable (évaluation 2008, maintenue en 2025)", "status": "S-r", "source": "Liste rouge UICN via Wikidata Q81214 (P141) ; « remains Vulnerable » (Whitehead et al. 2025, groupe de spécialistes des cétacés de l'UICN) ; à confirmer" },
+    "effectif": { "value": "pas de chiffre mondial retenu ici ; espèce « probablement en hausse » après la chasse", "status": "S", "source": "NOAA Fisheries, Sperm Whale (« its numbers are likely increasing »)" },
+    "menaces": { "value": "prises dans les engins de pêche, débris, bruit océanique, marées noires et contaminants, collisions avec les navires", "status": "S", "source": "NOAA Fisheries, Sperm Whale" }
+   },
+   "sounds": ["sperm-palaoa"],
+   "photos": ["photo-sperm"]
+  },
+  {
+   "id": "orca",
+   "name": "Orque",
+   "latin": "Orcinus orca",
+   "facts": {
+    "longueur": { "value": "jusqu'à 10 m environ", "status": "S", "source": "NOAA Fisheries, Killer Whale (« up to 32 feet »)" },
+    "masse": { "value": "jusqu'à 10 t environ", "status": "S", "source": "NOAA Fisheries, Killer Whale (« up to 11 tons », tonnes courtes US)" },
+    "longevite": { "value": "mâles : environ 30 ans en moyenne, au moins 60 ; femelles : environ 50 ans, au moins 90", "status": "S", "source": "NOAA Fisheries, Killer Whale" },
+    "groupe": { "value": "pods familiaux de 2 à 15 individus en général, apparentés par les mères ; rassemblements temporaires plus grands", "status": "S", "source": "NOAA Fisheries, Killer Whale" },
+    "regime": { "value": "selon l'écotype : saumons pour les résidents, mammifères marins pour les « transients », poissons et requins au large", "status": "S", "source": "NOAA Fisheries, Killer Whale" },
+    "migration": { "value": "variable selon les populations ; les résidents du Sud passent le printemps à l'automne dans les eaux intérieures de l'État de Washington", "status": "S", "source": "NOAA Fisheries, Killer Whale" },
+    "statutUicn": { "value": "Données insuffisantes", "status": "S-r", "source": "Liste rouge UICN via Wikidata Q26843 (P141) ; à confirmer sur iucnredlist.org" },
+    "effectif": { "value": "environ 50 000 dans le monde ; 74 orques résidentes du Sud (recensement de juillet 2025)", "status": "S", "source": "NOAA Fisheries, Killer Whale" },
+    "menaces": { "value": "prises accidentelles, manque de proies, contaminants, marées noires, dérangement par les navires et leur bruit", "status": "S", "source": "NOAA Fisheries, Killer Whale" }
+   },
+   "sounds": ["orca-j-s01"],
+   "photos": ["photo-orca"]
+  }
+ ]
+}
