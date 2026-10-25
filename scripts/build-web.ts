@@ -61,6 +61,9 @@ const copy = (rel: string) => {
 for (const f of new Set(files)) copy(f);
 copy('habitats');
 copy('density');
+copy('media');
+copy('lieux');
+copy('fiches');
 const replayDir = join(DATA, 'replays');
 const replays = existsSync(replayDir) ? readdirSync(replayDir).filter((f) => f.endsWith('.ndjson.gz')).sort() : [];
 for (const f of replays) copy(`replays/${f}`);

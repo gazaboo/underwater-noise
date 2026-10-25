@@ -1,0 +1,399 @@
+{
+ "generated": "2026-10-25",
+ "about": "Extraits de vrais enregistrements ; provenance et transformations par entrée. Produit par tools/build_media.py.",
+ "items": [
+  {
+   "id": "blue-ab-mars-20171101",
+   "kind": "son",
+   "subject": {
+    "species": "blue"
+   },
+   "title": "Rorqual bleu : appels A puis B (chant du Pacifique Nord-Est)",
+   "files": {
+    "ogg": "sons/blue-ab-mars-20171101.ogg",
+    "m4a": "sons/blue-ab-mars-20171101.m4a"
+   },
+   "durationSec": 84.0,
+   "sampleRateHz": 2000,
+   "origin": {
+    "source": "MBARI, Pacific Ocean Sound Recordings (hydrophone de l'observatoire câblé MARS)",
+    "url": "https://registry.opendata.aws/pacific-sound/",
+    "author": "Monterey Bay Aquarium Research Institute (MBARI)",
+    "recordedAt": "2017-11-01T05:03:06Z",
+    "place": "Smooth Ridge, au large de la baie de Monterey (Californie), ≈ 900 m de fond",
+    "instrument": "hydrophone MARS, fichier décimé à 2 kHz"
+   },
+   "license": "CC-BY 4.0",
+   "credit": "Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0), consulté le 25 oct. 2026 sur registry.opendata.aws/pacific-sound",
+   "transforms": [
+    {
+     "op": "découpe",
+     "detail": "84.0 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "28 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "passe-bas",
+     "detail": "200 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 400 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 16kbit/s (.ogg), AAC 24kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/blue-ab-mars-20171101.spectro.png",
+    "fMinHz": 10,
+    "fMaxHz": 120,
+    "computedOn": "original"
+   },
+   "notes": "Infrason : inaudible tel quel. Lu transposé (audio.whales.transpose, ×5 : hauteur et durée), choix artistique [A].",
+   "status": "S"
+  },
+  {
+   "id": "fin-mars-20231201",
+   "kind": "son",
+   "subject": {
+    "species": "fin"
+   },
+   "title": "Rorqual commun : impulsions à 20 Hz",
+   "files": {
+    "ogg": "sons/fin-mars-20231201.ogg",
+    "m4a": "sons/fin-mars-20231201.m4a"
+   },
+   "durationSec": 34.0,
+   "sampleRateHz": 2000,
+   "origin": {
+    "source": "MBARI, Pacific Ocean Sound Recordings (hydrophone de l'observatoire câblé MARS)",
+    "url": "https://registry.opendata.aws/pacific-sound/",
+    "author": "Monterey Bay Aquarium Research Institute (MBARI)",
+    "recordedAt": "2023-12-01T15:00:36Z",
+    "place": "Smooth Ridge, au large de la baie de Monterey (Californie), ≈ 900 m de fond",
+    "instrument": "hydrophone MARS, fichier décimé à 2 kHz"
+   },
+   "license": "CC-BY 4.0",
+   "credit": "Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0), consulté le 25 oct. 2026 sur registry.opendata.aws/pacific-sound",
+   "transforms": [
+    {
+     "op": "découpe",
+     "detail": "34.0 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "10 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "passe-bas",
+     "detail": "45 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 300 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 16kbit/s (.ogg), AAC 24kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/fin-mars-20231201.spectro.png",
+    "fMinHz": 5,
+    "fMaxHz": 60,
+    "computedOn": "original"
+   },
+   "notes": "Infrason : lu transposé ×5 (hauteur et durée), choix artistique [A]. Les impulsions sont espacées d'environ 23 s.",
+   "status": "S"
+  },
+  {
+   "id": "humpback-mars-20151207",
+   "kind": "son",
+   "subject": {
+    "species": "humpback"
+   },
+   "title": "Baleine à bosse : unités de chant",
+   "files": {
+    "ogg": "sons/humpback-mars-20151207.ogg",
+    "m4a": "sons/humpback-mars-20151207.m4a"
+   },
+   "durationSec": 20.0,
+   "sampleRateHz": 16000,
+   "origin": {
+    "source": "MBARI, Pacific Ocean Sound Recordings (hydrophone de l'observatoire câblé MARS)",
+    "url": "https://registry.opendata.aws/pacific-sound/",
+    "author": "Monterey Bay Aquarium Research Institute (MBARI)",
+    "recordedAt": "2015-12-07T06:58:23Z",
+    "place": "Smooth Ridge, au large de la baie de Monterey (Californie), ≈ 900 m de fond",
+    "instrument": "hydrophone MARS, fichier décimé à 16 kHz"
+   },
+   "license": "CC-BY 4.0",
+   "credit": "Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0), consulté le 25 oct. 2026 sur registry.opendata.aws/pacific-sound",
+   "transforms": [
+    {
+     "op": "découpe",
+     "detail": "20.0 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "80 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "passe-bas",
+     "detail": "4000 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 200 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 48kbit/s (.ogg), AAC 64kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/humpback-mars-20151207.spectro.png",
+    "fMinHz": 50,
+    "fMaxHz": 3000,
+    "computedOn": "original"
+   },
+   "notes": "",
+   "status": "S"
+  },
+  {
+   "id": "sperm-palaoa",
+   "kind": "son",
+   "subject": {
+    "species": "sperm"
+   },
+   "title": "Cachalot : trains de clics réguliers",
+   "files": {
+    "ogg": "sons/sperm-palaoa.ogg",
+    "m4a": "sons/sperm-palaoa.m4a"
+   },
+   "durationSec": 15.0,
+   "sampleRateHz": 32000,
+   "origin": {
+    "source": "Alfred Wegener Institute, observatoire PALAOA (projet Polar Sounds, avec Cities and Memory et HIFMB)",
+    "url": "https://audioboom.com/posts/8229553",
+    "author": "Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research",
+    "recordedAt": "",
+    "place": "PALAOA, sous la plate-forme d'Ekström, baie d'Atka (Antarctique)",
+    "instrument": "hydrophone PALAOA (extrait diffusé en mp3)"
+   },
+   "license": "CC-BY 4.0",
+   "credit": "Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research 2022 (CC-BY 4.0), projet Polar Sounds",
+   "transforms": [
+    {
+     "op": "découpe",
+     "detail": "15.0 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "1500 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 100 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 48kbit/s (.ogg), AAC 64kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/sperm-palaoa.spectro.png",
+    "fMinHz": 500,
+    "fMaxHz": 15000,
+    "computedOn": "original"
+   },
+   "notes": "Plusieurs trains de clics se chevauchent (source AWI). Date d'enregistrement non précisée par la source.",
+   "status": "S"
+  },
+  {
+   "id": "orca-j-s01",
+   "kind": "son",
+   "subject": {
+    "species": "orca"
+   },
+   "title": "Orque (résidents du Sud, pod J) : appel S01",
+   "files": {
+    "ogg": "sons/orca-j-s01.ogg",
+    "m4a": "sons/orca-j-s01.m4a"
+   },
+   "durationSec": 1.64,
+   "sampleRateHz": 44100,
+   "origin": {
+    "source": "Orcasound, « Learn the favorite calls of the Southern Resident killer whales »",
+    "url": "https://www.orcasound.net/learn/learn-the-favorite-calls-of-the-southern-resident-killer-whales-j-k-and-l-pods/",
+    "author": "Orcasound",
+    "recordedAt": "",
+    "place": "mer des Salish (hydrophones Orcasound)",
+    "instrument": "hydrophone Orcasound (extrait préparé par Orcasound)"
+   },
+   "license": "CC BY-NC-SA 4.0",
+   "credit": "Orcasound (orcasound.net), CC BY-NC-SA 4.0",
+   "transforms": [
+    {
+     "op": "découpe",
+     "detail": "1.6 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "300 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 30 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 48kbit/s (.ogg), AAC 64kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/orca-j-s01.spectro.png",
+    "fMinHz": 200,
+    "fMaxHz": 8000,
+    "computedOn": "original"
+   },
+   "notes": "Écotype « résident » : les autres écotypes d'orques ont d'autres répertoires. Clause SA : l'extrait dérivé est diffusé sous la même licence.",
+   "status": "S"
+  },
+  {
+   "id": "glace-palaoa",
+   "kind": "son",
+   "subject": {
+    "lieu": "palaoa"
+   },
+   "title": "Banquise qui frotte et craque",
+   "files": {
+    "ogg": "sons/glace-palaoa.ogg",
+    "m4a": "sons/glace-palaoa.m4a"
+   },
+   "durationSec": 30.0,
+   "sampleRateHz": 44100,
+   "origin": {
+    "source": "Alfred Wegener Institute, observatoire PALAOA (projet Polar Sounds)",
+    "url": "https://audioboom.com/posts/8230903",
+    "author": "Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research",
+    "recordedAt": "",
+    "place": "PALAOA, sous la plate-forme d'Ekström, baie d'Atka (Antarctique)",
+    "instrument": "hydrophone PALAOA (extrait diffusé en mp3)"
+   },
+   "license": "CC-BY 4.0",
+   "credit": "Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research 2022 (CC-BY 4.0), projet Polar Sounds",
+   "transforms": [
+    {
+     "op": "découpe",
+     "detail": "30.0 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "100 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 1500 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 48kbit/s (.ogg), AAC 64kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/glace-palaoa.spectro.png",
+    "fMinHz": 50,
+    "fMaxHz": 6000,
+    "computedOn": "original"
+   },
+   "notes": "",
+   "status": "S"
+  },
+  {
+   "id": "phoque-weddell-palaoa",
+   "kind": "son",
+   "subject": {
+    "lieu": "palaoa"
+   },
+   "title": "Phoque de Weddell : séquence de « chirps » descendants",
+   "files": {
+    "ogg": "sons/phoque-weddell-palaoa.ogg",
+    "m4a": "sons/phoque-weddell-palaoa.m4a"
+   },
+   "durationSec": 24.0,
+   "sampleRateHz": 44100,
+   "origin": {
+    "source": "Alfred Wegener Institute, observatoire PALAOA (projet Polar Sounds)",
+    "url": "https://audioboom.com/posts/8230215",
+    "author": "Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research",
+    "recordedAt": "",
+    "place": "PALAOA, sous la plate-forme d'Ekström, baie d'Atka (Antarctique)",
+    "instrument": "hydrophone PALAOA (extrait diffusé en mp3)"
+   },
+   "license": "CC-BY 4.0",
+   "credit": "Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research 2022 (CC-BY 4.0), projet Polar Sounds",
+   "transforms": [
+    {
+     "op": "découpe",
+     "detail": "24.0 s",
+     "status": "S"
+    },
+    {
+     "op": "passe-haut",
+     "detail": "100 Hz, ordre 4",
+     "status": "E"
+    },
+    {
+     "op": "normalisation",
+     "detail": "crête à -3 dBFS, fondus 1000 ms",
+     "status": "E"
+    },
+    {
+     "op": "encodage",
+     "detail": "Opus 48kbit/s (.ogg), AAC 64kbit/s (.m4a)",
+     "status": "E"
+    }
+   ],
+   "spectrogram": {
+    "file": "sons/phoque-weddell-palaoa.spectro.png",
+    "fMinHz": 50,
+    "fMaxHz": 6000,
+    "computedOn": "original"
+   },
+   "notes": "Contient aussi des appels lointains de phoques léopards (source AWI).",
+   "status": "S"
+  }
+ ]
+}
