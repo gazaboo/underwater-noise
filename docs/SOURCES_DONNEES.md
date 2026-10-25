@@ -16,6 +16,8 @@ Sources candidates, non intégrées (audit pour la vulgarisation, focus régiona
 
 | Habitats des cétacés | AquaMaps (Kaschner et al.), cartes « native range » 0,5°, base publiée pour le paquet R aquamapsdata (archive.org/details/aquamapsdb) | **CC-BY-NC 3.0** : usage non commercial, attribution obligatoire | `data/habitats/<espèce>.png` |
 | Observations de cétacés | OBIS (Ocean Biodiversity Information System), occurrences depuis 2015 | selon les jeux de données (CC0, CC-BY, CC-BY-SA, CC-BY-NC) ; liste et licences dans `data/habitats/sightings.json` | `data/habitats/sightings.json` |
+| Sons de cétacés et de lieux | extraits de vrais enregistrements : MBARI *Pacific Ocean Sound Recordings* (hydrophone MARS, Monterey) ; Alfred Wegener Institute, observatoire PALAOA (projet *Polar Sounds*) ; Orcasound. Provenance extrait par extrait dans [`MEDIAS.md`](MEDIAS.md) | MBARI CC-BY 4.0 ; AWI CC-BY 4.0 ; Orcasound CC BY-NC-SA 4.0 (extrait dérivé diffusé sous la même licence) | `data/media/` (via `tools/build_media.py`) |
+| Lieux sonores | position et description des lieux, avec leur source | voir chaque `lieu.json` | `data/lieux/` |
 
 ## Crédits à reproduire sur le cartel
 
@@ -23,6 +25,7 @@ Sources candidates, non intégrées (audit pour la vulgarisation, focus régiona
 > Niveaux sources des navires : modèle JOMOPANS-ECHO (MacGillivray & de Jong, 2021).
 > Habitats des cétacés : AquaMaps (www.aquamaps.org), cartes de répartition calculées, CC-BY-NC 3.0.
 > Observations : OBIS (obis.org) et les jeux de données qui y contribuent.
+> Sons : Pacific Ocean Sound Recordings, MBARI (CC-BY 4.0) ; Alfred Wegener Institute, Helmholtz Centre for Polar and Marine Research, projet Polar Sounds (CC-BY 4.0) ; Orcasound (orcasound.net, CC BY-NC-SA 4.0). Rorquals bleu et commun transposés pour être audibles.
 
 ## Terres peintes et volcans
 
