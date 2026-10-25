@@ -58,6 +58,8 @@ export const soundItem = z.object({
   files: z.object({ ogg: relPath, m4a: relPath }),
   durationSec: z.number().positive(),
   sampleRateHz: z.number().int().positive(),
+  /** Niveau actif du fichier (dBFS, 90e centile des trames de 100 ms) : égalisation à la lecture [E]. */
+  levelDbfs: z.number().max(0),
   /** Spectrogramme de l'extrait original, en niveaux de gris, hautes fréquences en haut. */
   spectrogram: z.object({
     file: relPath,

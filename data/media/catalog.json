@@ -15,6 +15,7 @@
    },
    "durationSec": 84.0,
    "sampleRateHz": 2000,
+   "levelDbfs": -11.7,
    "origin": {
     "source": "MBARI, Pacific Ocean Sound Recordings (hydrophone de l'observatoire câblé MARS)",
     "url": "https://registry.opendata.aws/pacific-sound/",
@@ -74,6 +75,7 @@
    },
    "durationSec": 34.0,
    "sampleRateHz": 2000,
+   "levelDbfs": -25.0,
    "origin": {
     "source": "MBARI, Pacific Ocean Sound Recordings (hydrophone de l'observatoire câblé MARS)",
     "url": "https://registry.opendata.aws/pacific-sound/",
@@ -133,6 +135,7 @@
    },
    "durationSec": 20.0,
    "sampleRateHz": 16000,
+   "levelDbfs": -15.2,
    "origin": {
     "source": "MBARI, Pacific Ocean Sound Recordings (hydrophone de l'observatoire câblé MARS)",
     "url": "https://registry.opendata.aws/pacific-sound/",
@@ -192,6 +195,7 @@
    },
    "durationSec": 15.0,
    "sampleRateHz": 32000,
+   "levelDbfs": -35.8,
    "origin": {
     "source": "Alfred Wegener Institute, observatoire PALAOA (projet Polar Sounds, avec Cities and Memory et HIFMB)",
     "url": "https://audioboom.com/posts/8229553",
@@ -246,6 +250,7 @@
    },
    "durationSec": 1.64,
    "sampleRateHz": 44100,
+   "levelDbfs": -14.8,
    "origin": {
     "source": "Orcasound, « Learn the favorite calls of the Southern Resident killer whales »",
     "url": "https://www.orcasound.net/learn/learn-the-favorite-calls-of-the-southern-resident-killer-whales-j-k-and-l-pods/",
@@ -300,6 +305,7 @@
    },
    "durationSec": 30.0,
    "sampleRateHz": 44100,
+   "levelDbfs": -27.1,
    "origin": {
     "source": "Alfred Wegener Institute, observatoire PALAOA (projet Polar Sounds)",
     "url": "https://audioboom.com/posts/8230903",
@@ -354,6 +360,7 @@
    },
    "durationSec": 24.0,
    "sampleRateHz": 44100,
+   "levelDbfs": -15.1,
    "origin": {
     "source": "Alfred Wegener Institute, observatoire PALAOA (projet Polar Sounds)",
     "url": "https://audioboom.com/posts/8230215",

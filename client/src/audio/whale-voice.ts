@@ -8,8 +8,12 @@
  *  - orque : cris pulsés 1–2 kHz, harmoniques, glissés.
  *
  * Le masquage s'entend : `clarity` (portée actuelle / portée en océan calme) ferme le filtre,
- * baisse le niveau et, en dessous de 0,3, hache l'appel en fragments.
+ * baisse le niveau et, en dessous de 0,3, hache l'appel en fragments (`mask-chain.ts`).
+ * Repli des vrais enregistrements (`recorded-voice.ts`) quand un fichier manque ou que `audio.whales.source`
+ * vaut 'synth'.
  */
+
+import { maskChain } from './mask-chain.ts';
 
 export interface CallOptions {
   species: string;
@@ -31,18 +35,6 @@ function env(g: GainNode, t0: number, attack: number, hold: number, release: num
   return t0 + attack + hold + release;
 }
 
-/** Hache un appel en fragments quand il est très masqué. */
-function fragment(g: GainNode, t0: number, dur: number, clarity: number): void {
-  if (clarity >= 0.3) return;
-  const holes = Math.ceil(dur * 3);
-  for (let i = 0; i < holes; i++) {
-    if (Math.random() > 0.55) continue;
-    const t = t0 + Math.random() * dur;
-    g.gain.setValueAtTime(0.05, t);
-    g.gain.setValueAtTime(1, t + 0.1 + Math.random() * 0.25);
-  }
-}
-
 export function playCall(ctx: AudioContext, dest: AudioNode, o: CallOptions): { endTime: number; stop(): void } {
   const t0 = ctx.currentTime + 0.02;
   const k = o.transpose;
@@ -54,12 +46,8 @@ export function playCall(ctx: AudioContext, dest: AudioNode, o: CallOptions): { 
     nodes.push(node);
     return node;
   };
-  const c = Math.max(0, Math.min(1, o.clarity));
   // Chaîne commune : filtre de masquage → hachage → volume.
-  const lp = new BiquadFilterNode(ctx, { type: 'lowpass', frequency: 400 + 9000 * c * c, Q: 0.7 });
-  const chop = new GainNode(ctx, { gain: 1 });
-  const out = new GainNode(ctx, { gain: o.gain * (0.25 + 0.75 * c) });
-  lp.connect(chop).connect(out).connect(dest);
+  const { input: lp, out, fragment } = maskChain(ctx, dest, o.gain, o.clarity);
   let end = t0;
   const tone = (type: OscillatorType, f: (t: number) => [number, number][], start: number, dur: number, peak: number, attack = 0.3, release = 0.6) => {
     const osc = oscillator({ type });
@@ -151,7 +139,7 @@ export function playCall(ctx: AudioContext, dest: AudioNode, o: CallOptions): { 
       break;
     }
   }
-  fragment(chop, t0, end - t0, c);
+  fragment(t0, end - t0);
   const timer = setTimeout(() => out.disconnect(), (end - ctx.currentTime + 1) * 1000);
   return { endTime: end, stop() {
     clearTimeout(timer);

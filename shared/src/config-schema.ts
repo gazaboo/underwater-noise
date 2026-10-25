@@ -482,6 +482,10 @@ export const configSchema = z.object({
       answerDelaySec: z.number().min(0).max(20),
       /** Transposition (facteur de fréquence) par espèce : les infrasons des rorquals sont inaudibles sans cela. */
       transpose: z.record(z.string(), z.number().min(0.25).max(16)),
+      /** Vrais enregistrements (synthèse en repli) ou synthèse seule. */
+      source: z.enum(['recorded', 'synth']),
+      /** Durée maximale jouée par appel enregistré (s réelles), par espèce. */
+      maxCallSec: z.record(z.string(), z.number().min(0.2).max(60)),
     }),
   }),
   server: z.object({

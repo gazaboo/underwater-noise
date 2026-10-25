@@ -481,16 +481,32 @@ résulte du calcul §6.3.
 
 ---
 
-## 8. Son — [A] intégralement
+## 8. Son — traduction sensible : enregistrements [S], tout le reste [A]
 
 Traduction sensible, pas une auralisation :
 - **navires** : 12 voix au plus, attribuées aux plus forts de la vue (niveau source − 18 dB entre centre
   et bord de la vue) ; timbre par classe inventé (fondamental ≈ 20 + 2 000 / longueur Hz, pulsation
   « d'hélice », cavitation, génératrice), transposé de 2 octaves ;
 - **nappe** : bruit brun dont le niveau suit le niveau de la bande basse dans la vue ;
-- **cétacés** : appels **synthétisés** d'après les plages de fréquences réelles (rorquals transposés ×5) ;
-  formes et rythmes inventés ; le « masquage » (filtrage, hachage) est une métaphore de la réduction de
-  portée, pas une simulation psychoacoustique.
+- **cétacés** (depuis octobre 2026) : **vrais enregistrements** [S], un extrait par espèce pour commencer
+  (MBARI, AWI, Orcasound). Provenance, date, lieu, licence et filtres de chaque fichier :
+  [`MEDIAS.md`](MEDIAS.md). Les appels **synthétisés** d'après les plages de fréquences réelles restent en
+  repli (fichier absent, `audio.whales.source: 'synth'`) ; leurs formes et rythmes sont inventés [A].
+
+Ce qui reste un choix, pour les enregistrements :
+- **transposition** des rorquals bleu et commun ×5 [A] : vitesse de lecture, donc hauteur **et** durée.
+  Un B de rorqual bleu de ≈ 20 s dure ≈ 4 s ;
+- **fenêtre** tirée au hasard dans l'extrait à chaque appel, plafonnée par espèce (`audio.whales.maxCallSec`)
+  [A] : la cadence des appels vient du modèle, pas de l'enregistrement ;
+- **égalisation** des espèces vers un même niveau actif (90e centile des trames de 100 ms, ±15 dB au plus)
+  [E] : les niveaux entendus ne comparent pas les niveaux sources réels (§6) ;
+- **filtres** de préparation (passe-haut, passe-bas) [E], détaillés par fichier ;
+- chaque enregistrement contient déjà le bruit de son océan d'origine : un appel « propre » n'existe pas.
+  On a choisi des extraits où l'appel domine nettement.
+
+Le « masquage » (filtrage, baisse de niveau, hachage sous une clarté de 0,3) reste une **métaphore** de la
+réduction de portée [A], appliquée de la même façon aux appels enregistrés et synthétisés. Ce n'est pas une
+simulation psychoacoustique.
 
 Niveaux de sortie mesurés [C] : −18,5 dBFS RMS en vue mondiale, aucun écrêtage, aucun clic.
 

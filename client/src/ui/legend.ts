@@ -15,6 +15,8 @@ export class Legend {
   private readonly unknown = document.createElement('div');
   private readonly species = document.createElement('div');
   private readonly tags = document.createElement('div');
+  /** Origine des sons et transformations (crédits des enregistrements). */
+  private readonly sound = document.createElement('div');
   /** État de l'histoire acoustique (contrôlé par la vérification de propagation). */
   private readonly status = document.createElement('div');
   private key = '';
@@ -30,8 +32,9 @@ export class Legend {
     this.unknown.className = 'lg-row';
     this.species.className = 'lg-species';
     this.tags.className = 'lg-tags';
+    this.sound.className = 'lg-note';
     this.tags.textContent = 'Forme et niveaux : calculés [C], non validés en mer · paliers, couleurs, mouvement : choix graphiques [A]';
-    this.element.append(this.title, this.band, this.steps, this.style, this.unknown, this.species, this.tags, this.status);
+    this.element.append(this.title, this.band, this.steps, this.style, this.unknown, this.species, this.sound, this.tags, this.status);
     document.body.append(this.element);
   }
 
@@ -48,7 +51,7 @@ export class Legend {
     this.element.classList.toggle('day', cfg.display.theme === 'day');
     const n = cfg.noise;
     const p = cfg.palette;
-    const key = JSON.stringify([n.style, n.steps, n.lineStepDb, cfg.waves.band, p.noiseLow, p.noiseMid, p.noiseHigh, p.fog, cfg.whales.species.map(s => [s.enabled, s.color, s.name, s.band])]);
+    const key = JSON.stringify([n.style, n.steps, n.lineStepDb, cfg.waves.band, p.noiseLow, p.noiseMid, p.noiseHigh, p.fog, cfg.whales.species.map(s => [s.enabled, s.color, s.name, s.band]), cfg.audio.enabled, cfg.audio.whales.source, cfg.audio.whales.transpose]);
     if (key !== this.key) {
       this.key = key;
       this.build(cfg);
@@ -79,5 +82,11 @@ export class Legend {
       const sb = cfg.bands.find(x => x.id === s.band)!;
       return `<span><i style="background:${s.color ?? cfg.whales.color}"></i>${s.name} <small>${sb.fMin}–${sb.fMax} Hz</small></span>`;
     }).join('');
+    const transposed = cfg.whales.species.filter(s => s.enabled && (cfg.audio.whales.transpose[s.id] ?? 1) !== 1)
+      .map(s => `${s.name.toLowerCase()} ×${cfg.audio.whales.transpose[s.id]}`).join(', ');
+    this.sound.hidden = !cfg.audio.enabled;
+    this.sound.textContent = cfg.audio.whales.source === 'recorded'
+      ? `Sons : vrais enregistrements (MBARI, AWI, Orcasound ; docs/MEDIAS.md)${transposed ? ` · accélérés pour être audibles : ${transposed} [A]` : ''} · appel étouffé ou haché : image de la portée perdue [A]`
+      : 'Sons : appels synthétisés d\'après les fréquences réelles [A]';
   }
 }

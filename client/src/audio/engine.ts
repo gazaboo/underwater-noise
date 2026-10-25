@@ -5,8 +5,9 @@
  * leur distance au centre (−`edgeAttenuationDb` au bord) ; zoomer revient à tendre l'oreille.
  *  - navires : `ships.voices` voix au plus, attribuées aux plus forts avec hystérésis ;
  *  - nappe : suit le niveau moyen de la bande basse dans la zone affichée ;
- *  - cétacés : chaque appel naturel ou réponse d'un groupe visible est joué ; le masquage
- *    (portée actuelle / portée en océan calme) ferme le filtre, baisse le niveau, hache l'appel.
+ *  - cétacés : chaque appel naturel ou réponse d'un groupe visible est joué, depuis un vrai enregistrement
+ *    (repli : synthèse) ; le masquage (portée actuelle / portée en océan calme) ferme le filtre, baisse le
+ *    niveau, hache l'appel.
  *
  * Le navigateur n'autorise le son qu'après un geste de l'utilisateur : le contexte audio démarre
  * au premier clic ou à la première touche (en kiosque : --autoplay-policy=no-user-gesture-required).
@@ -20,6 +21,8 @@ import type { CallEvent } from '../whales/whales.ts';
 import { allocate } from './allocator.ts';
 import { AudioOutput, noiseBuffer } from './output.ts';
 import { Bed, ShipVoice } from './ship-voice.ts';
+import { playRecording } from './recorded-voice.ts';
+import { SampleBank } from './sample-bank.ts';
 import { playCall } from './whale-voice.ts';
 
 /**
@@ -83,6 +86,8 @@ export class AudioEngine {
   private readonly voices = new Map<number, ShipVoice>();
   private active = new Set<number>();
   private playingCalls: ReturnType<typeof playCall>[] = [];
+  /** Vrais enregistrements de cétacés, décodés au démarrage du son. */
+  private readonly bank = new SampleBank();
   private timeScale = 1;
   private lastUpdate = 0;
   private readonly sample: ShipSample = { id: 0, lat: 0, lon: 0, sog: 0, classIndex: 0, lengthM: 0, slBroad: 0 };
@@ -105,6 +110,7 @@ export class AudioEngine {
       this.output = new AudioOutput(this.ctx);
       this.pink = noiseBuffer(this.ctx, 'pink');
       this.bed = new Bed(this.ctx, this.output.input, noiseBuffer(this.ctx, 'brown', 6));
+      void this.bank.load(this.ctx);
     }
     if (this.ctx.state === 'suspended' && !probe) await this.ctx.resume();
   }
@@ -155,14 +161,14 @@ export class AudioEngine {
       const d = listener.distance(g.lat, g.lon);
       if (!Number.isFinite(d)) continue;
       const clarity = g.rangeM / Math.max(1, g.quietRangeM);
-      const call = playCall(ctx, this.output.input, {
-        timeScale,
-        species: g.species.id,
-        // Même atténuation centre → bord que les navires ; niveau de base modéré (les appels se superposent).
-        gain: a.whales.volume * Math.pow(10, (-a.ships.edgeAttenuationDb * d) / 20) * 0.2,
-        clarity,
-        transpose: a.whales.transpose[g.species.id] ?? 1,
-      });
+      const id = g.species.id;
+      // Même atténuation centre → bord que les navires ; niveau de base modéré (les appels se superposent).
+      const gain = a.whales.volume * Math.pow(10, (-a.ships.edgeAttenuationDb * d) / 20) * 0.2;
+      const transpose = a.whales.transpose[id] ?? 1;
+      const rec = a.whales.source === 'recorded' ? this.bank.pick(id) : null;
+      const call = rec
+        ? playRecording(ctx, this.output.input, rec.buffer, { gain, clarity, playbackRate: transpose, maxSec: a.whales.maxCallSec[id] ?? 6, levelDbfs: rec.levelDbfs })
+        : playCall(ctx, this.output.input, { timeScale, species: id, gain, clarity, transpose });
       this.playingCalls.push(call);
     }
 
@@ -243,6 +249,6 @@ export class AudioEngine {
     const peak = this.output.peakDb();
     this.status = this.muted
       ? 'son : coupé (M)'
-      : `son : ${this.active.size} navires · ${this.playingCalls.length} appels en cours · nappe ${(100 * this.bedIntensity).toFixed(0)} % · crête ${Number.isFinite(peak) ? peak.toFixed(1) : '−∞'} dBFS · limiteur ${this.output.reductionDb.toFixed(1)} dB`;
+      : `son : ${this.active.size} navires · ${this.playingCalls.length} appels en cours (${a.whales.source === 'recorded' ? this.bank.status : 'synthèse'}) · nappe ${(100 * this.bedIntensity).toFixed(0)} % · crête ${Number.isFinite(peak) ? peak.toFixed(1) : '−∞'} dBFS · limiteur ${this.output.reductionDb.toFixed(1)} dB`;
   }
 }
