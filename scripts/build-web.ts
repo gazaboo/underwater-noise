@@ -64,6 +64,7 @@ copy('density');
 copy('media');
 copy('lieux');
 copy('fiches');
+copy('parcours');
 const replayDir = join(DATA, 'replays');
 const replays = existsSync(replayDir) ? readdirSync(replayDir).filter((f) => f.endsWith('.ndjson.gz')).sort() : [];
 for (const f of replays) copy(`replays/${f}`);

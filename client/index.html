@@ -75,6 +75,16 @@
       #fiche .fc-credits summary { cursor: pointer; }
       #fiche .fc-credits ul { padding-left: 16px; margin: 4px 0; }
       @media (max-width: 700px) { #fiche { top: auto; bottom: 62px; max-height: 62vh; } }
+      #recit { position: fixed; left: 50%; bottom: 72px; transform: translateX(-50%); z-index: 6; width: min(820px, calc(100vw - 32px)); text-align: center; color: #f4f1ea; pointer-events: none; font: 500 24px/1.35 system-ui, sans-serif; text-shadow: 0 1px 3px #000, 0 0 14px rgba(0, 0, 0, .8); }
+      #recit[hidden] { display: none; }
+      body.recit-on #legend { display: none; }
+      #recit.projector { font-size: 32px; width: min(1100px, calc(100vw - 32px)); }
+      #recit.dome { bottom: 24%; width: min(62vh, calc(100vw - 32px)); }
+      #recit .rc-caption { margin: 0 0 6px; text-wrap: balance; }
+      #recit .rc-badge { display: inline-block; padding: 0 5px; border: 1px solid #ffffff88; border-radius: 3px; font: 600 .5em/1.5 ui-monospace, monospace; vertical-align: .35em; pointer-events: auto; cursor: help; }
+      #recit .rc-meta { margin: 0; font-size: 12px; opacity: .7; }
+      body.fiche-open #recit:not(.dome) { width: min(820px, calc(100vw - 440px)); transform: translateX(calc(-50% - 200px)); }
+      @media (max-width: 700px) { #recit { font-size: 17px; bottom: 64px; } body.fiche-open #recit { display: none; } }
       #science { position: fixed; top: 12px; left: 12px; z-index: 10; max-width: min(440px, calc(100vw - 48px)); max-height: calc(100vh - 48px); overflow: auto; padding: 10px 12px; border: 1px solid #526777; border-radius: 5px; color: #d6e2e8; background: rgba(8, 18, 27, .94); font: 12px/1.5 system-ui, sans-serif; }
       #science[open] ~ #propagation { display: none; }
       #science summary { cursor: pointer; font-weight: 600; }

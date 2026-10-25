@@ -22,6 +22,7 @@ import { AudioEngine, flatListener, globeListener } from './audio/engine.ts';
 import { cycleNoise, noiseLabel, noShips, scenarioLabel, toggleScenario } from './ui/scenario.ts';
 import { SpeciesCardPanel } from './ui/card.ts';
 import { LieuLayer } from './lieux/lieux.ts';
+import { StoryPlayer } from './story/story.ts';
 import { distanceM } from './whales/agents.ts';
 import { SceneClock } from './sim/scene-clock.ts';
 import { GpuTimer, Hud } from './ui/hud.ts';
@@ -51,6 +52,7 @@ export interface UrlOverrides {
   scene?: string;
   mode?: Config['display']['mode'];
   theme?: Config['display']['theme'];
+  parcours?: string;
 }
 
 const MODES: Config['display']['mode'][] = ['flat', 'globe', 'hemisphere', 'equirect', 'fisheye'];
@@ -71,6 +73,9 @@ export class App {
   private readonly legend: Legend;
   private readonly card: SpeciesCardPanel;
   private readonly lieux = new LieuLayer();
+  private readonly story: StoryPlayer;
+  /** Dernier geste du visiteur (boucle d'attraction). */
+  private lastInput = performance.now();
   /** Web autonome : sources de navires dans un worker du navigateur. */
   private local: LocalShipStream | null = null;
   private readonly nav: FlatNavigator;
@@ -139,6 +144,22 @@ export class App {
     this.legend = new Legend();
     this.card = new SpeciesCardPanel();
     this.audio.places = this.lieux;
+    this.story = new StoryPlayer({
+      cfg: () => this.cfg,
+      flyTo: (lon, lat, zoom, sec) => {
+        if (this.cfg.display.mode === 'flat') this.nav.goTo(lon, lat, zoom);
+        else this.globeCtl.flyTo(this.cfg, lon, lat, Math.min(4, Math.max(0.8, Math.sqrt(zoom))), sec);
+      },
+      hold: (on) => { this.globeCtl.hold = on; },
+      lieu: (id) => this.lieux.lieux.find((l) => l.id === id),
+      openLieu: (l) => this.card.openLieu(l, this.cfg),
+      openSpecies: (id) => {
+        const c = this.lastGlobe ? { lat: this.globeCtl.facingLatFor(this.cfg), lon: this.globeCtl.facingLon } : this.lastView ? { lat: this.lastView.centerLat, lon: this.lastView.centerLon } : null;
+        const g = c && this.whales?.nearestOf(id, c.lat, c.lon);
+        if (g) this.card.open(g, this.cfg);
+      },
+      closeCard: () => this.card.close(),
+    });
     this.volcanoes = new VolcanoLayer(volcanoes);
     this.ornaments = ornaments ? new OrnamentLayer(ornaments.data, ornaments.atlas, ornaments.image) : null;
     // Calibration du champ physique (source unique, loi en 1/r) puis grille mondiale. Web autonome : la
@@ -164,6 +185,8 @@ export class App {
     this.globeCtl = new GlobeController(this.cfg);
     this.globeCtl.install(canvas, () => this.cfg.display.mode === 'globe');
     this.installPicking(canvas);
+    this.installStory();
+    if (overrides.parcours) this.story.start(overrides.parcours);
     if (overrides.hud) this.hud.toggle(true);
 
     this.speciesKey = JSON.stringify(this.cfg.whales.species);
@@ -545,6 +568,21 @@ export class App {
     });
   }
 
+  /**
+   * Parcours : un geste du visiteur (toucher, molette, touche) le reprend en main ; un geste dans la fiche la laisse
+   * ouverte. Les boutons de la barre d'outils ne l'interrompent pas (ils le pilotent). Boucle d'attraction : voir frame.
+   */
+  private installStory(): void {
+    const interrupt = (e: Event) => {
+      this.lastInput = performance.now();
+      const target = e.target instanceof Element ? e.target : null;
+      if (!this.story.playing || target?.closest('#toolbar')) return;
+      if (e instanceof KeyboardEvent && e.key.toLowerCase() === 'h') return;
+      this.story.stop(!!target?.closest('#fiche'));
+    };
+    for (const ev of ['pointerdown', 'wheel', 'keydown'] as const) addEventListener(ev, interrupt, { capture: true });
+  }
+
   /** Web autonome : les touches G, V, S, J, N, M deviennent des boutons ; légende repliée sur petit écran. */
   private installToolbar(): void {
     const c = () => this.cfg;
@@ -557,6 +595,7 @@ export class App {
       ships: () => SHIPS[c().source.ships],
       sound: () => (this.audio.muted ? 'Son coupé' : 'Son'),
       legend: () => 'Légende',
+      story: () => (this.story.playing ? 'Arrêter la visite' : 'Visite guidée'),
     };
     new Toolbar({
       view: () => { c().display.mode = c().display.mode === 'flat' ? 'globe' : 'flat'; return labels.view(); },
@@ -566,6 +605,7 @@ export class App {
       ships: () => { this.setShipsMode(SHIPS_MODES[(SHIPS_MODES.indexOf(c().source.ships) + 1) % SHIPS_MODES.length]); return labels.ships(); },
       sound: () => { this.audio.toggleMute(); return labels.sound(); },
       legend: () => { this.legend.toggle(); return labels.legend(); },
+      story: () => { if (this.story.playing) this.story.stop(); else this.story.start(); return labels.story(); },
     }, labels);
     if (innerWidth < 700) this.legend.toggle(false);
   }
@@ -596,6 +636,10 @@ export class App {
       }
       else if (k === 'd') this.hud.toggle();
       else if (k === 'escape') this.card.close();
+      else if (k === 'h') {
+        if (this.story.playing) this.story.stop();
+        else this.story.start();
+      }
       else if (k === 'f') {
         if (document.fullscreenElement) void document.exitFullscreen();
         else void document.documentElement.requestFullscreen();
@@ -624,6 +668,12 @@ export class App {
   private frame(now: number): void {
     requestAnimationFrame((t) => this.frame(t));
     const dt = now - this.lastFrame;
+    this.story.update(Math.min(dt, 250) / 1000);
+    const attract = this.cfg.parcours;
+    if (attract.attract && !this.story.playing && now - this.lastInput > attract.idleSec * 1000) {
+      this.lastInput = now;
+      this.story.start(attract.attract);
+    }
     this.lastFrame = now;
     const t0 = performance.now();
     const cfg = this.themed();

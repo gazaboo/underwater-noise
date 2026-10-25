@@ -336,7 +336,10 @@ export class GlobeController {
   facingLon: number;
   private userLat = 0;
   zoom = 1;
+  /** Rotation automatique suspendue (parcours). */
+  hold = false;
   private dragging: { x: number; y: number } | null = null;
+  private flight: { from: [number, number, number]; to: [number, number, number]; t: number; dur: number } | null = null;
 
   constructor(cfg: Config) {
     this.facingLon = cfg.globe.startLonDeg;
@@ -346,9 +349,28 @@ export class GlobeController {
     return (cfg) => Math.max(-85, Math.min(85, cfg.globe.viewLatDeg + this.userLat));
   }
 
+  /** Vol de caméra vers un point (latitude face au public) et un zoom, en `sec` secondes réelles. */
+  flyTo(cfg: Config, lon: number, lat: number, zoom: number, sec: number): void {
+    const to: [number, number, number] = [lon, Math.max(-110, Math.min(60, lat - cfg.globe.viewLatDeg)), Math.max(0.5, Math.min(4, zoom))];
+    this.flight = { from: [this.facingLon, this.userLat, this.zoom], to, t: 0, dur: Math.max(0.01, sec) };
+  }
+
   update(cfg: Config, dtSec: number): void {
     const g = cfg.globe;
-    if (g.periodMinutes > 0 && !this.dragging) {
+    if (this.flight) {
+      const f = this.flight;
+      f.t = Math.min(f.dur, f.t + dtSec);
+      const x = f.t / f.dur;
+      const e = x * x * (3 - 2 * x);
+      const dLon = ((((f.to[0] - f.from[0]) % 360) + 540) % 360) - 180; // le plus court chemin
+      this.facingLon = ((((f.from[0] + dLon * e + 180) % 360) + 360) % 360) - 180;
+      this.userLat = f.from[1] + (f.to[1] - f.from[1]) * e;
+      // Zoom en échelle logarithmique : le recul et l'approche paraissent réguliers.
+      this.zoom = Math.exp(Math.log(f.from[2]) + (Math.log(f.to[2]) - Math.log(f.from[2])) * e);
+      if (x >= 1) this.flight = null;
+      return;
+    }
+    if (g.periodMinutes > 0 && !this.dragging && !this.hold) {
       let slow = 1;
       for (const d of g.dwell) {
         const dl = Math.abs(((((this.facingLon - d.lonDeg + 180) % 360) + 360) % 360) - 180);
@@ -369,6 +391,7 @@ export class GlobeController {
     });
     canvas.addEventListener('pointerdown', (e) => {
       if (!active() || e.button !== 0) return;
+      this.flight = null;
       this.dragging = { x: e.clientX, y: e.clientY };
     });
     canvas.addEventListener('pointermove', (e) => {

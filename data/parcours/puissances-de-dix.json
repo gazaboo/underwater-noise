@@ -1,0 +1,17 @@
+{
+ "id": "puissances-de-dix",
+ "title": "Puissances de dix",
+ "piste": 2,
+ "loop": true,
+ "steps": [
+  { "duration": 8, "camera": { "lon": 10, "lat": 25, "zoom": 1, "flySec": 3 }, "scenario": "actuel", "noise": true, "open": "fermer",
+    "caption": "La Terre, ses routes maritimes et le bruit qu'elles ajoutent à la mer.", "status": "C", "source": "bruit des navires calculé par le modèle (non validé en mer)" },
+  { "duration": 8, "camera": { "lon": 12, "lat": 40, "zoom": 4, "flySec": 4 },
+    "caption": "La Méditerranée." },
+  { "duration": 14, "camera": { "lon": 8.1, "lat": 43.4, "zoom": 10, "flySec": 5 },
+    "caption": "Mer Ligure : des rorquals communs. Chaque anneau est un appel ; il se brise là où le bruit des navires le couvre.", "status": "A", "source": "anneaux et éclats : représentation ; portées : équation du sonar [C]" },
+  { "duration": 14, "open": "espece:fin",
+    "caption": "Jusqu'où ce groupe s'entend : aujourd'hui, et dans un océan sans navires.", "status": "C", "source": "équation du sonar ; bornes hautes (REVUE_SCIENTIFIQUE §6.4)" },
+  { "duration": 6, "open": "fermer", "camera": { "lon": 10, "lat": 25, "zoom": 1, "flySec": 5 } }
+ ]
+}

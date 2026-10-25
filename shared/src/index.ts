@@ -12,3 +12,4 @@ export * from './acoustics/scientific.ts';
 
 export * from './acoustics/dynamics.ts';
 export * from './media-schema.ts';
+export * from './parcours-schema.ts';

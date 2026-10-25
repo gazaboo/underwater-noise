@@ -1,0 +1,16 @@
+{
+ "id": "avant-apres",
+ "title": "Avant, après",
+ "piste": 1,
+ "loop": true,
+ "steps": [
+  { "duration": 13, "camera": { "lieu": "monterey", "zoom": 4, "flySec": 3 }, "scenario": "sans-navires", "noise": false, "open": "fermer",
+    "caption": "Imaginons l'océan sans navires : les grandes baleines s'entendent à des dizaines, voire des centaines de kilomètres.", "status": "C", "source": "même équation du sonar, avec le seul bruit naturel de la mer ; portées : bornes hautes (REVUE_SCIENTIFIQUE §6.4)" },
+  { "duration": 15, "scenario": "actuel", "noise": true,
+    "caption": "Le trafic d'aujourd'hui : le bruit des moteurs couvre leurs appels, l'espace où elles s'entendent rétrécit.", "status": "C", "source": "bruit des navires calculé par le modèle (non validé en mer) ; portées : équation du sonar" },
+  { "duration": 16, "open": "lieu:monterey",
+    "caption": "Ici, un vrai hydrophone, à 900 m de fond : la nuit calme, puis un navire qui passe.", "status": "S", "source": "MBARI, Pacific Ocean Sound Recordings (CC-BY 4.0) ; passage de navire identifié par nous [E]" },
+  { "duration": 11, "open": "fermer", "camera": { "lon": -40, "lat": 25, "zoom": 1, "flySec": 4 },
+    "caption": "Partout où passent les navires, l'espace d'écoute des baleines rétrécit.", "status": "C", "source": "modèle de la carte, non validé en mer" }
+ ]
+}
