@@ -211,6 +211,11 @@ export const configSchema = z.object({
    * calculé pour revenir à l'état actuel sans attente.
    */
   scenario: z.enum(['actuel', 'sans-navires']).default('actuel'),
+  /** Parcours (data/parcours) : boucle d'attraction après un temps d'inactivité ('' : aucune). */
+  parcours: z.object({
+    attract: z.string().default(''),
+    idleSec: z.number().min(10).max(3600).default(120),
+  }).default({}),
   /** Lieux à écouter (data/lieux) : marqueurs à taille fixe à l'écran. */
   lieux: z.object({
     enabled: z.boolean().default(true),

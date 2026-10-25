@@ -309,6 +309,21 @@ export class Whales {
     return e;
   }
 
+  /** Groupe d'une espèce le plus proche d'un point (parcours). */
+  nearestOf(species: string, lat: number, lon: number): WhaleGroup | null {
+    let best: WhaleGroup | null = null;
+    let bd = Infinity;
+    for (const g of this.agents.groups) {
+      if (g.species.id !== species) continue;
+      const d = distanceM(lat, lon, g.lat, g.lon);
+      if (d < bd) {
+        bd = d;
+        best = g;
+      }
+    }
+    return best;
+  }
+
   /** Groupe le plus proche d'un point (pour le diagnostic). */
   nearest(lat: number, lon: number, maxKm = 300): WhaleGroup | null {
     let best: WhaleGroup | null = null;

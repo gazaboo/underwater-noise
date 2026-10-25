@@ -189,6 +189,31 @@ Proposition de 2 ou 3 prototypes contrastés, à confirmer :
 La piste 8 (spectrogramme vivant) peut s'ajouter dès qu'un bon extrait MBARI est trouvé : elle coûte
 peu et elle est entièrement sourcée.
 
+## Prototypes réalisés (lot 6, 25 octobre 2026)
+
+Trois prototypes jouables, décrits dans `data/parcours/*.json` et lus par `client/src/story/story.ts` :
+
+| Parcours | Piste | Durée | Ce qu'il montre |
+|---|---|---|---|
+| `avant-apres` | 1 | ≈ 55 s, en boucle | Monterey sans navires (portées calmes [C]), puis le trafic actuel, puis la paire de contraste réelle du lieu, puis le monde |
+| `puissances-de-dix` | 2 | ≈ 50 s, en boucle | du globe à la Méditerranée, puis à la mer Ligure (anneaux d'appel), puis la fiche d'un rorqual commun, retour |
+| `tour-des-lieux` | 6 | ≈ 85 s, en boucle | les cinq lieux à écouter, chacun avec sa fiche et son son |
+
+La piste 5 (points d'intérêt) n'a pas de script : c'est la carte libre avec les lieux et les fiches (lots 4 et 5).
+
+**Comment les lancer** : touche `H` (parcours suivant ; `H` de nouveau pour arrêter), `?parcours=<id>` dans
+l'adresse, bouton « Visite guidée » du web autonome. Boucle d'attraction : `parcours.attract` (un id) et
+`parcours.idleSec` dans la config ; désactivée par défaut, c'est un choix d'exposition.
+
+**Règles** :
+- chaque légende qui affirme quelque chose porte un statut et une source (vérifié par `shared/test/parcours.test.ts`) ;
+- un geste du visiteur (toucher, molette, touche) arrête le parcours et restaure le scénario, la nappe et le mode ;
+  un geste dans la fiche la laisse ouverte ;
+- la légende permanente est masquée pendant le parcours ; elle revient ensuite ;
+- sur le dôme, le parcours n'ouvre pas de fiche (panneau hors du disque) et ne change pas de mode.
+
+Vérification : `CHROMIUM_PATH=/chemin/chrome node scripts/verify-parcours.mjs` (`MODE=hemisphere` pour le dôme).
+
 ## Test avec des non-spécialistes
 
 Pour chaque prototype, 3 à 5 personnes, sans explication préalable :

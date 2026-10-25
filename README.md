@@ -116,6 +116,7 @@ npm run build && npm start   # http://localhost:8787
 | `D` | diagnostic : images/s, temps CPU et GPU, navires, source, calibration, niveau de bruit sous le curseur |
 | `V` | représentation du bruit : isophones → météo → encre → fronts bruts → nappe masquée |
 | `S` | scénario : trafic actuel ↔ océan sans navires (calculé) |
+| `H` | parcours guidé suivant (avant / après, puissances de dix, tour des lieux) ; `H` ou tout geste rend la main |
 | clic sur un cétacé | fiche de l'espèce : photo, portée du groupe, faits sourcés, vrais enregistrements (`Échap` ferme) |
 | clic sur un lieu (anneau ivoire) | fiche du lieu : texte, paire de contraste, vrais enregistrements ; on entend le lieu le plus proche du centre de la vue |
 | `B` | champ physique en dB (isolignes tous les 10 dB) : accumulé → basse → moyenne → haute → rendu |

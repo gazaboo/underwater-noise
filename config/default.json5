@@ -242,6 +242,10 @@
   // du bruit. On entend le lieu le plus proche du centre de la vue ; un clic ouvre sa fiche.
   lieux: { enabled: true, markerPx: 22, color: '#f2e6c9' },
 
+  // Parcours (data/parcours, prototypes de l'issue #4 ; touche H, ?parcours=<id>, bouton « Visite » du web).
+  // attract : parcours lancé seul après idleSec secondes sans geste ('' : aucun ; choix d'exposition à faire).
+  parcours: { attract: '', idleSec: 120 },
+
   ships: {
     visible: true,
     pointSize: 7, // chevron orienté selon la route (pixels CSS) [A]
