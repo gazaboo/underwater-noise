@@ -9,7 +9,9 @@ import { hexToVec3 } from '../render/fullscreen.ts';
 import { WhaleAgents, distanceM, lossRateOf, naturalOf, noiseCorrection, type WhaleGroup } from './agents.ts';
 import type { FieldReader } from './field-reader.ts';
 import { OceanCpu, type ByteGrid, type SpeciesData } from './geo-grids.ts';
-import { WhaleRenderer, greatCircleArc, type GroupDraw, type LinkDraw } from './render.ts';
+import { WhaleRenderer, greatCircleArc, type GroupDraw, type LinkDraw, type WhaleDrawOptions } from './render.ts';
+import { GLYPH_SHAPES, WhaleGlyphs, type GlyphDraw } from './glyphs.ts';
+import type { ScreenView } from '../render/screen-projection.ts';
 
 interface Link {
   a: WhaleGroup;
@@ -22,6 +24,11 @@ interface Link {
 }
 
 const BAND_INDEX = { low: 0, mid: 1, high: 2 } as const;
+
+/** Couleur de l'espèce (repli : couleur commune des cétacés). */
+function speciesColor(cfg: Config, s: Config['whales']['species'][number]): THREE.Vector3 {
+  return hexToVec3(s.color ?? cfg.whales.color);
+}
 
 /** Appel d'un groupe (pour le son). Une réponse ne déclenche jamais d'autre réponse. */
 export interface CallEvent {
@@ -44,6 +51,7 @@ export interface WhaleStats {
 export class Whales {
   readonly agents: WhaleAgents;
   private readonly renderer: WhaleRenderer;
+  private readonly glyphs = new WhaleGlyphs();
   private links = new Map<string, Link>();
   private reader: FieldReader | null = null;
   private linkList: Link[] = [];
@@ -236,7 +244,7 @@ export class Whales {
           state: newLink(),
           quietAlive: false,
           seed,
-          draw: { arc, sAB: 0, sBA: 0, fray: 0, ghost: 0, margin: -99, seed, sinceA: 99, sinceB: 99 },
+          draw: { arc, color: speciesColor(cfg, a.species), sAB: 0, sBA: 0, fray: 0, ghost: 0, margin: -99, seed, sinceA: 99, sinceB: 99 },
         });
       }
     }
@@ -247,14 +255,13 @@ export class Whales {
     this.lastGeometry = -1e9;
   }
 
-  draw(renderer: THREE.WebGLRenderer, view: FlatTransform, cfg: Config, levels: THREE.Texture, coverage: THREE.Texture, timeSec: number, pixelRatio: number, target: THREE.WebGLRenderTarget | null = null): void {
+  /** Espaces de communication, anneaux d'appel et fils, dans la carte plate ou la texture monde. */
+  draw(renderer: THREE.WebGLRenderer, view: FlatTransform, cfg: Config, opts: WhaleDrawOptions, coverage: THREE.Texture, timeSec: number, target: THREE.WebGLRenderTarget | null = null): void {
     if (!cfg.whales.enabled) return;
-    const base = hexToVec3(cfg.whales.color);
     const groups: GroupDraw[] = this.agents.groups.map((g) => {
       const s = g.species;
       // Rayon visuel maximal : portée en océan calme (le pixel décide ensuite avec le bruit local).
       const radiusKm = Math.min(2500, (g.quietRangeM / 1000) * s.visualScale * 1.05);
-      const pulse = Math.exp(-Math.pow(g.callPhase / 0.06, 2)) + Math.exp(-Math.pow((1 - g.callPhase) / 0.02, 2));
       return {
         lat: g.lat,
         lon: g.lon,
@@ -266,12 +273,29 @@ export class Whales {
         alpha: thorpAbsorptionDbPerKm(bandCenter(cfg.bands.find((b) => b.id === s.band)!)) + cfg.physics.extraLossDbPerKm,
         visualScale: s.visualScale,
         radiusKm,
-        color: s.color ? hexToVec3(s.color) : base,
-        pulse,
+        color: speciesColor(cfg, s),
+        sinceCall: g.callPhase * s.callIntervalSec,
       };
     });
     this.renderer.setGroups(groups);
-    this.renderer.draw(renderer, view, cfg, levels, coverage, timeSec, pixelRatio, target);
+    this.renderer.draw(renderer, view, cfg, opts, coverage, timeSec, target);
+  }
+
+  /** Silhouettes des groupes, à l'écran (après la composition et la reprojection). */
+  drawGlyphs(renderer: THREE.WebGLRenderer, view: ScreenView, cfg: Config, wallSec: number): void {
+    if (!cfg.whales.enabled) return;
+    const glyphs: GlyphDraw[] = this.agents.groups.map((g) => ({
+      lon: g.lon,
+      lat: g.lat,
+      shape: GLYPH_SHAPES[g.species.id] ?? 0,
+      facing: Math.sin((g.heading * Math.PI) / 180) >= 0 ? 1 : -1,
+      // Éclat de l'appel : bref, au moment de l'appel, puis s'éteint.
+      pulse: Math.exp(-Math.pow(g.callPhase / 0.06, 2)),
+      seed: (g.id % 97) / 97,
+      color: speciesColor(cfg, g.species),
+    }));
+    this.glyphs.set(glyphs);
+    this.glyphs.draw(renderer, view, cfg, wallSec);
   }
 
   /** Événements d'appel depuis le dernier relevé (consommés par le son). */

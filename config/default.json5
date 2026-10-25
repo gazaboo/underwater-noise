@@ -229,8 +229,8 @@
 
   ships: {
     visible: true,
-    pointSize: 2.2, // en pixels CSS
-    opacity: 0.7,
+    pointSize: 7, // chevron orienté selon la route (pixels CSS) [A]
+    opacity: 0.85,
   },
 
   // Bandes d'analyse acoustique (Hz) — utilisées par le champ physique (J3).
@@ -374,8 +374,16 @@
       fill: 0.09, // remplissage de l'espace de communication
       contour: 0.6, // contour (là où l'appel cesse d'être audible)
       softnessDb: 10, // fondu du remplissage vers le contour
-      markerSize: 6, // point du groupe (pixels CSS) ; il s'illumine à chaque appel
+      markerSize: 6, // (ancien point du groupe, remplacé par les glyphes)
+      farFill: 0.06, // vue globale : voile léger, sans contour
+      lost: 0.35, // espace perdu (audible sans navires, plus maintenant) : semis de points [A]
     },
+    // Silhouettes par espèce [A] : taille fixe à l'écran (hors d'échelle), liseré sombre lisible jour et nuit.
+    glyphs: { size: 26, outline: '#08131c' },
+    // Vue globale → vue rapprochée (bulle perdue, portée sans navires en pointillés, anneaux d'appel).
+    lod: { closePxPerDeg: 14, fullPxPerDeg: 30 },
+    // Anneau d'appel [A] : s'étend jusqu'à la portée sans navires en 3,2 s de scène, se brise dans l'espace perdu.
+    calls: { ringSec: 3.2 },
     links: {
       enabled: true,
       hysteresisDb: 2, // pas de clignotement autour du seuil
@@ -385,6 +393,7 @@
       intensity: 0.9,
       ghost: 0.12,
       pulseSpeed: 0.3, // l'appel parcourt le fil en ~3 s
+      widthPx: 2.2, // épaisseur des fils à l'écran
     },
     species: [
       // band : bande du champ physique ; sl : niveau source de l'appel ; dt : seuil de détection ;

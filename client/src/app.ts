@@ -3,13 +3,16 @@
  * HUD et panneau de réglage.
  */
 import * as THREE from 'three';
-import { deepMerge, resolveForTarget, type Config, type DisplayTarget, type SourceStatus, type ShipSnapshot, PhysicalSteps } from '@vacarme/shared';
+import { deepMerge, naturalLevel, resolveForTarget, type Config, type DisplayTarget, type SourceStatus, type ShipSnapshot, PhysicalSteps } from '@vacarme/shared';
 import { loadOceanGrid, loadOrnaments, loadWorldAssets, loadVolcanoes, type Volcano, type WorldAssets } from './assets.ts';
 import { ShipStream } from './net/ship-stream.ts';
 import { computeFlatTransform, FlatView, screenToGeo, worldTransform, type FlatTransform } from './render/flat-view.ts';
 import { GlobeController, GlobeView, globeCamera, pixelToGeo, viewToEarth, type GlobeMode } from './render/globe-view.ts';
 import { VolcanoLayer } from './render/volcanoes.ts';
 import { OrnamentLayer } from './render/ornaments.ts';
+import { displayPxPerDeg } from './render/screen-projection.ts';
+import { hexToVec3 } from './render/fullscreen.ts';
+import type { WhaleDrawOptions } from './whales/render.ts';
 import { ShipLayer } from './render/ships.ts';
 import { PhysicsField, calibrate, type CalibrationResult } from './sim/physics-sim.ts';
 import { Whales } from './whales/whales.ts';
@@ -359,6 +362,25 @@ export class App {
     return c.display.theme === 'day' ? { ...c, palette: { ...c.palette, ...c.dayPalette } } : c;
   }
 
+  /**
+   * Réglages de dessin des cétacés pour l'affichage courant : vue globale ou rapprochée selon les pixels
+   * par degré à l'écran ; anneaux d'appel masqués quand le temps est très accéléré (ils clignoteraient).
+   */
+  private whaleOptions(cfg: Config, pxPerDeg: number, fbPerCss: number, timeScale: number): WhaleDrawOptions | null {
+    const noise = this.flat.noiseTexture;
+    if (!cfg.physics.enabled || !noise) return null;
+    const lod = cfg.whales.lod;
+    const wind = cfg.ambient.windSpeedMs;
+    return {
+      noise,
+      natural: cfg.bands.map((b) => naturalLevel(b, wind)) as [number, number, number],
+      close: THREE.MathUtils.smoothstep(pxPerDeg, lod.closePxPerDeg, lod.fullPxPerDeg),
+      fbPerCss,
+      rings: 1 - THREE.MathUtils.smoothstep(timeScale, 3, 10),
+      lostTint: hexToVec3(cfg.palette.noiseMid),
+    };
+  }
+
   /** Couverture AIS (0–1) en un point. */
   private coverageAt(lat: number, lon: number): number {
     const img = this.coverage.image as { data: Uint8Array; width: number; height: number };
@@ -530,7 +552,6 @@ export class App {
     const wall = now / 1000;
     const interpolation = Math.min(1, this.physicsSteps.fraction / this.physics.stepSeconds);
     this.lastView = view;
-    const levels = this.physics.levels.texture;
     let listener = flatListener(view);
     if (flatMode) {
       this.lastGlobe = null;
@@ -540,7 +561,10 @@ export class App {
       this.ornaments?.draw(r, { mode: 'flat', width: size.x, height: size.y, pixelRatio: r.getPixelRatio(), flat: view }, cfg, wall);
       // Les points grossissent un peu quand on zoome, pour rester lisibles.
       this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
-      if (cfg.physics.enabled) this.whales?.draw(r, view, cfg, levels, this.coverage, wall, r.getPixelRatio());
+      const screen = { mode: 'flat' as const, width: size.x, height: size.y, pixelRatio: r.getPixelRatio(), flat: view };
+      const opts = this.whaleOptions(cfg, displayPxPerDeg(screen, cfg), r.getPixelRatio(), scene.scale);
+      if (opts) this.whales?.draw(r, view, cfg, opts, this.coverage, wall);
+      if (cfg.physics.enabled) this.whales?.drawGlyphs(r, screen, cfg, wall);
     } else {
       // Texture « monde » : composition complète en équirectangulaire, puis reprojection.
       const W = this.profile.worldTextureWidth;
@@ -567,9 +591,13 @@ export class App {
       this.flat.displayPxPerDeg = OrnamentLayer.pxPerDeg(ornView, cfg);
       this.flat.render(r, this.physics, interpolation, this.coverage, world, cfg, wall, this.worldTarget);
       this.ships.draw(r, now, world, cfg, 1, this.worldTarget);
-      if (cfg.physics.enabled) this.whales?.draw(r, world, cfg, levels, this.coverage, wall, 1, this.worldTarget);
+      const opts = this.whaleOptions(cfg, this.flat.displayPxPerDeg, world.scale / this.flat.displayPxPerDeg, scene.scale);
+      if (opts) this.whales?.draw(r, world, cfg, opts, this.coverage, wall, this.worldTarget);
       this.globe.render(r, this.worldTarget.texture, gm, cam, M, cfg, size.x, size.y, wall);
-      if (!this.globe.calibration) this.ornaments?.draw(r, ornView, cfg, wall);
+      if (!this.globe.calibration) {
+        this.ornaments?.draw(r, ornView, cfg, wall);
+        if (cfg.physics.enabled) this.whales?.drawGlyphs(r, ornView, cfg, wall);
+      }
       this.lastGlobe = { mode: gm, cam, M, w: size.x, h: size.y };
       if (gm !== 'equirect') listener = globeListener(facingLat, this.globeCtl.facingLon);
     }

@@ -402,7 +402,19 @@ export const configSchema = z.object({
     useSightings: z.boolean(),
     color: color,
     /** Espace de communication : remplissage, contour, douceur (dB). */
-    space: z.object({ fill: unit, contour: unit, softnessDb: z.number().min(0.5).max(40), markerSize: z.number().min(0).max(20) }),
+    space: z.object({
+      fill: unit, contour: unit, softnessDb: z.number().min(0.5).max(40), markerSize: z.number().min(0).max(20),
+      /** Vue globale : remplissage faible, sans contour (la lecture passe par les glyphes et les fils). */
+      farFill: unit.default(0.06),
+      /** Espace perdu (audible sans navires, plus maintenant) : semis de points. */
+      lost: unit.default(0.35),
+    }),
+    /** Glyphes par espèce (silhouettes), taille à l'écran (pixels CSS) et liseré sombre. Artistique. */
+    glyphs: z.object({ size: z.number().min(4).max(80).default(26), outline: color.default('#08131c') }).default({}),
+    /** Passage vue globale → vue rapprochée (bulle perdue, anneaux d'appel), en pixels CSS par degré. */
+    lod: z.object({ closePxPerDeg: z.number().min(1).max(500).default(14), fullPxPerDeg: z.number().min(1).max(1000).default(30) }).default({}),
+    /** Anneau émis à chaque appel : durée de son expansion jusqu'à la portée sans navires (s de scène). [A] */
+    calls: z.object({ ringSec: z.number().min(0.3).max(30).default(3.2) }).default({}),
     links: z.object({
       enabled: z.boolean(),
       hysteresisDb: z.number().min(0).max(20),
@@ -413,6 +425,8 @@ export const configSchema = z.object({
       ghost: unit,
       /** Vitesse des impulsions le long des fils (fraction du fil par seconde). */
       pulseSpeed: z.number().min(0.01).max(5),
+      /** Épaisseur des fils à l'écran (pixels CSS). */
+      widthPx: z.number().min(0.5).max(10).default(2.2),
     }),
     species: z.array(
       z.object({

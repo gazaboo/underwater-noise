@@ -97,7 +97,8 @@ uniform vec3 uFogColor;
 uniform float uFogStrength, uFogScale, uFogDrift, uGrain, uWaveKeep;
 uniform int uDebugField;        // 0 : rendu ; 1 : niveau accumulé ; 2–4 : bandes basse, moyenne, haute
 // Bruit ajouté (couche de données) : ΔL lissé, représentation choisie (docs/REPRESENTATION.md).
-uniform sampler2D uNoiseDb;     // R = ΔL (dB) dans la bande affichée, lissé (préparé par NOISE_PREP_FRAG)
+uniform sampler2D uNoiseDb;     // RGB = ΔL (dB) par bande, lissé (préparé par NOISE_PREP_FRAG)
+uniform vec3 uBandSel;
 uniform int uNoiseStyle;        // 0 fronts ; 1 isophones ; 2 météo ; 3 encre
 uniform vec3 uNoiseLow, uNoiseMid, uNoiseHigh;
 uniform vec3 uNoiseSteps;       // paliers (dB)
@@ -215,7 +216,7 @@ float hash(vec2 p) {
 
 // ΔL (dB) au-dessus du fond naturel dans la bande affichée, à partir du rapport d'énergies lissé.
 float excessDb(vec2 uv) {
-  return max(sampleCubic(uNoiseDb, uv, uLevelsTexel).r, 0.0);
+  return max(dot(sampleCubic(uNoiseDb, uv, uLevelsTexel).rgb, uBandSel), 0.0);
 }
 
 // Nappe en paliers [A] : un léger voile dès +1 dB, puis trois paliers francs, bords anti-crénelés.
@@ -530,25 +531,25 @@ const NOISE_PREP_FRAG = /* glsl */ `
 in vec2 vUv;
 out vec4 outColor;
 uniform sampler2D uExcess, uOcean;
-uniform vec3 uBand;
 uniform vec2 uTexel;
 void main() {
-  float sum = 0.0, wsum = 0.0;
+  vec3 sum = vec3(0.0);
+  float wsum = 0.0;
   for (int j = -4; j <= 4; j++) for (int i = -4; i <= 4; i++) {
     vec2 uv = vUv + vec2(float(i), float(j)) * uTexel;
     float w = exp(-float(i * i + j * j) / 8.0) * step(0.5, texture(uOcean, uv).r);
-    sum += w * max(dot(texture(uExcess, uv).rgb, uBand), 0.0);
+    sum += w * max(texture(uExcess, uv).rgb, vec3(0.0));
     wsum += w;
   }
-  float ratio = wsum > 0.0 ? sum / wsum : 0.0;
-  outColor = vec4(10.0 * log(1.0 + ratio) / log(10.0), 0.0, 0.0, 1.0);
+  vec3 ratio = wsum > 0.0 ? sum / wsum : vec3(0.0);
+  outColor = vec4(10.0 * log(1.0 + ratio) / log(10.0), 1.0);
 }`;
 
 export class FlatView {
   private noiseDb: THREE.WebGLRenderTarget | null = null;
   private noiseKey = '';
   private readonly noisePass = new FullscreenPass(rawMaterial(NOISE_PREP_FRAG, {
-    uExcess: { value: null }, uOcean: { value: null }, uBand: { value: new THREE.Vector3(1, 0, 0) }, uTexel: { value: new THREE.Vector2() },
+    uExcess: { value: null }, uOcean: { value: null }, uTexel: { value: new THREE.Vector2() },
   }));
   private packedWave: THREE.WebGLRenderTarget | null = null;
   private packedKey = '';
@@ -597,6 +598,7 @@ export class FlatView {
       uWaveKeep: { value: 0.35 },
       uDebugField: { value: 0 },
       uNoiseDb: { value: null },
+      uBandSel: { value: new THREE.Vector3(1, 0, 0) },
       uNoiseStyle: { value: 1 },
       uNoiseLow: { value: v3() }, uNoiseMid: { value: v3() }, uNoiseHigh: { value: v3() },
       uNoiseSteps: { value: new THREE.Vector3(3, 10, 20) },
@@ -676,6 +678,11 @@ export class FlatView {
     (this.uniforms.uLevelsTexel.value as THREE.Vector2).set(1 / width, 1 / height);
   }
 
+  /** ΔL lissé par bande (dB, RGB), préparé à la dernière composition ; null avant la première. */
+  get noiseTexture(): THREE.Texture | null {
+    return this.noiseDb?.texture ?? null;
+  }
+
   /** 0 : rendu ; 1 : niveau accumulé ; 2–4 : bandes basse, moyenne, haute. */
   debugField = 0;
 
@@ -728,17 +735,18 @@ export class FlatView {
       });
       this.noiseKey = '';
     }
-    const noiseKey = `${field.excessTexture.id}/${field.revision}/${bandIndex}`;
-    if (n.style !== 'fronts' && this.noiseKey !== noiseKey) {
+    // Préparée aussi en style « fronts » : les espaces de communication des cétacés la lisent.
+    const noiseKey = `${field.excessTexture.id}/${field.revision}`;
+    if (this.noiseKey !== noiseKey) {
       const nu = this.noisePass.material.uniforms;
       nu.uExcess.value = field.excessTexture;
       nu.uOcean.value = field.ocean;
-      (nu.uBand.value as THREE.Vector3).set(bandIndex === 0 ? 1 : 0, bandIndex === 1 ? 1 : 0, bandIndex === 2 ? 1 : 0);
       (nu.uTexel.value as THREE.Vector2).set(1 / field.width, 1 / field.height);
       this.noisePass.render(renderer, this.noiseDb);
       this.noiseKey = noiseKey;
     }
     u.uNoiseDb.value = this.noiseDb.texture;
+    (u.uBandSel.value as THREE.Vector3).set(bandIndex === 0 ? 1 : 0, bandIndex === 1 ? 1 : 0, bandIndex === 2 ? 1 : 0);
     u.uNoiseStyle.value = { fronts: 0, isophones: 1, meteo: 2, encre: 3 }[n.style];
     hexToVec3(cfg.palette.noiseLow, u.uNoiseLow.value);
     hexToVec3(cfg.palette.noiseMid, u.uNoiseMid.value);
