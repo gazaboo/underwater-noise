@@ -84,6 +84,38 @@ nappe :
 
 ![Vue rapprochée](captures/representation/cetaces-vue-rapprochee.jpg)
 
+## Ce que représentent les cétacés
+
+Un groupe affiché n'est pas un animal suivi. C'est **une vraie espèce, placée dans un habitat où elle
+est connue, près d'endroits où elle a été vue**. Trois couches y contribuent
+(`tools/build_habitats.py`, `client/src/whales/agents.ts`, `config/default.json5`,
+`docs/REVUE_SCIENTIFIQUE.md` §6.7) :
+
+| Couche | Nature | Limites |
+|---|---|---|
+| **AquaMaps** (`data/habitats/<espèce>.png`) [S] | modèle d'**adéquation de l'habitat** (Kaschner et al.), note de 0 à 1 par case de 0,5°, version « native range » | ni densité, ni effectif, ni probabilité de rencontre ; **moyenne annuelle, sans saison** |
+| **OBIS** (`data/habitats/sightings.json`) [S] | observations réelles depuis 2015 (245 jeux de données), un point par case de 0,25°, 400 points tirés par espèce | seules la latitude et la longitude sont gardées ; fort **biais d'effort** : un point signale surtout qu'il y avait un observateur |
+| **Groupes affichés** (`WhaleAgents`) [A] | 30 à 40 groupes par espèce ; 70 % partent près d'une observation OBIS, 30 % sont tirés selon AquaMaps ; marche aléatoire accélérée ×30 | pas d'effectif, pas de taille de groupe, pas de migration, pas de saison : des présences **plausibles** |
+
+Champs OBIS disponibles mais pas encore récupérés (échantillon de 200 baleines à bosse depuis 2015,
+issue #15) :
+
+| Champ | Remplissage | Utilité |
+|---|---|---|
+| `eventDate` / `month` | ≈ 91 % | saisonnalité, mais mêlée à l'effort d'observation |
+| `basisOfRecord` | 100 % (185 `HumanObservation`, 15 `MachineObservation`) | distinguer une vue directe d'une balise ou d'une détection acoustique |
+| `individualCount` | 168 sur 200 valent 1 | **inutilisable pour la taille des groupes** : souvent un enregistrement par individu |
+| `sex` | ≈ 20 % | anecdotique |
+| `lifeStage`, `behavior` | ≈ 0 % | rien |
+| `bathymetry`, `sst`, `shoredistance` | ≈ 100 % | contrôle des profondeurs minimales par espèce |
+
+OBIS ne distingue pas les écotypes d'orques, dont les répertoires vocaux diffèrent.
+
+**Formulations pour le public** :
+- ✅ « une vraie espèce, dans un habitat où on la sait présente, près d'endroits où elle a été vue » ;
+- ❌ « une baleine est ici maintenant » ;
+- ❌ « les zones sans observations sont vides » : elles sont surtout peu observées.
+
 ## Navires
 
 - **Chevrons** orientés selon la route fond [S, AIS], de 7 px [A], avec un liseré sombre.
