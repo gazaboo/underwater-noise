@@ -151,6 +151,7 @@ export class App {
     this.coverage.needsUpdate = true;
     this.gpu = new GpuTimer(this.renderer.getContext() as WebGL2RenderingContext);
     this.flat = new FlatView(assets);
+    this.globe.uniforms.uShape.value = assets.landShape;
     this.science = new SciencePanel();
     this.legend = new Legend(() => this.science.open());
     this.card = new SpeciesCardPanel();

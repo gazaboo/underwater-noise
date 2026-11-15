@@ -61,7 +61,24 @@ commandes modifient les mêmes champs ; l'interface relit cet état à chaque im
 Trois gabarits : bureau (1180 px et plus), compact (860 à 1179 px), téléphone (moins de 860 px). Sur le dôme et
 au projecteur, aucun cadre : seul le texte de la visite est projeté.
 
+## Lot 5 : le globe éclairé
+
+Sur le globe à l'écran seulement (`display.mode: 'globe'`), jamais sur la demi-sphère, que le projecteur éclaire
+déjà. Tout est un choix graphique [A], sans sens astronomique : la lumière ne représente ni l'heure ni la saison.
+
+| Élément | Détail | Réglage |
+|---|---|---|
+| Lumière | fixe dans l'image, en haut à gauche et un peu devant, comme les ombres peintes des terres (nord-ouest). Terminateur enveloppant : le côté sombre garde 40 % de la luminosité, pour rester lisible | `globe.light.strength` (0,75 ; 0 = rendu d'avant) |
+| Teinte | lumière légèrement chaude, ombre légèrement froide | lié à `strength` |
+| Reflet | sur la mer seulement (masque : distance à la côte de `land_shape_4096.png`) | `globe.light.specular` (0,5) |
+| Atmosphère | liseré bleu à l'intérieur du limbe et halo à l'extérieur, plus forts du côté éclairé | `globe.light.atmosphere` (0,6) |
+| Limbe | l'assombrissement d'origine (`globe.limbShading`) est réduit de 70 % × `strength` : la lumière prend le relais | — |
+
+Coût : quelques opérations et une lecture de texture dans la passe plein écran existante
+(`client/src/render/globe-view.ts`). Les vignettes (montagnes, arbres) et les silhouettes des cétacés, dessinées
+après cette passe, ne sont pas ré-éclairées.
+
 ## Suite prévue
 
-Globe éclairé (lumière, reflet sur la mer, atmosphère), cétacés et navires peints dans le style du monde,
-traînées de trafic à la place des chevrons en vue globale, épingles des lieux, contrôle au dôme.
+Cétacés et navires peints dans le style du monde, traînées de trafic à la place des chevrons en vue globale,
+épingles des lieux, contrôle au dôme (palette de nuit, brume) avec le projecteur réel.
