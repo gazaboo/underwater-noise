@@ -32,8 +32,36 @@ CHROMIUM_PATH=/chemin/chrome node scripts/capture-ui.mjs
 tailles (1440×900, 1100×700, 900×700, 390×844) et échoue si deux blocs de l'interface se recouvrent, si un
 bloc dépasse de l'écran ou si une cible tactile fait moins de 44 px.
 
+## Lots 2 à 4 : la nouvelle interface
+
+Ton d'atlas illustré [A] : panneaux de papier opaques posés sur la carte, encre bleu nuit, braise pour le bruit
+et les actions, sarcelle pour le vivant. Deux polices embarquées, sous licence libre SIL OFL (l'exposition est
+hors ligne) : Fraunces pour les titres, Atkinson Hyperlegible pour le texte. Feuille de style :
+`client/src/ui/theme.css` ; plus aucun style d'interface dans `index.html`.
+
+| Bloc | Rôle | Fichier |
+|---|---|---|
+| Accueil | titre, une phrase, « Commencer la visite » ou « Explorer librement » ; le clic démarre le son. Page web autonome seulement, et seulement si l'adresse ne porte aucun paramètre (`?accueil=0` pour s'en passer) | `ui/chrome.ts` |
+| Titre et phrase d'état | « Aujourd'hui, avec le trafic maritime » / « Océan sans navires, calculé par le modèle » | `ui/chrome.ts` |
+| Commande principale | « Avec navires / Sans navires » : c'est le message de l'œuvre ; à côté, « Visite guidée » | `ui/chrome.ts` |
+| Vue | globe ou carte, zoom | `ui/chrome.ts` |
+| On entend | le lieu sous le centre de la vue, sinon le dernier appel de cétacé, avec une jauge de clarté sur cinq crans : clarté du lieu, ou portée actuelle / portée en océan calme pour un appel [C] ; les seuils « clair », « voilé », « étouffé » (5, 3 à 4, 0 à 2 crans) sont un choix d'affichage [A] | `ui/chrome.ts`, `audio/engine.ts` |
+| Calques | bruit, légende, lieux, palette ; réglages avancés : dessin du bruit, navires suivis ou estimés | `ui/chrome.ts` |
+| Légende | trois niveaux : paliers et espèces ; « Comprendre la carte » ; « Méthode et fiabilité » | `ui/legend.ts`, `ui/science.ts` |
+| Fiche | volet à droite (volet bas sous 1180 px) ; en tête, deux cercles à l'échelle des portées [C] et deux chiffres | `ui/card.ts` |
+| Visite guidée | étape en cours, précédent, pause, suivant ; flèches et espace au clavier ; toucher la carte rend la main | `story/story.ts` |
+
+Aucune information n'a été retirée : les statuts `[S]/[C]/[E]/[A]`, les sources et les mises en garde sont au
+deuxième et au troisième niveau, et dans les infobulles des pastilles. Les chemins de fichiers de la
+documentation ne figurent plus dans le texte lu par le public (ils restent dans les infobulles).
+
+L'état vit dans la configuration : les touches (`G`, `S`, `V`, `J`, `N`, `M`, `H`), le panneau `P` et les
+commandes modifient les mêmes champs ; l'interface relit cet état à chaque image.
+
+Trois gabarits : bureau (1180 px et plus), compact (860 à 1179 px), téléphone (moins de 860 px). Sur le dôme et
+au projecteur, aucun cadre : seul le texte de la visite est projeté.
+
 ## Suite prévue
 
-Fondations de l'interface (jetons, polices, commande principale « avec / sans navires », menu des calques),
-accueil et lecteur de visite, pastille « ce qu'on entend », légende à trois niveaux et fiche en volet, globe
-éclairé, cétacés et navires peints, contrôle au dôme.
+Globe éclairé (lumière, reflet sur la mer, atmosphère), cétacés et navires peints dans le style du monde,
+traînées de trafic à la place des chevrons en vue globale, épingles des lieux, contrôle au dôme.

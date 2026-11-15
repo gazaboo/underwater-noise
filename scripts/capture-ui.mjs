@@ -14,7 +14,7 @@ mkdirSync(out, { recursive: true });
 const args = ['--no-sandbox', '--enable-gpu', '--ignore-gpu-blocklist', '--use-angle=vulkan', '--enable-features=Vulkan', '--autoplay-policy=no-user-gesture-required'];
 const errors = [];
 const fail = (msg) => { errors.push(msg); console.log(`ÉCHEC ${msg}`); };
-const BLOCKS = ['#toolbar', '#legend', '#science', '#fiche', '#recit', '#accueil', '#ecoute', '#titre'];
+const BLOCKS = ['#titre', '#outils', '#toolbar', '#vue', '#legend', '#science', '#fiche', '#recit'];
 
 /** Recouvrements entre blocs visibles (plus de 4 px dans chaque direction), et cibles tactiles trop petites. */
 async function check(page, name, touch) {
@@ -25,12 +25,12 @@ async function check(page, name, touch) {
       const r = el.getBoundingClientRect();
       return s.display !== 'none' && s.visibility !== 'hidden' && r.width > 0 && r.height > 0;
     };
-    // Un bloc est mesuré par ses enfants visibles : #recit et #toolbar sont plus larges que leur contenu.
+    // Barres de commandes : mesurées par leurs enfants visibles (le conteneur peut être plus large qu'eux).
     const rects = blocks.map((sel) => {
       const el = document.querySelector(sel);
       if (!shown(el)) return null;
       const kids = [...el.children].filter(shown).map((k) => k.getBoundingClientRect());
-      const rs = sel === '#toolbar' || sel === '#recit' ? kids : [el.getBoundingClientRect()];
+      const rs = sel === '#toolbar' || sel === '#outils' ? kids : [el.getBoundingClientRect()];
       return { sel, rs: rs.map((r) => ({ l: r.left, t: r.top, r: r.right, b: r.bottom })) };
     }).filter(Boolean);
     const overlaps = [];
@@ -41,7 +41,7 @@ async function check(page, name, touch) {
       }
     }
     const small = touch ? [...document.querySelectorAll('button')].filter(shown).filter((b) => { const r = b.getBoundingClientRect(); return r.height < 43.5 || r.width < 43.5; }).map((b) => `« ${b.textContent.trim() || b.getAttribute('aria-label')} » ${Math.round(b.getBoundingClientRect().width)}×${Math.round(b.getBoundingClientRect().height)}`) : [];
-    const clipped = [...document.querySelectorAll('#toolbar, #legend, #fiche')].filter(shown).filter((el) => { const r = el.getBoundingClientRect(); return r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1; }).map((el) => `#${el.id}`);
+    const clipped = [...document.querySelectorAll('#titre, #outils, #toolbar, #vue, #legend, #fiche, #recit')].filter(shown).filter((el) => { const r = el.getBoundingClientRect(); return r.left < -1 || r.top < -1 || r.right > innerWidth + 1 || r.bottom > innerHeight + 1; }).map((el) => `#${el.id}`);
     return { overlaps, small, clipped };
   }, [BLOCKS, touch]);
   for (const o of res.overlaps) fail(`${name} : recouvrement ${o}`);

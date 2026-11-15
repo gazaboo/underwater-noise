@@ -20,7 +20,7 @@ import { PhysicsField, calibrate, type CalibrationResult } from './sim/physics-s
 import { Whales } from './whales/whales.ts';
 import { FieldReader } from './whales/field-reader.ts';
 import { AudioEngine, flatListener, globeListener } from './audio/engine.ts';
-import { cycleNoise, noiseLabel, noShips, scenarioLabel, toggleScenario } from './ui/scenario.ts';
+import { cycleNoise, noShips, toggleScenario } from './ui/scenario.ts';
 import { SpeciesCardPanel } from './ui/card.ts';
 import { LieuLayer } from './lieux/lieux.ts';
 import { StoryPlayer } from './story/story.ts';
@@ -31,7 +31,7 @@ import { FlatNavigator } from './ui/navigation.ts';
 import { Panel } from './ui/panel.ts';
 import { SciencePanel } from './ui/science.ts';
 import { Legend } from './ui/legend.ts';
-import { Toolbar } from './ui/toolbar.ts';
+import { Chrome } from './ui/chrome.ts';
 import { dataUrl, STANDALONE } from './data-url.ts';
 
 const SCENE_STEP_SEC = 0.1;
@@ -56,6 +56,8 @@ export interface UrlOverrides {
   parcours?: string;
   /** Outils de mise au point (panneau P, diagnostic D, touches B, C, O) sur la page web autonome. */
   dev?: boolean;
+  /** Écran d'accueil de la page web autonome (omis dès qu'un paramètre d'URL est donné). */
+  welcome?: boolean;
 }
 
 const MODES: Config['display']['mode'][] = ['flat', 'globe', 'hemisphere', 'equirect', 'fisheye'];
@@ -124,6 +126,7 @@ export class App {
   private lastFrame = performance.now();
   private rebuilding = false;
   private readonly adaptive = new AdaptiveScale();
+  private readonly chrome: Chrome;
   /** Outils de mise au point : toujours avec le serveur local, sur demande (?dev=1) en web autonome. */
   private readonly dev: boolean;
 
@@ -149,7 +152,7 @@ export class App {
     this.gpu = new GpuTimer(this.renderer.getContext() as WebGL2RenderingContext);
     this.flat = new FlatView(assets);
     this.science = new SciencePanel();
-    this.legend = new Legend();
+    this.legend = new Legend(() => this.science.open());
     this.card = new SpeciesCardPanel();
     this.audio.places = this.lieux;
     this.story = new StoryPlayer({
@@ -220,10 +223,9 @@ export class App {
       onScienceStatus: () => { void this.science.reload(); },
     };
     // Web autonome : sources calculées dans le navigateur ; sinon, flux du serveur local.
-    if (STANDALONE) {
-      this.local = new LocalShipStream(this.cfg, events);
-      this.installToolbar();
-    } else new ShipStream(events);
+    if (STANDALONE) this.local = new LocalShipStream(this.cfg, events);
+    else new ShipStream(events);
+    this.chrome = this.installChrome();
     requestAnimationFrame((t) => this.frame(t));
   }
 
@@ -584,38 +586,56 @@ export class App {
     const interrupt = (e: Event) => {
       this.lastInput = performance.now();
       const target = e.target instanceof Element ? e.target : null;
-      if (!this.story.playing || target?.closest('#toolbar')) return;
-      if (e instanceof KeyboardEvent && e.key.toLowerCase() === 'h') return;
+      if (!this.story.playing || target?.closest('#toolbar, #recit, #outils, #accueil')) return;
+      if (e instanceof KeyboardEvent) {
+        if (e.key.toLowerCase() === 'h') return;
+        // Le visiteur pilote la visite : flèches pour changer d'étape, espace pour la pause.
+        const drive = e.key === 'ArrowRight' ? () => this.story.step(1) : e.key === 'ArrowLeft' ? () => this.story.step(-1) : e.key === ' ' ? () => this.story.togglePause() : null;
+        if (drive) {
+          e.preventDefault();
+          e.stopPropagation();
+          return drive();
+        }
+      }
       this.story.stop(!!target?.closest('#fiche'));
     };
     for (const ev of ['pointerdown', 'wheel', 'keydown'] as const) addEventListener(ev, interrupt, { capture: true });
   }
 
-  /** Web autonome : les touches G, V, S, J, N, M deviennent des boutons ; légende repliée sur petit écran. */
-  private installToolbar(): void {
-    const c = () => this.cfg;
-    const SHIPS = { real: 'Navires AIS', estimated: 'Navires estimés', mixed: 'AIS + estimés' } as const;
-    const labels = {
-      view: () => (c().display.mode === 'flat' ? 'Carte' : 'Globe'),
-      noise: () => noiseLabel(c().noise),
-      scenario: () => scenarioLabel(c()),
-      theme: () => (c().display.theme === 'day' ? 'Jour' : 'Nuit'),
-      ships: () => SHIPS[c().source.ships],
-      sound: () => (this.audio.muted ? 'Son coupé' : 'Son'),
-      legend: () => 'Légende',
-      story: () => (this.story.playing ? 'Arrêter la visite' : 'Visite guidée'),
-    };
-    new Toolbar({
-      view: () => { c().display.mode = c().display.mode === 'flat' ? 'globe' : 'flat'; return labels.view(); },
-      noise: () => { cycleNoise(c().noise); return labels.noise(); },
-      scenario: () => { toggleScenario(c()); return labels.scenario(); },
-      theme: () => { c().display.theme = c().display.theme === 'day' ? 'night' : 'day'; return labels.theme(); },
-      ships: () => { this.setShipsMode(SHIPS_MODES[(SHIPS_MODES.indexOf(c().source.ships) + 1) % SHIPS_MODES.length]); return labels.ships(); },
-      sound: () => { this.audio.toggleMute(); return labels.sound(); },
-      legend: () => { this.legend.toggle(); return labels.legend(); },
-      story: () => { if (this.story.playing) this.story.stop(); else this.story.start(); return labels.story(); },
-    }, labels);
-    if (innerWidth < 1000) this.legend.toggle(false);
+  /**
+   * Interface de la carte libre : mêmes champs de configuration que les touches G, S, J, N, M, H. Écran d'accueil
+   * sur la page web autonome seulement (jamais pour l'installation, ni quand l'adresse porte un paramètre).
+   */
+  private installChrome(): Chrome {
+    const welcome = STANDALONE && !!this.overrides.welcome && !this.cfg.parcours.attract && this.cfg.display.target !== 'projector';
+    return new Chrome({
+      cfg: () => this.cfg,
+      setShips: (mode) => { this.setShipsMode(mode); this.panel.refresh(); },
+      zoom: (factor) => {
+        if (this.cfg.display.mode === 'flat') {
+          const c = this.renderer.domElement;
+          this.nav.zoomAt(factor, c.width / 2, c.height / 2);
+        } else this.globeCtl.zoom = Math.max(0.5, Math.min(4, this.globeCtl.zoom * factor));
+      },
+      storyPlaying: () => this.story.playing,
+      toggleStory: () => { if (this.story.playing) this.story.stop(); else this.story.start(); },
+      muted: () => this.audio.muted,
+      toggleMute: () => this.audio.toggleMute(),
+      listening: () => this.listening(),
+      openMethod: () => this.science.open(),
+    }, welcome);
+  }
+
+  /** Ce qu'on entend en ce moment : le lieu sous le centre de la vue, sinon le dernier appel de cétacé. */
+  private listening(): { label: string; clarity: number } | null {
+    if (!this.audio.running || !this.cfg.audio.enabled) return null;
+    const place = this.audio.heardPlace;
+    const lieu = place && this.lieux.lieux.find((l) => l.id === place.id);
+    if (place && lieu) return { label: lieu.title, clarity: place.clarity };
+    const call = this.audio.lastCall;
+    if (!call || call.until < performance.now()) return null;
+    const species = this.cfg.whales.species.find((s) => s.id === call.species);
+    return species ? { label: species.name, clarity: noShips(this.cfg) ? 1 : call.clarity } : null;
   }
 
   private installKeys(): void {
@@ -805,6 +825,7 @@ export class App {
       const world = geo && this.science.wantsLevels && cfg.physics.enabled ? this.physics.readComponents(r, geo.lat, geo.lon, cfg) : null;
       this.science.update(geo, world, cfg, this.sourceStatus);
       this.card.update();
+      this.chrome.update();
       this.legend.update(cfg, scene.scale, this.sceneAgeSec, cfg.noise.warmupMinutes * Math.sign(this.warmupTotal), this.warmupLeft === 0, scene.stale);
     }
     this.hud.frame(dt, performance.now() - t0, this.gpu.lastMs, () => ({

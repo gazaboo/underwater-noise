@@ -137,12 +137,18 @@ export class SpeciesCardPanel {
     if (!this.group || !this.range || this.element.hidden) return;
     const g = this.group;
     const ratio = Math.max(0, Math.min(1, g.rangeM / Math.max(1, g.quietRangeM)));
+    // Le message de la fiche : deux cercles à l'échelle (rayons proportionnels aux portées) et deux chiffres.
+    const inner = Math.max(3, 100 * ratio).toFixed(1);
     this.range.innerHTML = `
       <h3>Ce groupe s'entend jusqu'à</h3>
-      <div class="fc-bar" role="img" aria-label="Portée actuelle : ${Math.round(100 * ratio)} % de la portée en océan calme"><i style="width:${(100 * ratio).toFixed(1)}%"></i></div>
-      <p><b>${km(g.rangeM)}</b> avec le trafic actuel ${badge('C', 'équation du sonar, bruit du modèle au point du groupe')}
-        · <b>${km(g.quietRangeM)}</b> en océan sans navires ${badge('C', 'même calcul, fond naturel seul')}</p>
-      <p class="fc-note">Bornes hautes : le rapport entre les deux (${Math.round(100 * ratio)} %) est plus robuste que les distances elles-mêmes (docs/REVUE_SCIENTIFIQUE.md §6.4).${g.coverage < 0.2 ? ' Zone mal vue par l\'AIS : bruit sous-estimé.' : ''}</p>`;
+      <div class="fc-portee">
+        <div class="fc-cercles" role="img" aria-label="Portée actuelle : ${Math.round(100 * ratio)} % de la portée en océan sans navires"><i style="width:${inner}%;height:${inner}%"></i></div>
+        <div class="fc-chiffres">
+          <p><b class="fc-actuel">${km(g.rangeM)}</b> aujourd'hui ${badge('C', 'équation du sonar, bruit du modèle au point du groupe')}</p>
+          <p><b class="fc-calme">${km(g.quietRangeM)}</b> sans navires ${badge('C', 'même calcul, fond naturel seul')}</p>
+        </div>
+      </div>
+      <p class="fc-note">Portées calculées par le modèle : ce sont des bornes hautes. Le rapport entre les deux (${Math.round(100 * ratio)} %) est plus sûr que les distances elles-mêmes ${badge('C', 'docs/REVUE_SCIENTIFIQUE.md §6.4')}.${g.coverage < 0.2 ? ' Zone mal vue par l\'AIS : bruit sous-estimé.' : ''}</p>`;
   }
 
   private toggleSound(button: HTMLButtonElement, s: SoundItem, transpose: number, cursor: HTMLElement): void {

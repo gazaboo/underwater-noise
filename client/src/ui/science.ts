@@ -1,6 +1,7 @@
 import { SCIENTIFIC_PROFILE_ID, acousticComponents, validationRegionAt, validationSummarySchema, type Config, type ScienceStatus, type SourceStatus, type ValidationSummary } from '@vacarme/shared';
 
 import { dataUrl, STANDALONE } from '../data-url.ts';
+import { h, icon } from './dom.ts';
 
 /**
  * Panneau « Fiabilité » : niveaux calculés par le moteur mondial au curseur (navires, fond naturel,
@@ -20,12 +21,16 @@ export class SciencePanel {
     this.summary.textContent = 'Fiabilité';
     const note = document.createElement('p');
     note.textContent = 'Fronts et niveaux [C] : même champ acoustique estimé, non validé en mer. Espacement des anneaux, visibilité et lueur [A] : conventions graphiques ; aucun seuil biologique. Domaine ±79°, grille de référence ≈ 39 km. Historique acoustique initial incomplet.';
-    this.element.append(this.summary, this.message, note, this.reading, this.validation);
+    const close = h('button', { type: 'button', class: 'ui-rond sc-fermer', 'aria-label': 'Fermer', onclick: () => { this.element.open = false; } }, icon('fermer'));
+    const hint = h('p', { class: 'sc-aide' }, 'Déplacez le pointeur sur la mer : les niveaux calculés à cet endroit s\'affichent ci-dessous.');
+    this.element.append(this.summary, close, this.message, note, hint, this.reading, this.validation);
     for (const event of ['pointerdown', 'wheel', 'keydown']) this.element.addEventListener(event, e => e.stopPropagation());
     document.body.append(this.element);
     void this.reload();
   }
   get wantsLevels(): boolean { return this.element.open; }
+  /** Troisième niveau de lecture : ouvert depuis la légende ou les calques. */
+  open(): void { this.element.open = true; }
   async reload(): Promise<void> {
     const request = ++this.request;
     try {

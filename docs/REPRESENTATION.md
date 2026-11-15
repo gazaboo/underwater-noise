@@ -42,7 +42,7 @@ estimé mondial, la médiane de ΔL est de +11 dB [C] en 10–40 Hz, le 90e cent
 +37 dB [C] (mesure du 25 oct. 2026, 50 854 navires estimés) : les trois paliers se répartissent sur la
 carte. Un voile léger signale l'apport entre +1 et +10 dB.
 
-**Styles interchangeables** (touche `V`, panneau `P` → *Bruit ajouté*, barre d'outils du web) :
+**Styles interchangeables** (touche `V`, panneau `P` → *Bruit ajouté*, menu « Calques » de l'interface) :
 
 | Style | Ce qu'on voit | Statut du mouvement |
 |---|---|---|
@@ -75,8 +75,8 @@ Deux réglages distincts, à ne pas confondre (#15, chantier 4) :
 
 | Réglage | Nature | Ce qui change |
 |---|---|---|
-| **Nappe masquée** (`noise.visible`, touche `V` après le dernier style, bouton « Bruit » du web) | affichage seulement | la nappe, ses lignes, la lueur et les fronts disparaissent ; navires, cétacés, terra incognita et calcul restent. Les cétacés entendent toujours les navires |
-| **Océan sans navires** (`scenario: 'sans-navires'`, touche `S`, bouton « Avec / Sans navires ») | **calcul** [C] | les portées, les liens et les zones de la vue rapprochée sont recalculés avec le seul fond naturel, par la même équation du sonar que la « portée en océan calme ». Navires, nappe, terra incognita, voix des navires et nappe sonore disparaissent ; les appels des cétacés ne sont plus étouffés |
+| **Nappe masquée** (`noise.visible`, touche `V` après le dernier style, calque « Bruit des navires ») | affichage seulement | la nappe, ses lignes, la lueur et les fronts disparaissent ; navires, cétacés, terra incognita et calcul restent. Les cétacés entendent toujours les navires |
+| **Océan sans navires** (`scenario: 'sans-navires'`, touche `S`, commande « Avec navires / Sans navires ») | **calcul** [C] | les portées, les liens et les zones de la vue rapprochée sont recalculés avec le seul fond naturel, par la même équation du sonar que la « portée en océan calme ». Navires, nappe, terra incognita, voix des navires et nappe sonore disparaissent ; les appels des cétacés ne sont plus étouffés |
 
 Le champ acoustique continue d'être calculé pendant le scénario : le retour au trafic actuel est immédiat.
 Les portées passent d'un état à l'autre en quelques secondes (lissage existant des rayons, 1,5 s) ; les fils
@@ -148,8 +148,9 @@ OBIS ne distingue pas les écotypes d'orques, dont les répertoires vocaux diff�
 Un clic ou un toucher sur un groupe ouvre sa fiche (`client/src/ui/card.ts`) ; un glissé reste à la navigation,
 un clic dans le vide ou `Échap` la ferme. La fiche contient :
 - une photo libre de droits ou sous licence CC, avec son crédit (Wikimedia Commons, licence lue sur Commons) ;
-- la **portée de ce groupe**, avec le trafic actuel et en océan sans navires [C], mise à jour en continu, avec la
-  mise en garde de `REVUE_SCIENTIFIQUE.md` §6.4 ;
+- la **portée de ce groupe**, avec le trafic actuel et en océan sans navires [C], mise à jour en continu : deux
+  cercles concentriques dont les rayons sont proportionnels aux deux portées (le plus petit n'est jamais dessiné
+  sous 3 % du grand, pour rester visible [A]), deux chiffres, et la mise en garde de `REVUE_SCIENTIFIQUE.md` §6.4 ;
 - les faits naturalistes (`data/fiches/especes.json`), chacun avec son statut et sa source en infobulle :
   NOAA Fisheries [S] ; statut UICN et effectifs [S-r] tant qu'ils ne sont pas relus sur iucnredlist.org.
   Quand aucun chiffre fiable n'a été trouvé, la fiche le dit au lieu d'en inventer un ;
