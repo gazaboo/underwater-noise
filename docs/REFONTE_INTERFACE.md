@@ -78,6 +78,12 @@ Coût : quelques opérations et une lecture de texture dans la passe plein écra
 (`client/src/render/globe-view.ts`). Les vignettes (montagnes, arbres) et les silhouettes des cétacés, dessinées
 après cette passe, ne sont pas ré-éclairées.
 
+## Survol
+
+À la souris, un cétacé ou un lieu sous le pointeur (rayon de 24 px, le même qu'au clic) fait passer le curseur
+en « main » et affiche une étiquette : nom de l'espèce, ou titre du lieu et « à écouter » / « à lire »
+(`App.installPicking`). Rien au toucher, où le survol n'existe pas.
+
 ## Suite prévue
 
 Cétacés et navires peints dans le style du monde, traînées de trafic à la place des chevrons en vue globale,
