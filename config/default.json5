@@ -96,10 +96,11 @@
     wave: '#cfeaff',
     ship: '#e8f4ff',
     // Bruit ajouté par les navires (artistique) : du faible au fort, luminance croissante sur fond sombre.
-    // Teintes chaudes réservées au bruit ; les cétacés gardent des teintes froides.
-    noiseLow: '#7a3b1c',
-    noiseMid: '#e0782c',
-    noiseHigh: '#ffd77a',
+    // Rouges et braise : absents des terres (verts, sables, bruns) et des cétacés (teintes froides). Un voile
+    // brun ou orangé sur la mer se lisait comme de la rouille ou du sable.
+    noiseLow: '#96424a',
+    noiseMid: '#e2603a',
+    noiseHigh: '#ffc878',
   },
 
   // Mode jour (touche J) : remplace la palette ci-dessus champ par champ. Choix artistiques : l'océan reste
@@ -119,10 +120,10 @@
     fog: '#24445c',
     wave: '#eef8ff',
     ship: '#ffffff',
-    // Jour : encre de plus en plus sombre et saturée sur la mer claire.
-    noiseLow: '#e8a25a',
-    noiseMid: '#c8461f',
-    noiseHigh: '#6e0d1f',
+    // Jour : du rose pâle au rouge, de plus en plus sombre et saturé sur la mer claire.
+    noiseLow: '#f4c3ba',
+    noiseMid: '#f58f73',
+    noiseHigh: '#e2402e',
   },
 
   // Terres peintes, façon gouache / aquarelle (inspiration : illustrations du Petit Prince).
@@ -189,19 +190,26 @@
   // Surcharges propres à chaque cible.
   targets: {
     // Écran du portable (IPS, vrai noir) : on peut descendre bas dans les noirs.
+    // Palette de jour par défaut [A] : le monde illustré est le sujet, la nuit le rend boueux sur un écran.
     screen: {
+      theme: 'day',
       render: { vignette: 0.3, blackLift: 0.0 },
     },
     // Projecteur LCD à lampe : noir gris ; pas de vignettage (géré par le masque du disque au J6).
+    // Palette de nuit [A] : sur une demi-sphère éclairée, c'est la lumière qui dessine.
     projector: {
+      theme: 'night',
       render: { renderScale: 1.0, vignette: 0.0, gamma: 1.1 },
       view: { flat: { fit: 'contain' } },
     },
     // Page web autonome (téléphone, tablette, ordinateur) : profil léger, moins de traînées d'encre.
+    // Rendu à la résolution de l'appareil ; s'il ne tient pas la cadence, l'échelle descend par paliers
+    // jusqu'à minRenderScale (0,6 : l'ancienne valeur fixe, qui rendait l'image floue partout) [E].
     web: {
       quality: 'light',
+      theme: 'day',
       noise: { inkParticles: 8000 },
-      render: { renderScale: 0.6, vignette: 0.2 },
+      render: { renderScale: 1.0, minRenderScale: 0.6, vignette: 0.2 },
     },
   },
 
@@ -221,7 +229,7 @@
   // Forme et niveaux : champ calculé [C], non validé en mer (docs/PROPAGATION.md). Le reste est un choix
   // de représentation (docs/REPRESENTATION.md) : paliers, couleurs, défilement [A] ; lissage, préchauffage [E].
   noise: {
-    style: 'isophones', // 'isophones' | 'meteo' | 'encre' | 'fronts' (touche V)
+    style: 'brume', // 'brume' | 'isophones' | 'meteo' | 'encre' | 'fronts' (touche V)
     smoothSec: 45, // [E] lissage d'affichage (s de scène) : la moyenne de 6 s du modèle « pompe »
     warmupMinutes: 20, // [E] régime établi supposé : 20 min de scène calculées au démarrage, navires immobiles
     steps: [10, 20, 30], // [A] paliers : ×10, ×100, ×1000 l'énergie du fond naturel (médiane mondiale ≈ +11 dB en 10–40 Hz, trafic estimé)
@@ -248,8 +256,8 @@
 
   ships: {
     visible: true,
-    pointSize: 7, // chevron orienté selon la route (pixels CSS) [A]
-    opacity: 0.85,
+    pointSize: 6, // chevron orienté selon la route (pixels CSS) [A]
+    opacity: 0.6, // discrets : en vue globale, des milliers de chevrons opaques salissent la mer
   },
 
   // Bandes d'analyse acoustique (Hz) — utilisées par le champ physique (J3).

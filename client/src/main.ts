@@ -7,6 +7,7 @@
  *   ?mode=flat|globe|hemisphere|equirect|fisheye   mode de rendu
  *   ?theme=night|day            palette de nuit (installation) ou de jour
  *   ?parcours=<id>              démarre un parcours (data/parcours) : avant-apres, puissances-de-dix, tour-des-lieux
+ *   ?dev=1                      page web autonome : rend le panneau P, le diagnostic D et les touches B, C, O
  */
 import { App, type UrlOverrides } from './app.ts';
 
@@ -19,6 +20,7 @@ const overrides: UrlOverrides = {
   mode: (['flat', 'globe', 'hemisphere', 'equirect', 'fisheye'] as const).find((m) => m === params.get('mode')),
   theme: (['night', 'day'] as const).find((t) => t === params.get('theme')),
   parcours: params.get('parcours') ?? undefined,
+  dev: params.has('dev'),
 };
 
 const status = document.getElementById('status')!;

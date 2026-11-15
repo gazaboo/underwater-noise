@@ -6,7 +6,7 @@ describe('nappe : styles puis masquée',()=>{
     const n={style:NOISE_STYLES[0],visible:true};
     const seen=[noiseLabel(n)];
     for(let i=0;i<NOISE_STYLES.length+1;i++){cycleNoise(n);seen.push(noiseLabel(n));}
-    expect(seen).toEqual(['Bruit : Isophones','Bruit : Météo','Bruit : Encre','Bruit : Fronts','Bruit : masqué','Bruit : Isophones']);
+    expect(seen).toEqual(['Bruit : Brume','Bruit : Isophones','Bruit : Météo','Bruit : Encre','Bruit : Fronts','Bruit : masqué','Bruit : Brume']);
   });
 });
 

@@ -73,7 +73,7 @@ export class Panel {
     on(time, 'playback');
 
     const noise = pane.addFolder({ title: 'Bruit ajouté — représentation (V)' });
-    noise.addBinding(cfg.noise, 'style', { label: 'style', options: { 'isophones animées': 'isophones', 'carte météo': 'meteo', encre: 'encre', 'fronts bruts': 'fronts' } });
+    noise.addBinding(cfg.noise, 'style', { label: 'style', options: { brume: 'brume', 'isophones animées': 'isophones', 'carte météo': 'meteo', encre: 'encre', 'fronts bruts': 'fronts' } });
     noise.addBinding(cfg.noise, 'visible', { label: 'nappe affichée' });
     noise.addBinding(cfg, 'scenario', { label: 'scénario', options: { actuel: 'actuel', 'océan sans navires': 'sans-navires' } });
     noise.addBinding(cfg.lieux, 'enabled', { label: 'lieux à écouter' });

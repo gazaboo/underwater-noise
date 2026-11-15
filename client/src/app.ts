@@ -12,6 +12,7 @@ import { GlobeController, GlobeView, globeCamera, pixelToGeo, viewToEarth, type 
 import { VolcanoLayer } from './render/volcanoes.ts';
 import { OrnamentLayer } from './render/ornaments.ts';
 import { displayPxPerDeg } from './render/screen-projection.ts';
+import { AdaptiveScale } from './render/adaptive-scale.ts';
 import { hexToVec3 } from './render/fullscreen.ts';
 import type { WhaleDrawOptions } from './whales/render.ts';
 import { ShipLayer } from './render/ships.ts';
@@ -53,6 +54,8 @@ export interface UrlOverrides {
   mode?: Config['display']['mode'];
   theme?: Config['display']['theme'];
   parcours?: string;
+  /** Outils de mise au point (panneau P, diagnostic D, touches B, C, O) sur la page web autonome. */
+  dev?: boolean;
 }
 
 const MODES: Config['display']['mode'][] = ['flat', 'globe', 'hemisphere', 'equirect', 'fisheye'];
@@ -120,6 +123,9 @@ export class App {
   private readonly coverage = new THREE.DataTexture(new Uint8Array(360 * 180).fill(255), 360, 180, THREE.RedFormat, THREE.UnsignedByteType);
   private lastFrame = performance.now();
   private rebuilding = false;
+  private readonly adaptive = new AdaptiveScale();
+  /** Outils de mise au point : toujours avec le serveur local, sur demande (?dev=1) en web autonome. */
+  private readonly dev: boolean;
 
   private constructor(
     raw: Config,
@@ -131,6 +137,8 @@ export class App {
     ornaments: Awaited<ReturnType<typeof loadOrnaments>> | null,
   ) {
     this.raw = raw;
+    this.dev = !STANDALONE || !!overrides.dev;
+    document.body.classList.toggle('web', STANDALONE);
     this.cfg = this.resolve(raw);
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
     this.renderer.autoClear = false;
@@ -415,7 +423,7 @@ export class App {
   private async save(): Promise<string> {
     const c = this.cfg;
     const body = {
-      display: { quality: c.display.quality, mode: c.display.mode, theme: c.display.theme },
+      display: { quality: c.display.quality, mode: c.display.mode },
       palette: c.palette,
       dayPalette: c.dayPalette,
       land: c.land,
@@ -430,7 +438,7 @@ export class App {
       globe: c.globe,
       hemisphere: c.hemisphere,
       fisheye: c.fisheye,
-      targets: { [c.display.target]: { render: c.render, view: c.view } },
+      targets: { [c.display.target]: { render: c.render, view: c.view, theme: c.display.theme } },
     };
     if (this.local) {
       try {
@@ -607,13 +615,15 @@ export class App {
       legend: () => { this.legend.toggle(); return labels.legend(); },
       story: () => { if (this.story.playing) this.story.stop(); else this.story.start(); return labels.story(); },
     }, labels);
-    if (innerWidth < 700) this.legend.toggle(false);
+    if (innerWidth < 1000) this.legend.toggle(false);
   }
 
   private installKeys(): void {
     addEventListener('keydown', (e) => {
       if (e.target instanceof HTMLInputElement) return;
       const k = e.key.toLowerCase();
+      // Mise au point : réservée au serveur local, ou à ?dev=1 sur la page web.
+      if (!this.dev && 'pbocd'.includes(k) && k.length === 1) return;
       if (k === 'p') this.panel.toggle();
       else if (k === 'b') this.flat.debugField = (this.flat.debugField + 1) % 5;
       else if (k === 'v') {
@@ -645,12 +655,13 @@ export class App {
         else void document.documentElement.requestFullscreen();
       }
     });
-    // Curseur masqué après 2 s d'immobilité.
+    // Curseur masqué après 2 s d'immobilité : pour l'installation seulement, pas sur la page web.
     let idle: number | undefined;
     addEventListener('mousemove', (e) => {
       const c = this.renderer.domElement;
       const ratio = c.width / Math.max(1, c.clientWidth);
       this.mouse = { x: e.clientX * ratio, y: c.height - e.clientY * ratio };
+      if (STANDALONE) return;
       document.body.classList.remove('idle');
       clearTimeout(idle);
       idle = window.setTimeout(() => document.body.classList.add('idle'), 2000);
@@ -658,7 +669,7 @@ export class App {
   }
 
   private resize(): void {
-    const ratio = Math.min(devicePixelRatio * this.cfg.render.renderScale, 2);
+    const ratio = Math.min(devicePixelRatio * this.cfg.render.renderScale * this.adaptive.factor, 2);
     this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(innerWidth, innerHeight, false);
   }
@@ -675,6 +686,9 @@ export class App {
       this.story.start(attract.attract);
     }
     this.lastFrame = now;
+    // Échelle adaptative : jamais pendant le préchauffage, dont le calcul ralentit les images sans rien dire de l'appareil.
+    const rs = this.cfg.render;
+    if (this.warmupLeft === 0 && this.adaptive.frame(dt, (rs.minRenderScale ?? rs.renderScale) / rs.renderScale)) this.resize();
     const t0 = performance.now();
     const cfg = this.themed();
     const r = this.renderer;

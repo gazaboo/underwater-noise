@@ -6,8 +6,8 @@
  */
 import type { Config } from '@vacarme/shared';
 
-export const NOISE_STYLES: Config['noise']['style'][] = ['isophones', 'meteo', 'encre', 'fronts'];
-const NAMES = { isophones: 'Isophones', meteo: 'Météo', encre: 'Encre', fronts: 'Fronts' } as const;
+export const NOISE_STYLES: Config['noise']['style'][] = ['brume', 'isophones', 'meteo', 'encre', 'fronts'];
+const NAMES = { brume: 'Brume', isophones: 'Isophones', meteo: 'Météo', encre: 'Encre', fronts: 'Fronts' } as const;
 
 /** Vrai quand le scénario retire les navires (calcul, son et affichage). */
 export const noShips = (cfg: Pick<Config, 'scenario'>): boolean => cfg.scenario === 'sans-navires';
