@@ -806,7 +806,7 @@ export class App {
       this.volcanoes.draw(r, view, cfg, wall);
       this.ornaments?.draw(r, { mode: 'flat', width: size.x, height: size.y, pixelRatio: r.getPixelRatio(), flat: view }, cfg, wall);
       // Les points grossissent un peu quand on zoome, pour rester lisibles.
-      this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35));
+      this.ships.draw(r, now, view, cfg, r.getPixelRatio() * Math.min(3, this.nav.zoom ** 0.35), view.scale / r.getPixelRatio());
       const screen = { mode: 'flat' as const, width: size.x, height: size.y, pixelRatio: r.getPixelRatio(), flat: view };
       const opts = this.whaleOptions(cfg, displayPxPerDeg(screen, cfg), r.getPixelRatio(), scene.scale, [view.centerLat, view.centerLon]);
       if (opts) this.whales?.draw(r, view, cfg, opts, this.coverage, wall);
@@ -837,7 +837,7 @@ export class App {
       // Largeurs « à l'écran » du monde illustré (plages, ombres, lignes d'eau) : échelle de l'affichage final.
       this.flat.displayPxPerDeg = OrnamentLayer.pxPerDeg(ornView, cfg);
       this.flat.render(r, this.physics, interpolation, this.coverage, world, cfg, wall, this.worldTarget);
-      this.ships.draw(r, now, world, cfg, 1, this.worldTarget);
+      this.ships.draw(r, now, world, cfg, world.scale / this.flat.displayPxPerDeg, this.flat.displayPxPerDeg, this.worldTarget);
       const opts = this.whaleOptions(cfg, this.flat.displayPxPerDeg, world.scale / this.flat.displayPxPerDeg, scene.scale, [facingLat, this.globeCtl.facingLon]);
       if (opts) this.whales?.draw(r, world, cfg, opts, this.coverage, wall, this.worldTarget);
       this.globe.render(r, this.worldTarget.texture, gm, cam, M, cfg, size.x, size.y, wall);

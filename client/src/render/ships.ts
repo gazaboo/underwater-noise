@@ -7,8 +7,10 @@
  *
  * Deux usages du même nuage :
  *  - injection des sources dans la simulation d'ondes (impulsions de fronts d'onde) ;
- *  - affichage : chevrons orientés selon la route fond (cap connu), liseré sombre lisible sur la nappe
- *    de bruit ; navires estimés en chevrons creux, plus discrets ; navires arrêtés en simple point.
+ *  - affichage, selon le zoom [A] : en vue globale, un trait de lumière le long de la route fond de chaque
+ *    navire (ensemble, ils dessinent les couloirs de navigation) ; en vue rapprochée, un cargo vu de dessus,
+ *    orienté selon sa route, avec son sillage. Navires estimés : traits plus pâles, coque en contour seul.
+ *    Navires arrêtés : un point, puis une coque sans sillage.
  */
 import * as THREE from 'three';
 import type { Config, ShipSnapshot } from '@vacarme/shared';
@@ -36,6 +38,7 @@ in vec3 position;
 in vec2 aLatLon;
 in vec2 aMotion;
 in float aAmp;
+in float aSeed;
 in float aEstimated;      // 1 : navire estimé (densité Global Fishing Watch), 0 : navire réel
 uniform float uDt;
 uniform vec2 uCenter;     // lon, lat au centre de l'écran
@@ -43,11 +46,14 @@ uniform float uScale;     // pixels (tampon) par degré
 uniform vec2 uResolution; // taille du tampon (pixels)
 uniform vec2 uLatRange;
 uniform float uPointSize;
+uniform float uDetail;    // 0 : vue globale (sillages) ; 1 : vue rapprochée (bateaux)
 uniform float uFlipY;     // 1 : tampon de rendu (texture monde) ; −1 : écran
 out float vAlpha;
 flat out float vEstimated;
 flat out vec2 vDir;       // direction de la route (repère de gl_PointCoord)
 flat out float vMoving;
+flat out float vSeed;
+flat out float vPointPx;
 ${DEAD_RECKON}
 void main() {
   vec2 ll = deadReckon(aLatLon, aMotion, uDt);
@@ -55,12 +61,14 @@ void main() {
   vec2 px = vec2(dLon, ll.x - uCenter.y) * uScale;
   gl_Position = vec4(px / (0.5 * uResolution), 0.0, 1.0);
   bool visible = ll.x >= uLatRange.x && ll.x <= uLatRange.y;
-  gl_PointSize = visible ? uPointSize * (0.8 + 0.7 * aAmp) : 0.0;
+  gl_PointSize = visible ? uPointSize * (0.8 + 0.7 * aAmp) * mix(2.0, 2.4, uDetail) : 0.0;
   vAlpha = 0.55 + 0.45 * aAmp;
   vEstimated = aEstimated;
   float cog = radians(aMotion.y);
-  vDir = vec2(sin(cog), -cos(cog) * uFlipY); // gl_PointCoord : y vers le bas à l'écran
+  vDir = vec2(sin(cog), cos(cog) * uFlipY); // gl_PointCoord : y vers le bas à l'écran
   vMoving = step(0.5, aMotion.x);
+  vSeed = aSeed;
+  vPointPx = gl_PointSize;
 }`;
 
 const DISPLAY_FRAG = /* glsl */ `
@@ -69,40 +77,62 @@ in float vAlpha;
 flat in float vEstimated;
 flat in vec2 vDir;
 flat in float vMoving;
+flat in float vSeed;
+flat in float vPointPx;
 uniform vec3 uColor, uOutline;
-uniform float uOpacity, uPx;
+uniform float uOpacity, uDetail;
 out vec4 outColor;
-float sdTri(vec2 p, vec2 a, vec2 b, vec2 c) {
-  vec2 e0 = b - a, e1 = c - b, e2 = a - c;
-  vec2 v0 = p - a, v1 = p - b, v2 = p - c;
-  vec2 pq0 = v0 - e0 * clamp(dot(v0, e0) / dot(e0, e0), 0.0, 1.0);
-  vec2 pq1 = v1 - e1 * clamp(dot(v1, e1) / dot(e1, e1), 0.0, 1.0);
-  vec2 pq2 = v2 - e2 * clamp(dot(v2, e2) / dot(e2, e2), 0.0, 1.0);
-  float s = sign(e0.x * e2.y - e0.y * e2.x);
-  vec2 d = min(min(vec2(dot(pq0, pq0), s * (v0.x * e0.y - v0.y * e0.x)),
-                   vec2(dot(pq1, pq1), s * (v1.x * e1.y - v1.y * e1.x))),
-                   vec2(dot(pq2, pq2), s * (v2.x * e2.y - v2.y * e2.x)));
-  return -sqrt(d.x) * sign(d.y);
-}
-// Chevron (pointe vers l'avant) en distance signée, dans le repère du navire (x : avant).
-float chevron(vec2 p) {
-  float outer = sdTri(p, vec2(0.44, 0.0), vec2(-0.36, 0.3), vec2(-0.36, -0.3));
-  float notch = sdTri(p, vec2(-0.16, 0.0), vec2(-0.5, 0.4), vec2(-0.5, -0.4));
-  return max(outer, -notch);
+float hash1(float x) { return fract(sin(x * 127.1) * 43758.5453); }
+// Coque vue de dessus, dans le repère du navire (x : avant) : poupe droite, flancs parallèles, proue en pointe.
+float hull(vec2 p) {
+  float w = 0.11 * (1.0 - smoothstep(0.14, 0.42, p.x));
+  return max(max(abs(p.y) - w, -0.36 - p.x), p.x - 0.42);
 }
 void main() {
   vec2 d = gl_PointCoord - 0.5;
   vec2 p = vec2(dot(d, vDir), dot(d, vec2(-vDir.y, vDir.x)));
-  float sd = vMoving > 0.5 ? chevron(p) : length(d) - 0.16;
-  float aa = 1.0 / max(uPx, 1.0);
+  float aa = 1.0 / max(vPointPx, 1.0);
+
+  // Vue globale [A] : un trait de lumière le long de la route. Des milliers de traits dessinent les couloirs de
+  // navigation, là où autant de chevrons opaques salissaient la mer. Navire arrêté : un point. Estimé : plus pâle.
+  float trail = vMoving > 0.5 ? exp(-(p.x * p.x / 0.045 + p.y * p.y / 0.0045)) : exp(-dot(d, d) / 0.008);
+  float farA = trail * 0.34 * vAlpha * mix(1.0, 0.55, vEstimated);
+
+  // Vue rapprochée [A] : un cargo vu de dessus, coque sombre, conteneurs, passerelle claire à l'arrière, sillage.
+  float sd = hull(p);
   float body = 1.0 - smoothstep(-aa, aa, sd);
-  float rim = 1.0 - smoothstep(-aa, aa, sd - 1.6 * aa);
-  // Navire estimé : contour seul, atténué — distinct d'un navire observé par l'AIS.
-  float hollow = smoothstep(-aa, aa, sd + 1.6 * aa);
-  body *= mix(1.0, hollow * 0.8, vEstimated);
-  float a = max(body, rim * 0.75) * vAlpha * uOpacity * mix(1.0, 0.7, vEstimated);
-  vec3 c = mix(uOutline, uColor, body / max(max(body, rim), 1e-4));
-  outColor = vec4(c * a, a); // prémultiplié
+  float rim = 1.0 - smoothstep(-aa, aa, sd - 1.4 * aa);
+  float deck = 1.0 - smoothstep(-aa, aa, sd + 0.035);
+  vec3 coque = mix(vec3(0.17, 0.21, 0.27), vec3(0.47, 0.2, 0.16), step(0.6, hash1(vSeed + 3.0)));
+  float slot = (p.x + 0.2) / 0.115;
+  float gap = smoothstep(0.0, 0.12, fract(slot)) * (1.0 - smoothstep(0.88, 1.0, fract(slot)));
+  float pick = hash1(vSeed * 7.0 + floor(slot));
+  vec3 box = pick < 0.34 ? vec3(0.74, 0.36, 0.24) : pick < 0.67 ? vec3(0.83, 0.67, 0.36) : vec3(0.36, 0.5, 0.62);
+  float cargo = deck * gap * step(-0.2, p.x) * step(p.x, 0.145);
+  float bridge = deck * step(-0.335, p.x) * step(p.x, -0.235);
+  vec3 ship = mix(coque, box, cargo);
+  ship = mix(ship, vec3(0.95, 0.94, 0.9), bridge);
+  // Sillage : deux traits clairs qui s'écartent derrière la poupe, seulement en route.
+  float back = -0.36 - p.x;
+  float wake = vMoving * step(0.0, back) * (1.0 - smoothstep(0.0, 0.14, back))
+    * (1.0 - smoothstep(0.0, 2.0 * aa, abs(abs(p.y) - (0.07 + 0.55 * back)) - 0.012));
+  // Navire estimé : la coque en contour seul, sans chargement — ce n'est pas un navire observé par l'AIS.
+  float hollow = smoothstep(-aa, aa, sd + 1.8 * aa);
+  float bodyA = body * mix(1.0, hollow, vEstimated);
+  vec3 bodyC = mix(ship, uColor, vEstimated);
+  float nearA = max(bodyA, rim * 0.7 * (1.0 - vEstimated));
+  vec3 nearC = mix(uOutline, bodyC, bodyA / max(nearA, 1e-4));
+  // Prémultiplié : sillage sous le navire.
+  vec3 nc = uColor * wake * 0.5;
+  float na = wake * 0.5;
+  nc = nearC * nearA + nc * (1.0 - nearA);
+  na = nearA + na * (1.0 - nearA);
+  na *= mix(1.0, 0.8, vEstimated);
+  nc *= mix(1.0, 0.8, vEstimated);
+
+  vec4 far = vec4(uColor * farA, farA);
+  vec4 near = vec4(nc, na) * (0.6 + 0.4 * vAlpha);
+  outColor = mix(far, near, uDetail) * uOpacity;
 }`;
 
 export interface ShipSample {
@@ -162,10 +192,10 @@ export class ShipLayer {
         uResolution: { value: new THREE.Vector2(1, 1) },
         uLatRange: { value: new THREE.Vector2(-90, 90) },
         uPointSize: { value: 2 },
+        uDetail: { value: 0 },
         uColor: { value: new THREE.Vector3(1, 1, 1) },
         uOutline: { value: new THREE.Vector3() },
         uOpacity: { value: 0.5 },
-        uPx: { value: 4 },
         uFlipY: { value: -1 },
       },
       blending: THREE.CustomBlending,
@@ -301,8 +331,11 @@ export class ShipLayer {
     renderer.render(this.physicsScene, this.camera);
   }
 
-  /** Dessine les navires sur la carte plate. */
-  draw(renderer: THREE.WebGLRenderer, now: number, view: FlatTransform, cfg: Config, pixelRatio: number, target: THREE.WebGLRenderTarget | null = null): void {
+  /**
+   * Dessine les navires sur la carte plate (ou dans la texture monde). `pxPerDeg` : échelle de l'affichage final
+   * (pixels CSS par degré) ; sous le seuil de la vue rapprochée des cétacés, des sillages ; au-delà, des bateaux.
+   */
+  draw(renderer: THREE.WebGLRenderer, now: number, view: FlatTransform, cfg: Config, pixelRatio: number, pxPerDeg: number, target: THREE.WebGLRenderTarget | null = null): void {
     if (!cfg.ships.visible || cfg.scenario === 'sans-navires') return;
     const u = this.displayMaterial.uniforms;
     u.uDt.value = this.dtSim(now);
@@ -311,7 +344,9 @@ export class ShipLayer {
     (u.uResolution.value as THREE.Vector2).set(view.width, view.height);
     (u.uLatRange.value as THREE.Vector2).set(view.latMin, view.latMax);
     u.uPointSize.value = cfg.ships.pointSize * pixelRatio;
-    u.uPx.value = cfg.ships.pointSize * pixelRatio;
+    const close = cfg.whales.lod.closePxPerDeg;
+    const t = Math.max(0, Math.min(1, (pxPerDeg - 0.55 * close) / (0.45 * close)));
+    u.uDetail.value = t * t * (3 - 2 * t);
     u.uFlipY.value = target ? 1 : -1;
     hexToVec3(cfg.palette.ship, u.uColor.value as THREE.Vector3);
     hexToVec3(cfg.whales.glyphs.outline, u.uOutline.value as THREE.Vector3);

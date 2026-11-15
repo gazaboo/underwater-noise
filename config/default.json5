@@ -259,7 +259,7 @@
 
   ships: {
     visible: true,
-    pointSize: 6, // chevron orienté selon la route (pixels CSS) [A]
+    pointSize: 6, // base des traînées et coques orientées selon la route (pixels CSS) [A]
     opacity: 0.6, // discrets : en vue globale, des milliers de chevrons opaques salissent la mer
   },
 
