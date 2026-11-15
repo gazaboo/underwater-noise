@@ -260,7 +260,11 @@
   ships: {
     visible: true,
     pointSize: 6, // base des traînées et coques orientées selon la route (pixels CSS) [A]
-    opacity: 0.6, // discrets : en vue globale, des milliers de chevrons opaques salissent la mer
+    opacity: 0.6,
+    // [A] Échelle (pixels CSS par degré) à partir de laquelle chaque navire est dessiné en cargo ; la transition
+    // commence à 60 % de cette valeur. En deçà, un sillage clair le long de sa route : à 14 px par degré (seuil
+    // essayé d'abord), les coques de milliers de navires estimés se chevauchaient en un amas blanc.
+    boatsFromPxPerDeg: 110,
   },
 
   // Bandes d'analyse acoustique (Hz) — utilisées par le champ physique (J3).

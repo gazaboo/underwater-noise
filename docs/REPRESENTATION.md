@@ -215,10 +215,14 @@ au centre pour les lieux sonores, fiche au clic pour tous, clarté rendue à 1 s
 
 - **Vue globale** [A] : traits translucides orientés selon la route fond (AIS pour les navires suivis, trajectoire
   simulée pour les estimations GFW). Leur accumulation suggère les couloirs ; ce ne sont pas des traces historiques.
-- **Vue rapprochée** [A] : transition progressive entre 7,7 et 14 pixels CSS par degré (55 à 100 % du seuil
-  `whales.lod.closePxPerDeg`) vers une coque de cargo vue de dessus, avec conteneurs, passerelle et sillage.
+- **Vue rapprochée** [A] : transition progressive entre 66 et 110 pixels CSS par degré (60 à 100 % de
+  `ships.boatsFromPxPerDeg`) vers une coque de cargo vue de dessus, avec conteneurs, passerelle et sillage.
+  Ce seuil est bien plus proche que celui des cétacés (14 px par degré) : à cette échelle-là, les coques de
+  milliers de navires estimés se chevauchaient en un amas blanc. Le globe ne dépasse pas 30 px par degré : il
+  ne montre donc que des sillages.
   La forme et la couleur sont décoratives : elles ne décrivent ni le type réel ni la cargaison du navire.
-- **Navires estimés** (GFW) : traits plus pâles, puis coques creuses sans chargement, pour les distinguer des suivis AIS.
+- **Navires estimés** (GFW) : traits deux fois plus pâles, puis coques pâles et translucides, sans chargement ni
+  liseré, pour les distinguer des suivis AIS.
   En dessous de 0,5 nœud, un point en vue globale et une coque sans sillage en vue rapprochée.
 - Taille de base : `ships.pointSize` = 6 px CSS, modulée par le niveau source à des fins graphiques [A].
   La taille tient compte de l'échelle finale, y compris pour la texture du globe ; l'anticrénelage suit la taille réelle

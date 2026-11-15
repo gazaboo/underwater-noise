@@ -18,7 +18,7 @@ try {
   a.frame=()=>{}; a.local.worker.terminate(); a.cfg.audio.enabled=false;
   for(const el of document.body.children)if(el!==a.renderer.domElement)el.style.display='none';
  });
- for(const [name,scale,theme] of [['navires-proches-jour',30,'day'],['navires-proches-nuit',30,'night'],['navires-globaux-jour',3,'day']]){
+ for(const [name,scale,theme] of [['navires-proches-jour',120,'day'],['navires-proches-nuit',120,'night'],['navires-globaux-jour',3,'day']]){
   await page.evaluate(({scale,theme})=>{
    const a=window.vacarme,r=a.renderer;
    a.cfg.display.theme=theme; a.cfg.scenario='actuel'; a.cfg.ships.visible=true;

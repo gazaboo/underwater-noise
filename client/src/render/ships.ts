@@ -95,8 +95,8 @@ void main() {
 
   // Vue globale [A] : un trait de lumière le long de la route. Des milliers de traits dessinent les couloirs de
   // navigation, là où autant de chevrons opaques salissaient la mer. Navire arrêté : un point. Estimé : plus pâle.
-  float trail = vMoving > 0.5 ? exp(-(p.x * p.x / 0.045 + p.y * p.y / 0.0045)) : exp(-dot(d, d) / 0.008);
-  float farA = trail * 0.34 * vAlpha * mix(1.0, 0.55, vEstimated);
+  float trail = vMoving > 0.5 ? exp(-(p.x * p.x / 0.06 + p.y * p.y / 0.0022)) : exp(-dot(d, d) / 0.006);
+  float farA = trail * 0.62 * vAlpha * mix(1.0, 0.5, vEstimated);
 
   // Vue rapprochée [A] : un cargo vu de dessus, coque sombre, conteneurs, passerelle claire à l'arrière, sillage.
   float sd = hull(p);
@@ -116,9 +116,10 @@ void main() {
   float back = -0.36 - p.x;
   float wake = vMoving * step(0.0, back) * (1.0 - smoothstep(0.0, 0.14, back))
     * (1.0 - smoothstep(0.0, 2.0 * aa, abs(abs(p.y) - (0.07 + 0.55 * back)) - 0.012));
-  // Navire estimé : la coque en contour seul, sans chargement — ce n'est pas un navire observé par l'AIS.
+  // Navire estimé : une coque pâle et translucide, sans chargement ni liseré — ce n'est pas un navire observé
+  // par l'AIS, seulement une présence probable.
   float hollow = smoothstep(-aa, aa, sd + 1.8 * aa);
-  float bodyA = body * mix(1.0, hollow, vEstimated);
+  float bodyA = body * mix(1.0, 0.2 + 0.3 * hollow, vEstimated);
   vec3 bodyC = mix(ship, uColor, vEstimated);
   float nearA = max(bodyA, rim * 0.7 * (1.0 - vEstimated));
   vec3 nearC = mix(uOutline, bodyC, bodyA / max(nearA, 1e-4));
@@ -127,8 +128,6 @@ void main() {
   float na = wake * 0.5;
   nc = nearC * nearA + nc * (1.0 - nearA);
   na = nearA + na * (1.0 - nearA);
-  na *= mix(1.0, 0.8, vEstimated);
-  nc *= mix(1.0, 0.8, vEstimated);
 
   vec4 far = vec4(uColor * farA, farA);
   vec4 near = vec4(nc, na) * (0.6 + 0.4 * vAlpha);
@@ -333,7 +332,7 @@ export class ShipLayer {
 
   /**
    * Dessine les navires sur la carte plate (ou dans la texture monde). `pxPerDeg` : échelle de l'affichage final
-   * (pixels CSS par degré) ; sous le seuil de la vue rapprochée des cétacés, des sillages ; au-delà, des bateaux.
+   * (pixels CSS par degré). Sous 60 % de `ships.boatsFromPxPerDeg`, des sillages ; au-delà de ce seuil, des bateaux.
    */
   draw(renderer: THREE.WebGLRenderer, now: number, view: FlatTransform, cfg: Config, pixelRatio: number, pxPerDeg: number, target: THREE.WebGLRenderTarget | null = null): void {
     if (!cfg.ships.visible || cfg.scenario === 'sans-navires') return;
@@ -344,8 +343,8 @@ export class ShipLayer {
     (u.uResolution.value as THREE.Vector2).set(view.width, view.height);
     (u.uLatRange.value as THREE.Vector2).set(view.latMin, view.latMax);
     u.uPointSize.value = cfg.ships.pointSize * pixelRatio;
-    const close = cfg.whales.lod.closePxPerDeg;
-    const t = Math.max(0, Math.min(1, (pxPerDeg - 0.55 * close) / (0.45 * close)));
+    const close = cfg.ships.boatsFromPxPerDeg;
+    const t = Math.max(0, Math.min(1, (pxPerDeg - 0.6 * close) / (0.4 * close)));
     u.uDetail.value = t * t * (3 - 2 * t);
     u.uFlipY.value = target ? 1 : -1;
     hexToVec3(cfg.palette.ship, u.uColor.value as THREE.Vector3);

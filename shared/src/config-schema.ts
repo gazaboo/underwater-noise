@@ -235,6 +235,9 @@ export const configSchema = z.object({
     visible: z.boolean(),
     pointSize: z.number().min(0).max(10),
     opacity: unit,
+    /** Échelle (pixels CSS par degré) à partir de laquelle chaque navire est dessiné en bateau ; en deçà, un
+     *  sillage le long de sa route. Artistique. */
+    boatsFromPxPerDeg: z.number().min(5).max(2000).default(110),
   }),
   bands: z
     .array(

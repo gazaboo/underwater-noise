@@ -110,6 +110,14 @@ Les branches précédentes sont empilées : gains rapides → interface → glob
 - Lieux : épingles ivoire, pointe sur la position ; les lieux à écouter gardent leurs ondes, les lieux à lire
   sont plus petits et sans ondes. Survol et clic gardent le même point géographique et le même rayon de sélection.
 
+Réglages ajoutés après examen sur des scènes réelles (Atlantique, Méditerranée, détroits danois) [A] :
+
+- les sillages sont plus fins, plus longs et près de deux fois plus lumineux : en vue globale ils étaient
+  presque invisibles ;
+- les coques n'apparaissent plus qu'entre 66 et 110 pixels par degré (`ships.boatsFromPxPerDeg`), au lieu de
+  7,7 à 14 : à zoom moyen, les coques de milliers de navires estimés formaient un amas blanc ;
+- un navire estimé de près est une coque pâle et translucide, sans liseré.
+
 Détails des choix artistiques dans `docs/REPRESENTATION.md`. Les quatre caps ont été contrôlés sur une
 planche synthétique : correction du signe nord/sud dans les coordonnées du point, sur l'écran et dans la texture monde.
 
