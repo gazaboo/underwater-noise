@@ -558,24 +558,57 @@ export class App {
    * à la navigation.
    */
   private installPicking(canvas: HTMLCanvasElement): void {
+    /** Lieu ou groupe sous le pointeur (rayon de 24 px à l'écran). */
+    const pick = (clientX: number, clientY: number) => {
+      const ratio = canvas.width / Math.max(1, canvas.clientWidth);
+      const x = clientX * ratio;
+      const y = canvas.height - clientY * ratio;
+      const geo = this.geoAt(x, y);
+      const edge = this.geoAt(x + 24 * ratio, y);
+      const tolKm = geo && edge ? Math.max(2, distanceM(geo.lat, geo.lon, edge.lat, edge.lon) / 1000) : 300;
+      // Les lieux d'abord : leur marqueur est plus rare et ne bouge pas.
+      const lieu = geo && this.cfg.lieux.enabled ? this.lieux.nearest(geo.lat, geo.lon, tolKm) : null;
+      const group = !lieu && geo && this.cfg.whales.enabled ? this.whales?.nearest(geo.lat, geo.lon, tolKm) ?? null : null;
+      return { lieu, group };
+    };
     let down: { x: number; y: number; t: number } | null = null;
     canvas.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
     canvas.addEventListener('pointerup', (e) => {
       const d = down;
       down = null;
       if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6 || performance.now() - d.t > 400) return;
-      const ratio = canvas.width / Math.max(1, canvas.clientWidth);
-      const x = e.clientX * ratio;
-      const y = canvas.height - e.clientY * ratio;
-      const geo = this.geoAt(x, y);
-      const edge = this.geoAt(x + 24 * ratio, y);
-      const tolKm = geo && edge ? Math.max(2, distanceM(geo.lat, geo.lon, edge.lat, edge.lon) / 1000) : 300;
-      // Les lieux d'abord : leur marqueur est plus rare et ne bouge pas.
-      const lieu = geo && this.cfg.lieux.enabled ? this.lieux.nearest(geo.lat, geo.lon, tolKm) : null;
-      const g = !lieu && geo && this.cfg.whales.enabled ? this.whales?.nearest(geo.lat, geo.lon, tolKm) : null;
+      const { lieu, group } = pick(e.clientX, e.clientY);
       if (lieu) this.card.openLieu(lieu, this.cfg);
-      else if (g) this.card.open(g, this.cfg);
+      else if (group) this.card.open(group, this.cfg);
       else this.card.close();
+    });
+
+    // Survol à la souris : curseur « main » et étiquette, pour montrer ce qui s'ouvre au clic.
+    const label = document.createElement('div');
+    label.id = 'survol';
+    label.hidden = true;
+    document.body.append(label);
+    const clear = () => { label.hidden = true; canvas.style.cursor = ''; };
+    // Dernière position connue, traitée une fois par image : l'étiquette suit la souris jusqu'à son arrêt.
+    let pending: { x: number; y: number; buttons: number } | null = null;
+    const hover = () => {
+      const m = pending;
+      pending = null;
+      if (!m || m.buttons) return clear();
+      const { lieu, group } = pick(m.x, m.y);
+      const name = lieu ? lieu.title : group ? group.species.name : '';
+      if (!name) return clear();
+      canvas.style.cursor = 'pointer';
+      label.replaceChildren(Object.assign(document.createElement('b'), { textContent: name }), lieu ? (lieu.sounds.length ? ' · lieu à écouter' : ' · lieu à lire') : ' · ouvrir la fiche');
+      label.hidden = false;
+      label.style.left = `${Math.max(8, Math.min(innerWidth - label.offsetWidth - 8, m.x + 16))}px`;
+      label.style.top = `${Math.max(8, m.y - 44)}px`;
+    };
+    canvas.addEventListener('pointerleave', () => { pending = null; clear(); });
+    canvas.addEventListener('pointermove', (e) => {
+      if (e.pointerType !== 'mouse') return;
+      if (!pending) requestAnimationFrame(hover);
+      pending = { x: e.clientX, y: e.clientY, buttons: e.buttons };
     });
   }
 

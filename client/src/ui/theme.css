@@ -185,6 +185,10 @@ body.recit-on.fiche-open #recit { left: calc((100vw - var(--fiche)) / 2); width:
 #accueil .ac-note { margin: 0; font-size: 15px; color: #aeb9c2; }
 body.accueil-on :is(#titre, #outils, #toolbar, #vue, #legend) { display: none; }
 
+/* ------------------------------------------------------------------ étiquette au survol */
+#survol { position: fixed; z-index: 8; padding: 7px 12px; border-radius: 4px; background: var(--papier); box-shadow: 0 6px 18px rgba(4, 12, 20, 0.4); font: 14px/1.2 var(--police); color: var(--encre); white-space: nowrap; pointer-events: none; }
+#survol[hidden], body.dome #survol { display: none; }
+
 /* ------------------------------------------------------------------ dôme, diagnostic */
 body.dome :is(#titre, #outils, #toolbar, #vue, #legend, #science) { display: none; }
 #hud { position: fixed; left: var(--marge); top: 100px; z-index: 25; padding: 8px 10px; display: none; font: 11px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; color: #9fc3d9; background: rgba(0, 0, 0, 0.72); border: 1px solid #1d2c38; border-radius: 4px; white-space: pre; pointer-events: none; }

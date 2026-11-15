@@ -1,0 +1,1 @@
+Règles globales : aucune
