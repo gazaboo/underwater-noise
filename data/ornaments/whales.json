@@ -1,0 +1,34 @@
+{
+ "cell": [
+  512,
+  256
+ ],
+ "columns": [
+  "droite",
+  "masque droite",
+  "gauche",
+  "masque gauche"
+ ],
+ "species": {
+  "blue": {
+   "row": 0,
+   "scale": 1.0
+  },
+  "fin": {
+   "row": 1,
+   "scale": 0.94
+  },
+  "humpback": {
+   "row": 2,
+   "scale": 0.86
+  },
+  "sperm": {
+   "row": 3,
+   "scale": 0.9
+  },
+  "orca": {
+   "row": 4,
+   "scale": 0.72
+  }
+ }
+}

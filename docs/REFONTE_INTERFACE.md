@@ -84,7 +84,21 @@ après cette passe, ne sont pas ré-éclairées.
 en « main » et affiche une étiquette : nom de l'espèce, ou titre du lieu et « à écouter » / « à lire »
 (`App.installPicking`). Rien au toucher, où le survol n'existe pas.
 
+## Lot 7 : cétacés peints
+
+Les silhouettes fluo en aplat sont remplacées par des animaux peints, dans le style des vignettes du monde
+(issue #3). Détail et statuts dans `docs/REPRESENTATION.md`, « Cétacés : deux niveaux de détail ».
+
+```
+blender -b --factory-startup -noaudio --python tools/ornaments/render_whales.py -- <dossier>
+python3 tools/ornaments/pack_whales.py <dossier>
+```
+
+Les cinq modèles sont construits dans le script (aucun fichier tiers, aucune licence à suivre). Pour remplacer
+un animal par une image faite autrement : déposer `whale-<espèce>-r.png` et `-l.png` (1024×512, fond transparent,
+tête à droite puis à gauche) dans le dossier, puis relancer `pack_whales.py`.
+
 ## Suite prévue
 
-Cétacés et navires peints dans le style du monde, traînées de trafic à la place des chevrons en vue globale,
-épingles des lieux, contrôle au dôme (palette de nuit, brume) avec le projecteur réel.
+Navires peints et traînées de trafic à la place des chevrons en vue globale, épingles des lieux, contrôle au
+dôme (palette de nuit, brume, cétacés clairs sur mer sombre) avec le projecteur réel.

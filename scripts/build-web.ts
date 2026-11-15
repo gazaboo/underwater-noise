@@ -49,7 +49,7 @@ const files = [
   'grid/elevation_4096.png', 'grid/landcover_4096.png', 'grid/land_biome_4096.png', 'grid/land_shape_4096.png',
   'grid/ocean_1024.png', 'grid/ocean_2048.png', `grid/ocean_${config.qualityProfiles[config.display.quality].physicsSimWidth}.png`,
   'grid/volcanoes.json', 'grid/ornaments.json', 'grid/meta.json',
-  'ornaments/atlas.json', 'ornaments/atlas.png',
+  'ornaments/atlas.json', 'ornaments/atlas.png', 'ornaments/whales.json', 'ornaments/whales.png',
   'routes.json', 'coverage.png', 'science/validation-summary.json',
 ];
 const copy = (rel: string) => {

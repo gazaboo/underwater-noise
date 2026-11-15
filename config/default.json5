@@ -408,8 +408,10 @@
       farFill: 0.06, // vue globale : voile léger, sans contour
       lost: 0.35, // espace perdu (audible sans navires, plus maintenant) : semis de points [A]
     },
-    // Silhouettes par espèce [A] : taille fixe à l'écran (hors d'échelle), liseré sombre lisible jour et nuit.
-    glyphs: { size: 26, outline: '#08131c' },
+    // Silhouettes peintes par espèce [A] (imposteurs Blender, tools/ornaments/render_whales.py) : taille fixe à
+    // l'écran, hors d'échelle. tint : part de la couleur de l'espèce dans la robe ; aura : liseré de cette couleur
+    // (le lien avec la légende et les fils) ; shadow : ombre portée. sprites: false : aplats d'origine (outline).
+    glyphs: { size: 34, outline: '#08131c', sprites: true, tint: 0.3, aura: 0.7, shadow: 0.4 },
     // Vue globale → vue rapprochée (bulle perdue, portée sans navires en pointillés, anneaux d'appel).
     lod: { closePxPerDeg: 14, fullPxPerDeg: 30 },
     // Anneau d'appel [A] : s'étend jusqu'à la portée sans navires en 3,2 s de scène, se brise dans l'espace perdu.

@@ -443,8 +443,17 @@ export const configSchema = z.object({
       /** Espace perdu (audible sans navires, plus maintenant) : semis de points. */
       lost: unit.default(0.35),
     }),
-    /** Glyphes par espèce (silhouettes), taille à l'écran (pixels CSS) et liseré sombre. Artistique. */
-    glyphs: z.object({ size: z.number().min(4).max(80).default(26), outline: color.default('#08131c') }).default({}),
+    /** Glyphes par espèce, taille à l'écran (pixels CSS). Artistique. sprites : silhouettes peintes (atlas Blender),
+     *  sinon aplats ; tint : part de la couleur de l'espèce dans la robe ; aura : liseré de cette couleur ;
+     *  shadow : ombre portée ; outline : liseré sombre des aplats. */
+    glyphs: z.object({
+      size: z.number().min(4).max(80).default(34),
+      outline: color.default('#08131c'),
+      sprites: z.boolean().default(true),
+      tint: unit.default(0.3),
+      aura: unit.default(0.7),
+      shadow: unit.default(0.4),
+    }).default({}),
     /** Passage vue globale → vue rapprochée (bulle perdue, anneaux d'appel), en pixels CSS par degré. */
     lod: z.object({ closePxPerDeg: z.number().min(1).max(500).default(14), fullPxPerDeg: z.number().min(1).max(1000).default(30) }).default({}),
     /** Anneau émis à chaque appel : durée de son expansion jusqu'à la portée sans navires (s de scène). [A] */
