@@ -42,10 +42,31 @@
       #legend.collapsed > :not(.lg-title) { display: none; }
       #toolbar { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; max-width: calc(100vw - 24px); z-index: 5; }
       #toolbar button { font: 600 13px/1 system-ui, sans-serif; padding: 9px 12px; border-radius: 18px; border: 1px solid #ffffff33; background: rgba(6, 12, 18, .8); color: #e4ebef; }
-      @media (max-width: 700px) {
-        #legend { left: 12px; right: 12px; bottom: auto; top: 12px; max-width: none; font-size: 12px; }
+      /* Page web autonome : légende à gauche, commandes à droite, plus aucun recouvrement. */
+      body.web #legend { left: 16px; right: auto; }
+      body.web #toolbar { left: auto; right: 16px; transform: none; justify-content: flex-end; max-width: calc(100vw - 464px); }
+      body.web.fiche-open #toolbar { right: 418px; max-width: calc(100vw - 434px); }
+      body.web #hud { bottom: 112px; }
+      /* Visite : seule sa commande reste, le texte du récit a la place. */
+      body.recit-on #toolbar button:not([data-action="story"]) { display: none; }
+      @media (max-width: 1000px) {
+        #legend, body.web #legend { left: 12px; right: 12px; bottom: auto; top: 12px; max-width: none; font-size: 12px; }
         #science { display: none; }
         .tp-dfwv { display: none; }
+        body.web #toolbar, body.web.fiche-open #toolbar { left: 0; right: 0; max-width: none; justify-content: center; }
+        body.fiche-open #toolbar { display: none; }
+      }
+      /* Écrans tactiles : cibles d'au moins 44 px. */
+      @media (pointer: coarse), (max-width: 1000px) {
+        #toolbar button { min-height: 44px; padding: 0 16px; border-radius: 22px; }
+        #fiche button.fc-close { width: 44px; height: 44px; margin-bottom: -50px; }
+        #fiche .fc-sound button { min-height: 44px; padding: 0 16px; border-radius: 22px; }
+        #fiche h2 { padding-right: 48px; }
+      }
+      @media (max-width: 700px) {
+        /* Téléphone : une seule rangée de commandes, à faire défiler ; cibles tactiles de 44 px. */
+        body.web #toolbar, body.web.fiche-open #toolbar { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; padding: 0 12px; box-sizing: border-box; scrollbar-width: none; }
+        #toolbar button { flex: none; }
       }
       #fiche { position: fixed; top: 12px; right: 12px; z-index: 9; width: min(390px, calc(100vw - 24px)); max-height: calc(100vh - 24px); overflow: auto; box-sizing: border-box; padding: 0 14px 12px; border: 1px solid #526777; border-radius: 8px; color: #e4ebef; background: rgba(8, 18, 27, .95); font: 13px/1.45 system-ui, sans-serif; --sp: #5cb8ff; }
       #fiche[hidden], body.fiche-open #legend { display: none; }
@@ -74,7 +95,7 @@
       #fiche .fc-credits { font-size: 11px; opacity: .8; }
       #fiche .fc-credits summary { cursor: pointer; }
       #fiche .fc-credits ul { padding-left: 16px; margin: 4px 0; }
-      @media (max-width: 700px) { #fiche { top: auto; bottom: 62px; max-height: 62vh; } }
+      @media (max-width: 700px) { #fiche { top: auto; bottom: 12px; max-height: 66vh; } }
       #recit { position: fixed; left: 50%; bottom: 72px; transform: translateX(-50%); z-index: 6; width: min(820px, calc(100vw - 32px)); text-align: center; color: #f4f1ea; pointer-events: none; font: 500 24px/1.35 system-ui, sans-serif; text-shadow: 0 1px 3px #000, 0 0 14px rgba(0, 0, 0, .8); }
       #recit[hidden] { display: none; }
       body.recit-on #legend { display: none; }

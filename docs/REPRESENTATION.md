@@ -46,10 +46,20 @@ carte. Un voile léger signale l'apport entre +1 et +10 dB.
 
 | Style | Ce qu'on voit | Statut du mouvement |
 |---|---|---|
-| `isophones` (défaut) | nappe en paliers et lignes d'égal niveau tous les 5 dB (énergie ×3,2) | les lignes défilent vers les niveaux faibles, donc vers l'extérieur, à 0,35 ligne/s **réelle** [A]. Elles indiquent le **sens** de propagation, pas sa vitesse |
+| `brume` (défaut depuis novembre 2026) | voile continu : rien sous le premier palier, puis 38 % d'opacité au deuxième, 70 % au troisième, 92 % dix décibels plus haut [A] ; un trait fin à chaque palier | aucun |
+| `isophones` | nappe en paliers et lignes d'égal niveau tous les 5 dB (énergie ×3,2) | les lignes défilent vers les niveaux faibles, donc vers l'extérieur, à 0,35 ligne/s **réelle** [A]. Elles indiquent le **sens** de propagation, pas sa vitesse |
 | `meteo` | même nappe, immobile, un trait fin à chaque palier | aucun |
 | `encre` | nappe atténuée, traînées d'encre nées dans les zones bruyantes qui descendent la pente de ΔL | naissance ∝ bruit, 2,5°/s, vie de 9 s, estompage 1,2 s [A], temps réel |
 | `fronts` | fronts bruts du modèle et lueur d'accumulation (rendu d'avant la refonte) | modèle : c ≈ 1,5 km/s ; espacement numérique de 234 km sans sens acoustique |
+
+**Pourquoi la brume** [A] (refonte de l'interface, novembre 2026, `docs/REFONTE_INTERFACE.md`) : le premier
+palier (+10 dB) tombe sur la médiane mondiale (+11 dB [C]). Une nappe opaque dès ce palier recouvrait donc la
+moitié de l'océan : on ne voyait plus une mer abîmée par le bruit, mais une planète rouille. La brume laisse la
+mer peinte visible et réserve la couleur dense aux zones les plus bruyantes. Les paliers de la légende
+(+10 / +20 / +30 dB, soit ×10 / ×100 / ×1000) sont inchangés, et chaque palier a exactement la teinte de sa
+pastille. Teintes : du rose au rouge le jour, du rouge sombre à la braise claire la nuit, absentes des terres
+(verts, sables, bruns) et des cétacés (teintes froides) ; un voile brun ou orangé se lisait comme de la rouille
+ou du sable.
 
 Toutes les représentations lisent la même grandeur : leur surcoût est surtout leur légende. `fronts` reste
 contrôlé par `npm run test:propagation`, sans changement.

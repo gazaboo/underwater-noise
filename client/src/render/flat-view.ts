@@ -101,7 +101,7 @@ uniform int uDebugField;        // 0 : rendu ; 1 : niveau accumulé ; 2–4 : ba
 uniform sampler2D uNoiseDb;     // RGB = ΔL (dB) par bande, lissé (préparé par NOISE_PREP_FRAG)
 uniform vec3 uBandSel;
 uniform sampler2D uInk;         // traînées d'encre (style 3), équirectangulaire
-uniform int uNoiseStyle;        // 0 fronts ; 1 isophones ; 2 météo ; 3 encre
+uniform int uNoiseStyle;        // 0 fronts ; 1 isophones ; 2 météo ; 3 encre ; 4 brume
 uniform vec3 uNoiseLow, uNoiseMid, uNoiseHigh;
 uniform vec3 uNoiseSteps;       // paliers (dB)
 uniform float uLineStep, uLineSpeed, uNoiseOpacity, uNoiseLines;
@@ -234,6 +234,18 @@ vec4 noiseSheet(float dl, float soft) {
   vec3 c = mix(uNoiseLow, uNoiseMid, s2);
   c = mix(c, uNoiseHigh, s3);
   float a = max(veil, s1 * mix(0.6, 1.0, s2));
+  return vec4(c, a * uNoiseOpacity);
+}
+
+// Brume [A] : voile continu. Rien sous le premier palier (la moitié calme de l'océan reste la mer peinte),
+// puis une opacité qui croît avec le niveau : 38 % au deuxième palier, 70 % au troisième, 92 % dix décibels
+// plus haut. Chaque palier a exactement la teinte de la légende. La forme vient du champ calculé [C] ;
+// teintes et opacités sont un choix graphique.
+vec4 noiseHaze(float dl) {
+  float t1 = smoothstep(uNoiseSteps.x, uNoiseSteps.y, dl);
+  float t2 = smoothstep(uNoiseSteps.y, uNoiseSteps.z, dl);
+  vec3 c = mix(mix(uNoiseLow, uNoiseMid, t1), uNoiseHigh, t2);
+  float a = mix(mix(0.38 * t1, 0.7, t2), 0.92, smoothstep(uNoiseSteps.z, uNoiseSteps.z + 10.0, dl));
   return vec4(c, a * uNoiseOpacity);
 }
 
@@ -454,17 +466,17 @@ void main() {
     vec3 noisy = ocean;
     if (uHasLevels > 0.5 && uNoiseStyle != 0 && uNoiseShow > 0.5) {
       float dl = excessDb(uv) * step(abs(lat), uPolarCap);
-      vec4 sheet = noiseSheet(dl, uNoiseStyle == 1 ? 0.6 : 0.0);
+      vec4 sheet = uNoiseStyle == 4 ? noiseHaze(dl) : noiseSheet(dl, uNoiseStyle == 1 ? 0.6 : 0.0);
       if (uNoiseStyle == 3) sheet.a *= 0.45;
       noisy = mix(ocean, sheet.rgb, sheet.a);
       if (uNoiseStyle == 3) noisy = mix(noisy, uNoiseHigh, clamp(texture(uInk, uv).r * 1.4, 0.0, 1.0) * mix(0.5, 1.0, uNoiseLines));
       if (uNoiseStyle == 1) noisy = mix(noisy, uNoiseHigh, isophones(dl, uTime) * uNoiseLines);
-      // Météo : un trait fin à chaque palier, pour lire la carte sans couleur.
-      if (uNoiseStyle == 2) {
+      // Météo et brume : un trait fin à chaque palier, pour lire la carte sans couleur (plus discret en brume).
+      if (uNoiseStyle == 2 || uNoiseStyle == 4) {
         float fw = max(fwidth(dl), 1e-4);
         vec3 e = abs(vec3(dl) - uNoiseSteps) / fw;
         float edge = 1.0 - smoothstep(0.5, 1.5, min(e.x, min(e.y, e.z)));
-        noisy = mix(noisy, uNoiseHigh, edge * 0.6 * uNoiseLines);
+        noisy = mix(noisy, uNoiseHigh, edge * (uNoiseStyle == 4 ? 0.35 : 0.6) * uNoiseLines);
       }
     }
 
@@ -762,7 +774,7 @@ export class FlatView {
     } else u.uInk.value = this.noiseDb.texture;
     this.lastTime = time;
     (u.uBandSel.value as THREE.Vector3).set(bandIndex === 0 ? 1 : 0, bandIndex === 1 ? 1 : 0, bandIndex === 2 ? 1 : 0);
-    u.uNoiseStyle.value = { fronts: 0, isophones: 1, meteo: 2, encre: 3 }[n.style];
+    u.uNoiseStyle.value = { fronts: 0, isophones: 1, meteo: 2, encre: 3, brume: 4 }[n.style];
     hexToVec3(cfg.palette.noiseLow, u.uNoiseLow.value);
     hexToVec3(cfg.palette.noiseMid, u.uNoiseMid.value);
     hexToVec3(cfg.palette.noiseHigh, u.uNoiseHigh.value);

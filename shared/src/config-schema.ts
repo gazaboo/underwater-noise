@@ -30,6 +30,9 @@ const flatView = z.object({
 const render = z.object({
   /** Fraction de la résolution native utilisée pour le rendu (agrandi ensuite). */
   renderScale: z.number().min(0.25).max(2),
+  /** Plancher de l'échelle adaptative : si l'appareil ne tient pas la cadence, le rendu descend par paliers
+   *  de renderScale jusqu'à cette valeur. Absent : échelle fixe. */
+  minRenderScale: z.number().min(0.25).max(2).optional(),
   exposure: z.number().min(0).max(8),
   gamma: z.number().min(0.5).max(3),
   /** Plancher de noir (0–1) : relève le noir pour les projecteurs au noir gris. */
@@ -101,9 +104,10 @@ const illustrated = z.object({
  * `waves.band`. La forme vient du champ calculé [C] ; paliers, couleurs et mouvement sont artistiques [A].
  */
 const noiseSchema = z.object({
-  /** isophones : nappe en paliers + lignes d'égal niveau qui défilent ; meteo : nappe seule, immobile ;
+  /** brume : voile continu dont l'opacité croît avec le niveau, la mer reste lisible dessous ;
+   *  isophones : nappe en paliers + lignes d'égal niveau qui défilent ; meteo : nappe seule, immobile ;
    *  encre : traînées émises par les navires le long du gradient ; fronts : fronts bruts du modèle. */
-  style: z.enum(['isophones', 'meteo', 'encre', 'fronts']).default('isophones'),
+  style: z.enum(['brume', 'isophones', 'meteo', 'encre', 'fronts']).default('brume'),
   /** Lissage d'affichage de l'énergie (s, temps de la scène) : supprime le pompage de la moyenne courte. */
   smoothSec: z.number().min(1).max(600).default(45),
   /** Régime établi supposé avant le début de l'histoire (minutes de scène, navires immobiles). 0 = aucun. */
@@ -127,6 +131,8 @@ const noiseSchema = z.object({
 const targetOverride = z.object({
   /** Profil de qualité imposé par la cible (web : appareils modestes). */
   quality: z.enum(['expo', 'light']).optional(),
+  /** Palette par défaut de la cible (écran et web : jour ; projecteur : nuit). Absent : display.theme. */
+  theme: z.enum(['night', 'day']).optional(),
   noise: z.object({ inkParticles: z.number().int().min(0).max(100000) }).partial().optional(),
   render: render.partial().optional(),
   palette: palette.partial().optional(),
@@ -534,5 +540,5 @@ export function deepMerge<T>(base: T, over: unknown): T {
 /** Configuration effective pour une cible d'affichage (surcharges `targets[target]` appliquées). */
 export function resolveForTarget(cfg: Config, target: DisplayTarget): Config {
   const o = cfg.targets[target];
-  return deepMerge(cfg, { render: o.render, palette: o.palette, view: o.view, noise: o.noise, display: { ...cfg.display, target, quality: o.quality ?? cfg.display.quality } });
+  return deepMerge(cfg, { render: o.render, palette: o.palette, view: o.view, noise: o.noise, display: { ...cfg.display, target, quality: o.quality ?? cfg.display.quality, theme: o.theme ?? cfg.display.theme } });
 }

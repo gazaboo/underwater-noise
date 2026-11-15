@@ -72,6 +72,7 @@ export class Legend {
       ? `<span class="lg-step"><i style="background:${p.wave}"></i><b>fronts</b><small>visibles de +1 à +10 dB</small></span>`
       : swatch(p.noiseLow, String(a), energy(a)) + swatch(p.noiseMid, String(b), energy(b)) + swatch(p.noiseHigh, String(c), energy(c));
     this.style.textContent = {
+      brume: 'Voile de plus en plus dense avec le bruit. Sous le premier palier, la mer reste telle quelle.',
       isophones: `Lignes : une tous les ${n.lineStepDb} dB (énergie ×${(10 ** (n.lineStepDb / 10)).toFixed(1).replace('.', ',')}). Leur défilement montre le sens de propagation, pas sa vitesse.`,
       meteo: 'Traits : limites des paliers. Carte immobile, moyenne lissée.',
       encre: 'Traînées d\'encre émises par les navires : elles descendent la pente du bruit.',

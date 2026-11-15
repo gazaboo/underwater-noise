@@ -22,6 +22,7 @@ export class Toolbar {
     for (const key of Object.keys(actions) as (keyof ToolbarActions)[]) {
       const b = document.createElement('button');
       b.type = 'button';
+      b.dataset.action = key;
       b.textContent = labels[key]();
       b.addEventListener('click', (e) => {
         e.stopPropagation();
