@@ -89,11 +89,19 @@ L'état par défaut à l'exposition reste `actuel`, nappe affichée : à décide
 ## Cétacés : deux niveaux de détail
 
 **Vue globale** :
-- une silhouette de profil par espèce, à taille fixe à l'écran (26 px [A], hors d'échelle comme les
-  ornements), en couleur froide propre et avec un liseré sombre ;
+- un animal peint par espèce, à taille fixe à l'écran (`whales.glyphs.size` = 34 px [A], hors d'échelle comme
+  les ornements). Ce sont des imposteurs rendus dans Blender, comme les vignettes du monde, à partir de
+  modèles construits pour l'occasion (`tools/ornaments/render_whales.py`, `data/ornaments/whales.png`) ;
 - formes simplifiées des espèces : rorqual bleu long et fin, rorqual commun à dorsale plus haute,
-  baleine à bosse à longues pectorales, cachalot à tête carrée, orque bicolore à haute dorsale ;
-- à chaque appel, la silhouette s'éclaire avec un halo ;
+  baleine à bosse à longues pectorales blanches, cachalot à tête carrée, orque noire et blanche à haute
+  dorsale. Elles servent à reconnaître l'espèce, pas à la mesurer [A] : les corps sont épaissis de 35 %
+  (à 60 px de long, un animal aux proportions réelles n'est qu'un trait), et les tailles relatives
+  (rorqual bleu 1 ; commun 0,94 ; cachalot 0,9 ; bosse 0,86 ; orque 0,72) suggèrent seulement leur ordre ;
+- la robe est celle de l'espèce, teintée à 30 % de sa couleur de légende (`tint`) ; un liseré de cette
+  couleur l'entoure (`aura`) : c'est lui qui relie l'animal à la légende et aux fils ; une ombre portée le
+  détache de la mer (`shadow`) ;
+- à chaque appel, l'animal s'éclaire et le liseré s'élargit en halo ;
+- sans l'atlas, ou avec `whales.glyphs.sprites: false`, on retrouve les silhouettes de profil en aplat ;
 - fils de 2,2 px colorés par espèce (impulsions, effilochage, fantôme : `shared/src/whales/links.ts`).
   L'espace de communication n'y est qu'un voile léger.
 

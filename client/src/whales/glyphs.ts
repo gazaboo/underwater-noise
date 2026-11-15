@@ -1,14 +1,20 @@
 /**
- * Glyphes des cétacés : une silhouette par espèce (vue de profil, dessinée par champ de distance signée),
- * à taille fixe à l'écran, dessinée après la composition avec la projection exacte de chaque mode (carte,
- * globe, demi-sphère…). Couleur froide propre à l'espèce, liseré sombre pour rester lisible sur la nappe
- * de bruit comme sur la mer claire du mode jour. À chaque appel : le glyphe s'éclaire et un halo l'entoure.
- * Formes, tailles et animation : artistiques [A] (hors d'échelle, comme les ornements du monde).
+ * Glyphes des cétacés : un animal par espèce, à taille fixe à l'écran, dessiné après la composition avec la
+ * projection exacte de chaque mode (carte, globe, demi-sphère…).
+ *
+ * Silhouettes peintes (défaut) : imposteurs rendus dans Blender, comme les vignettes du monde
+ * (tools/ornaments/render_whales.py, data/ornaments/whales.png). La robe est celle de l'espèce, légèrement
+ * teintée de sa couleur ; un liseré de cette couleur l'entoure (c'est lui qui relie l'animal à la légende et
+ * aux fils), une ombre le détache de la mer, et à chaque appel le liseré s'élargit en halo.
+ * Sans l'atlas (fichier absent, ou `whales.glyphs.sprites: false`) : silhouettes de profil en aplat, dessinées
+ * par champ de distance signée (rendu d'origine).
+ * Formes, tailles relatives et animation : artistiques [A] (hors d'échelle, comme les ornements du monde).
  */
 import * as THREE from 'three';
 import type { Config } from '@vacarme/shared';
 import { hexToVec3 } from '../render/fullscreen.ts';
 import { PROJECTION_GLSL, displayPxPerDeg, projectionUniforms, setProjectionUniforms, type ScreenView } from '../render/screen-projection.ts';
+import { dataUrl } from '../data-url.ts';
 
 const MAX_GLYPHS = 1024;
 
@@ -23,9 +29,11 @@ in vec2 aGeo;            // lon, lat
 in vec4 aInfo;           // silhouette, sens (±1), éclat de l'appel (0–1), graine
 in vec3 aColor;
 ${PROJECTION_GLSL}
-uniform float uSize, uTime, uGrowth;
+uniform float uSize, uTime, uGrowth, uAspect;
+uniform float uScales[5];
 uniform float uEdgeComp, uMaxGain, uEdgeSoft, uLimb;
 out vec2 vQ;
+out vec2 vUv;
 flat out vec4 vInfo;
 out vec3 vColor;
 out float vAlpha;
@@ -35,12 +43,13 @@ void main() {
   vec2 p = project(earth(aGeo.x, aGeo.y), aGeo.x, aGeo.y, vis, inc);
   float pulse = aInfo.z;
   // Respiration lente (artistique) et léger grossissement à l'appel.
-  float size = uSize * uGrowth * (1.0 + 0.22 * pulse) * (1.0 + 0.03 * sin(uTime * 0.9 + aInfo.w * 40.0));
+  float size = uSize * uGrowth * uScales[int(aInfo.x + 0.5)] * (1.0 + 0.22 * pulse) * (1.0 + 0.03 * sin(uTime * 0.9 + aInfo.w * 40.0));
   float sizeP = size * uPxRatio / (0.5 * uResolution.y);
   vec2 q = (corner - 0.5) * 2.0;
-  vec2 offs = vec2(q.x, q.y * 0.58) * sizeP * 1.25;
+  vec2 offs = vec2(q.x, q.y * uAspect) * sizeP * 1.25;
   gl_Position = vis > 0.01 ? vec4((p.x + offs.x) * uResolution.y / uResolution.x, p.y + offs.y, 0.0, 1.0) : vec4(2.0, 2.0, 0.0, 1.0);
-  vQ = vec2(q.x * aInfo.y, q.y * 0.58) * 1.25;
+  vQ = vec2(q.x * aInfo.y, q.y * uAspect) * 1.25;
+  vUv = corner;
   vInfo = aInfo;
   vColor = aColor;
   vAlpha = vis;
@@ -53,6 +62,7 @@ const FRAG = /* glsl */ `
 precision highp float;
 precision highp int;
 in vec2 vQ;
+in vec2 vUv;
 flat in vec4 vInfo;
 in vec3 vColor;
 in float vAlpha;
@@ -60,7 +70,15 @@ in float vGain;
 ${PROJECTION_GLSL}
 uniform vec3 uOutline;
 uniform float uExposure, uGamma, uBlackLift;
+uniform sampler2D uAtlas;
+uniform float uSprites, uTint, uAura, uShadow;
 out vec4 outColor;
+
+// Case de l'atlas (quatre colonnes, cinq lignes) ; « local » dans [0, 1]², y vers le haut.
+vec4 cell(vec2 local, float col, float row) {
+  // Biais de −0,75 niveau : à petite taille, on lit une version un peu plus fine de l'image, pour garder le trait.
+  return texture(uAtlas, vec2((col + clamp(local.x, 0.003, 0.997)) / 4.0, (row + 1.0 - clamp(local.y, 0.006, 0.994)) / 5.0), -0.75);
+}
 
 float sdEllipse(vec2 p, vec2 c, vec2 r) { vec2 q = (p - c) / r; return (length(q) - 1.0) * min(r.x, r.y); }
 float sdTri(vec2 p, vec2 a, vec2 b, vec2 c) {
@@ -122,6 +140,33 @@ void main() {
   if (outsideDisc(gl_FragCoord.xy)) discard;
   int shape = int(vInfo.x + 0.5);
   float pulse = vInfo.z;
+  if (uSprites > 0.5) {
+    // Silhouette peinte : colonne selon le sens (la lumière vient toujours de la gauche), ligne selon l'espèce.
+    float col = vInfo.y > 0.0 ? 0.0 : 2.0;
+    float row = float(shape);
+    vec4 spr = cell(vUv, col, row);                 // couleur prémultipliée
+    float m = cell(vUv, col + 1.0, row).r;          // silhouette élargie et adoucie
+    // Ombre portée en bas à droite, comme celles des vignettes : le masque, décalé.
+    vec2 so = vUv + vec2(-0.03, 0.075);
+    float sh = smoothstep(0.35, 0.9, cell(so, col + 1.0, row).r) * step(0.0, so.x) * step(so.y, 1.0);
+    // Robe teintée de la couleur de l'espèce (la luminance garde le modelé), plus claire à l'appel.
+    float lum = dot(spr.rgb, vec3(0.3, 0.59, 0.11));
+    vec3 body = mix(spr.rgb, vColor * lum * 1.6, uTint) * (1.0 + 0.45 * pulse);
+    // Liseré de la couleur de l'espèce, qui s'élargit en halo à l'appel.
+    float glow = clamp(max(smoothstep(0.22, 0.6, m) * uAura, m * pulse), 0.0, 1.0);
+    vec3 pc = vec3(0.0);
+    float a = sh * uShadow;
+    pc = vColor * (0.92 + 0.4 * pulse) * glow + pc * (1.0 - glow); a = glow + a * (1.0 - glow);
+    pc = body + pc * (1.0 - spr.a); a = spr.a + a * (1.0 - spr.a);
+    vec3 c = pc / max(a, 1e-4);
+    a *= vAlpha;
+    if (a < 0.004) discard;
+    c *= vGain * uExposure;
+    c = pow(max(c, 0.0), vec3(1.0 / uGamma));
+    c = uBlackLift + (1.0 - uBlackLift) * c;
+    outColor = vec4(c * a, a);
+    return;
+  }
   float d = whale(vQ, shape);
   float aa = fwidth(d) * 0.8 + 1e-4;
   float body = 1.0 - smoothstep(-aa, aa, d);
@@ -167,6 +212,8 @@ export class WhaleGlyphs {
   private readonly aInfo = new Float32Array(MAX_GLYPHS * 4);
   private readonly aColor = new Float32Array(MAX_GLYPHS * 3);
   private readonly uniforms: Record<string, THREE.IUniform>;
+  /** Vrai quand l'atlas des silhouettes peintes est chargé. */
+  private atlas = false;
 
   constructor() {
     this.geo.setAttribute('corner', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
@@ -177,7 +224,9 @@ export class WhaleGlyphs {
     this.geo.instanceCount = 0;
     this.uniforms = {
       ...projectionUniforms(),
-      uSize: { value: 18 }, uTime: { value: 0 }, uGrowth: { value: 1 },
+      uSize: { value: 18 }, uTime: { value: 0 }, uGrowth: { value: 1 }, uAspect: { value: 0.58 },
+      uScales: { value: [1, 1, 1, 1, 1] },
+      uAtlas: { value: null }, uSprites: { value: 0 }, uTint: { value: 0 }, uAura: { value: 0 }, uShadow: { value: 0 },
       uEdgeComp: { value: 0 }, uMaxGain: { value: 1 }, uEdgeSoft: { value: 0.05 }, uLimb: { value: 0 },
       uOutline: { value: new THREE.Vector3() },
       uExposure: { value: 1 }, uGamma: { value: 1 }, uBlackLift: { value: 0 },
@@ -191,6 +240,39 @@ export class WhaleGlyphs {
     const mesh = new THREE.Mesh(this.geo, mat);
     mesh.frustumCulled = false;
     this.scene.add(mesh);
+    void this.loadAtlas();
+  }
+
+  /** Atlas facultatif : sans lui, les silhouettes en aplat restent le rendu. */
+  private async loadAtlas(): Promise<void> {
+    try {
+      const [meta, image] = await Promise.all([
+        fetch(dataUrl('ornaments/whales.json')).then((r) => { if (!r.ok) throw new Error(`whales.json : HTTP ${r.status}`); return r.json() as Promise<{ species: Record<string, { row: number; scale: number }> }>; }),
+        fetch(dataUrl('ornaments/whales.png')).then(async (r) => {
+          if (!r.ok) throw new Error(`whales.png : HTTP ${r.status}`);
+          // Les couleurs sont déjà prémultipliées dans le fichier (tools/ornaments/pack_whales.py).
+          return createImageBitmap(await r.blob(), { premultiplyAlpha: 'none', colorSpaceConversion: 'none', imageOrientation: 'none' });
+        }),
+      ]);
+      const tex = new THREE.Texture(image as unknown as HTMLImageElement);
+      tex.flipY = false;
+      tex.premultiplyAlpha = false;
+      tex.colorSpace = THREE.NoColorSpace;
+      tex.magFilter = THREE.LinearFilter;
+      tex.minFilter = THREE.LinearMipmapLinearFilter;
+      tex.generateMipmaps = true;
+      tex.needsUpdate = true;
+      const scales = [1, 1, 1, 1, 1];
+      for (const [id, s] of Object.entries(meta.species)) {
+        if (GLYPH_SHAPES[id] !== s.row) throw new Error(`whales.json : ligne inattendue pour ${id}`);
+        scales[s.row] = s.scale;
+      }
+      this.uniforms.uAtlas.value = tex;
+      this.uniforms.uScales.value = scales;
+      this.atlas = true;
+    } catch (e) {
+      console.warn('[cétacés] silhouettes peintes indisponibles, silhouettes en aplat :', e);
+    }
   }
 
   set(glyphs: GlyphDraw[]): void {
@@ -208,7 +290,14 @@ export class WhaleGlyphs {
   draw(renderer: THREE.WebGLRenderer, v: ScreenView, cfg: Config, wallSec: number): void {
     const u = this.uniforms;
     setProjectionUniforms(u, v, cfg);
-    u.uSize.value = cfg.whales.glyphs.size;
+    const g = cfg.whales.glyphs;
+    const sprites = this.atlas && g.sprites;
+    u.uSprites.value = sprites ? 1 : 0;
+    u.uAspect.value = sprites ? 0.5 : 0.58;
+    u.uTint.value = g.tint;
+    u.uAura.value = g.aura;
+    u.uShadow.value = g.shadow;
+    u.uSize.value = g.size;
     // Les silhouettes grandissent un peu en vue rapprochée (×2 au plus).
     u.uGrowth.value = Math.min(2, Math.max(1, Math.sqrt(displayPxPerDeg(v, cfg) / cfg.whales.lod.closePxPerDeg)));
     u.uTime.value = wallSec;
