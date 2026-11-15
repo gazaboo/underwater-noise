@@ -30,6 +30,8 @@ const GLOBE_FRAG = /* glsl */ `
 in vec2 vUv;
 out vec4 outColor;
 uniform sampler2D uWorld;
+uniform sampler2D uShape;  // R = distance signée à la côte (terres peintes) : sert de masque terre / mer
+uniform float uLight, uSpecular, uAtmosphere;
 uniform vec2 uResolution;
 uniform int uMode;
 uniform mat3 uM;           // vue → Terre
@@ -93,6 +95,9 @@ void main() {
   float cosInc = 1.0;
   float edge = 1.0;
   float rayDistance = 10.0;
+  vec3 nView = vec3(0.0, 0.0, 1.0);
+  // Lumière du globe à l'écran [A] : en haut à gauche, un peu devant ; fixe dans l'image.
+  const vec3 SUN = vec3(-0.5059, 0.5262, 0.6982);
 
   if (uMode == 3) {
     // Équirect : rectangle 2:1 centré.
@@ -131,6 +136,7 @@ void main() {
       float t = -b - sqrt(h);
       vec3 n = ro + t * rd;
       cosInc = max(dot(-rd, n), 0.0);
+      nView = n;
       vec3 q = uM * n;
       lat = asin(clamp(q.y, -1.0, 1.0));
       lon = atan(q.x, q.z);
@@ -147,8 +153,16 @@ void main() {
     col = world;
     if (uCalib) col = mix(col, vec3(1.0, 0.92, 0.8), grid);
     if (uMode == 1) {
-      // Écran : limbe assombri (relief du globe).
-      col *= mix(1.0 - uLimb, 1.0, sqrt(cosInc));
+      // Écran : le globe est un objet éclairé [A]. Terminateur enveloppant (le côté sombre reste lisible),
+      // lumière légèrement chaude et ombre légèrement froide, reflet sur la mer seulement, liseré d'atmosphère.
+      // Le limbe assombri d'origine s'efface à mesure que l'éclairage prend le relais.
+      float wrap = pow(clamp((dot(nView, SUN) + 0.45) / 1.45, 0.0, 1.0), 1.25);
+      col *= mix(1.0 - uLimb * (1.0 - 0.7 * uLight), 1.0, sqrt(cosInc)) * mix(1.0, 0.4 + 0.78 * wrap, uLight);
+      col += (wrap - 0.5) * 0.055 * uLight * vec3(1.0, 0.55, -0.6);
+      float coast = (textureLod(uShape, vec2(fract(lon / (2.0 * PI) + 0.5), 0.5 - lat / PI), 2.0).r * 255.0 - 128.0) / 127.0 * 2.0;
+      float sea = 1.0 - smoothstep(-0.03, 0.03, coast);
+      col += sea * pow(max(dot(nView, normalize(SUN + vec3(0.0, 0.0, 1.0))), 0.0), 26.0) * 0.27 * uSpecular * uLight * vec3(1.0, 0.97, 0.88);
+      col += pow(1.0 - cosInc, 3.2) * (0.35 + 0.65 * wrap) * 0.47 * uAtmosphere * uLight * vec3(0.55, 0.78, 1.0);
     } else if (uMode == 2) {
       // Projecteur : la lumière arrive rasante vers le bord et s'étale ; on compense (plafonné),
       // et on fond le bord pour ne rien projeter hors de la sphère.
@@ -168,6 +182,12 @@ void main() {
     float pulse = 1.0-uTwinkle*0.35*(0.5+0.5*sin(uTime*0.7+seed*61.0));
     col += mix(vec3(0.65,0.78,1),vec3(1,0.82,0.6),seed)*star*pulse*0.7;
     col += vec3(0.16,0.31,0.46)*exp(-max(rayDistance-1.0,0.0)*38.0)*uHalo;
+  }
+  if (uMode == 1 && !hit) {
+    // Halo d'atmosphère, plus fort du côté éclairé.
+    vec2 away = (p - uShift) / uScale;
+    float side = clamp(dot(normalize(away + 1e-5), SUN.xy) * 0.6 + 0.65, 0.15, 1.0);
+    col += vec3(0.5, 0.75, 1.0) * exp(-max(rayDistance - 1.0, 0.0) * 30.0) * side * 0.41 * uAtmosphere * uLight;
   }
 
   // Mire : cercles concentriques et croix d'axe, dans le repère de l'image.
@@ -268,6 +288,7 @@ export class GlobeView {
       uPaperStrength: { value: 0 }, uPaperScale: { value: 1 },
       uStars: { value: 0 }, uStarDensity: { value: 0 }, uTwinkle: { value: 0 }, uHalo: { value: 0 },
       uWorld: { value: null },
+      uShape: { value: null }, uLight: { value: 0 }, uSpecular: { value: 0 }, uAtmosphere: { value: 0 },
       uResolution: { value: new THREE.Vector2() },
       uMode: { value: 1 },
       uM: { value: new THREE.Matrix3() },
@@ -314,6 +335,10 @@ export class GlobeView {
     u.uMaxGain.value = h.maxGain;
     u.uEdgeSoft.value = h.edgeSoftness;
     u.uLimb.value = cfg.globe.limbShading;
+    const light = cfg.globe.light;
+    u.uLight.value = u.uShape.value ? light.strength : 0;
+    u.uSpecular.value = light.specular;
+    u.uAtmosphere.value = light.atmosphere;
     u.uFishFov.value = cfg.fisheye.fovDeg;
     u.uFishModel.value = cfg.fisheye.model === 'equidistant' ? 0 : 1;
     u.uCalib.value = this.calibration;

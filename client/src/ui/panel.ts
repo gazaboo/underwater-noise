@@ -148,6 +148,9 @@ export class Panel {
     gl.addBinding(cfg.globe, 'periodMinutes', { label: 'tour (min)', min: 0, max: 120, step: 0.5 });
     gl.addBinding(cfg.globe, 'viewLatDeg', { label: 'latitude face au public', min: -90, max: 90, step: 1 });
     gl.addBinding(cfg.globe, 'limbShading', { label: 'limbe (écran)', min: 0, max: 1, step: 0.01 });
+    gl.addBinding(cfg.globe.light, 'strength', { label: 'éclairage (écran)', min: 0, max: 1, step: 0.01 });
+    gl.addBinding(cfg.globe.light, 'specular', { label: 'reflet sur la mer', min: 0, max: 1, step: 0.01 });
+    gl.addBinding(cfg.globe.light, 'atmosphere', { label: 'atmosphère', min: 0, max: 1, step: 0.01 });
     gl.addBinding(cfg.globe, 'screenSize', { label: 'taille à l\'écran', min: 0.2, max: 1.5, step: 0.01 });
     const h = cfg.hemisphere;
     gl.addBinding(h, 'distanceRatio', { label: 'd / R', min: 1.2, max: 20, step: 0.05 });

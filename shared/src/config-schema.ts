@@ -179,6 +179,9 @@ export const configSchema = z.object({
     limbShading: unit,
     /** Taille du globe à l'écran (fraction de la hauteur). */
     screenSize: z.number().min(0.2).max(1.5),
+    /** Éclairage du globe à l'écran : une lumière fixe venue du haut à gauche. Jamais sur le dôme, que le
+     *  projecteur éclaire déjà. strength : 0 = globe plat ; specular : reflet sur la mer ; atmosphere : liseré et halo. */
+    light: z.object({ strength: unit, specular: unit, atmosphere: unit }).default({ strength: 0.75, specular: 0.5, atmosphere: 0.6 }),
   }),
   /** Demi-sphère bombée éclairée par un seul projecteur dans son axe. */
   hemisphere: z.object({

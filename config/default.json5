@@ -51,6 +51,9 @@
     ],
     limbShading: 0.45, // à l'écran : relief du globe ; au projecteur, la sphère physique s'en charge
     screenSize: 0.92,
+    // Globe à l'écran seulement [A] : lumière fixe en haut à gauche (comme les ombres peintes des terres),
+    // côté sombre qui reste lisible, reflet sur la mer, liseré d'atmosphère. Aucun sens astronomique.
+    light: { strength: 0.75, specular: 0.5, atmosphere: 0.6 },
   },
 
   // Demi-sphère bombée, un seul projecteur (Epson EB-990U) dans son axe. Calibration sur place : touche C (mire).
