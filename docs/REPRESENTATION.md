@@ -195,8 +195,9 @@ approximatives [S-r].
 | Cétacés et hommes | détroit de Gibraltar (orques ibériques), Maui Nui (chœur des baleines à bosse), Açores (de la chasse à l'observation), Kaikōura (cachalots) |
 | Lacune | détroit de Malacca : beaucoup de navires, presque aucune étude sur nos cinq espèces |
 
-- **Marqueur** [A] : anneau d'écoute ivoire, à taille fixe à l'écran, dans tous les modes (même projection que
-  les silhouettes des cétacés) ; ses ondes s'animent quand on entend le lieu. Un clic ouvre sa fiche (texte,
+- **Marqueur** [A] : épingle ivoire, à taille fixe à l'écran, dans tous les modes (même projection que
+  les silhouettes des cétacés). La pointe repère sa position ; les lieux à écouter émettent deux ondes lentes,
+  plus vives pendant l'écoute ; les lieux à lire sont plus petits (74 %) et sans ondes. Un clic ouvre sa fiche (texte,
   paire de contraste, sons et spectrogrammes).
 - **Son** : on entend le lieu sonore le plus proche du centre de la vue (les lieux à lire sont ignorés), un seul à la fois, poids 1 au centre et nul
   au-delà de 55 % du rayon de la vue [A]. Ses sons s'enchaînent en boucle.
@@ -212,8 +213,20 @@ au centre pour les lieux sonores, fiche au clic pour tous, clarté rendue à 1 s
 
 ## Navires
 
-- **Chevrons** orientés selon la route fond [S, AIS], de 7 px [A], avec un liseré sombre.
-- **Navires estimés** (GFW) en chevrons creux et plus discrets. Un navire arrêté est un point.
+- **Vue globale** [A] : traits translucides orientés selon la route fond (AIS pour les navires suivis, trajectoire
+  simulée pour les estimations GFW). Leur accumulation suggère les couloirs ; ce ne sont pas des traces historiques.
+- **Vue rapprochée** [A] : transition progressive entre 66 et 110 pixels CSS par degré (60 à 100 % de
+  `ships.boatsFromPxPerDeg`) vers une coque de cargo vue de dessus, avec conteneurs, passerelle et sillage.
+  Ce seuil est bien plus proche que celui des cétacés (14 px par degré) : à cette échelle-là, les coques de
+  milliers de navires estimés se chevauchaient en un amas blanc. Le globe ne dépasse pas 30 px par degré : il
+  ne montre donc que des sillages.
+  La forme et la couleur sont décoratives : elles ne décrivent ni le type réel ni la cargaison du navire.
+- **Navires estimés** (GFW) : traits deux fois plus pâles, puis coques pâles et translucides, sans chargement ni
+  liseré, pour les distinguer des suivis AIS.
+  En dessous de 0,5 nœud, un point en vue globale et une coque sans sillage en vue rapprochée.
+- Taille de base : `ships.pointSize` = 6 px CSS, modulée par le niveau source à des fins graphiques [A].
+  La taille tient compte de l'échelle finale, y compris pour la texture du globe ; l'anticrénelage suit la taille réelle
+  de chaque point. Aucun niveau ni injection acoustique n'est modifié.
 - Mélange normal (et non additif) : les couloirs ne saturent plus en blanc.
 
 ## Temps décoratif

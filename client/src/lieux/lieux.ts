@@ -1,7 +1,7 @@
 /**
  * Lieux (data/lieux) : zones d'intérêt sonore (#2), plus tard focus régionaux (#15) et étapes de parcours (#4).
  * Un marqueur à taille fixe à l'écran, dessiné après la composition avec la projection exacte de chaque mode,
- * comme les silhouettes des cétacés : un anneau d'écoute d'où partent des ondes lentes, plus vives quand on
+ * comme les silhouettes des cétacés : une épingle d'écoute d'où partent des ondes lentes, plus vives quand on
  * entend le lieu. Teinte ivoire, distincte du froid des cétacés et du chaud du bruit. Forme et mouvement [A].
  */
 import * as THREE from 'three';
@@ -18,16 +18,17 @@ precision highp float;
 precision highp int;
 in vec2 corner;
 in vec2 aGeo;     // lon, lat
-in vec2 aInfo;    // écoute (0–1), graine
+in vec3 aInfo;    // écoute (0–1), graine, présence d’un enregistrement (0 ou 1)
 ${PROJECTION_GLSL}
 uniform float uSize;
 out vec2 vQ;
-out vec2 vInfo;
+out vec3 vInfo;
 out float vAlpha;
 void main() {
   float vis, inc;
   vec2 p = project(earth(aGeo.x, aGeo.y), aGeo.x, aGeo.y, vis, inc);
-  float sizeP = uSize * uPxRatio / (0.5 * uResolution.y);
+  // Un lieu à lire est plus petit qu'un lieu à écouter.
+  float sizeP = uSize * mix(1.0, 0.74, (1.0 - aInfo.z)) * uPxRatio / (0.5 * uResolution.y);
   vec2 q = (corner - 0.5) * 2.0;
   gl_Position = vis > 0.01 ? vec4((p.x + q.x * sizeP) * uResolution.y / uResolution.x, p.y + q.y * sizeP, 0.0, 1.0) : vec4(2.0, 2.0, 0.0, 1.0);
   vQ = q;
@@ -39,7 +40,7 @@ const FRAG = /* glsl */ `
 precision highp float;
 precision highp int;
 in vec2 vQ;
-in vec2 vInfo;
+in vec3 vInfo;
 in float vAlpha;
 ${PROJECTION_GLSL}
 uniform vec3 uColor, uOutline;
@@ -50,16 +51,23 @@ void main() {
   if (outsideDisc(gl_FragCoord.xy)) discard;
   float r = length(vQ);
   float listen = vInfo.x;
+  float lire = 1.0 - vInfo.z;   // lieu à lire : épingle sans ondes
   float aa = fwidth(r) + 1e-4;
-  float dot_ = 1.0 - smoothstep(0.16 - aa, 0.16 + aa, r);
-  float core = max(ring(r, 0.36, 0.06), dot_);
-  float rim = max(ring(r, 0.36, 0.13), 1.0 - smoothstep(0.24 - aa, 0.24 + aa, r));
+  // Épingle ancrée au point géographique : tête ronde évidée et pointe vers le lieu.
+  float head = length(vQ - vec2(0.0, 0.36)) - 0.27;
+  float tip = max(abs(vQ.x) - 0.72 * vQ.y, max(-vQ.y, vQ.y - 0.25));
+  float shape = min(head, tip);
+  float hole = length(vQ - vec2(0.0, 0.38)) - 0.10;
+  float sd = max(shape, -hole);
+  float core = 1.0 - smoothstep(-aa, aa, sd);
+  float rim = 1.0 - smoothstep(-aa, aa, sd - 0.065);
   // Deux ondes qui s'éloignent ; plus vives quand le lieu est entendu.
   float wave = 0.0;
   for (int i = 0; i < 2; i++) {
     float ph = fract(uTime * (0.25 + 0.35 * listen) + vInfo.y + 0.5 * float(i));
     wave = max(wave, ring(r, 0.42 + 0.55 * ph, 0.035) * (1.0 - ph) * (0.45 + 0.55 * listen));
   }
+  wave *= 1.0 - lire;
   vec3 pc = uColor * wave;
   float a = wave;
   pc = uOutline * rim + pc * (1.0 - rim); a = rim + a * (1.0 - rim);
@@ -80,14 +88,14 @@ export class LieuLayer {
   private readonly camera = new THREE.Camera();
   private readonly geo = new THREE.InstancedBufferGeometry();
   private readonly aGeo = new Float32Array(MAX * 2);
-  private readonly aInfo = new Float32Array(MAX * 2);
+  private readonly aInfo = new Float32Array(MAX * 3);
   private readonly uniforms: Record<string, THREE.IUniform>;
 
   constructor() {
     this.geo.setAttribute('corner', new THREE.Float32BufferAttribute([0, 0, 1, 0, 1, 1, 0, 1], 2));
     this.geo.setIndex([0, 1, 2, 0, 2, 3]);
     this.geo.setAttribute('aGeo', new THREE.InstancedBufferAttribute(this.aGeo, 2));
-    this.geo.setAttribute('aInfo', new THREE.InstancedBufferAttribute(this.aInfo, 2).setUsage(THREE.DynamicDrawUsage));
+    this.geo.setAttribute('aInfo', new THREE.InstancedBufferAttribute(this.aInfo, 3).setUsage(THREE.DynamicDrawUsage));
     this.geo.instanceCount = 0;
     this.uniforms = {
       ...projectionUniforms(),
@@ -136,7 +144,7 @@ export class LieuLayer {
 
   draw(renderer: THREE.WebGLRenderer, v: ScreenView, cfg: Config, wallSec: number): void {
     if (!cfg.lieux.enabled || !this.lieux.length) return;
-    this.lieux.forEach((l, i) => this.aInfo.set([this.listening.get(l.id) ?? 0, (i * 0.37) % 1], 2 * i));
+    this.lieux.forEach((l, i) => this.aInfo.set([this.listening.get(l.id) ?? 0, (i * 0.37) % 1, l.sounds.length ? 1 : 0], 3 * i));
     (this.geo.getAttribute('aInfo') as THREE.BufferAttribute).needsUpdate = true;
     const u = this.uniforms;
     setProjectionUniforms(u, v, cfg);

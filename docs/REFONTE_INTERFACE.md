@@ -98,7 +98,44 @@ Les cinq modèles sont construits dans le script (aucun fichier tiers, aucune li
 un animal par une image faite autrement : déposer `whale-<espèce>-r.png` et `-l.png` (1024×512, fond transparent,
 tête à droite puis à gauche) dans le dossier, puis relancer `pack_whales.py`.
 
+## Lot 7c : navires et lieux
+
+Reprise des modifications non commitées laissées sur `refonte-ui/7c-navires-lieux`, après `929f12a`.
+Les branches précédentes sont empilées : gains rapides → interface → globe éclairé → survol → cétacés peints.
+
+- Navires : traits translucides à l'échelle mondiale, coques de cargo avec sillage en zoomant ; les navires
+  estimés restent creux et plus discrets. La silhouette de cargo est une convention graphique, pas une information AIS.
+- Taille du rendu adaptée à l'échelle finale sur la carte et dans la texture du globe ; anticrénelage adapté
+  à la taille de chaque navire. Les sources acoustiques restent identiques.
+- Lieux : épingles ivoire, pointe sur la position ; les lieux à écouter gardent leurs ondes, les lieux à lire
+  sont plus petits et sans ondes. Survol et clic gardent le même point géographique et le même rayon de sélection.
+
+Réglages ajoutés après examen sur des scènes réelles (Atlantique, Méditerranée, détroits danois) [A] :
+
+- les sillages sont plus fins, plus longs et près de deux fois plus lumineux : en vue globale ils étaient
+  presque invisibles ;
+- les coques n'apparaissent plus qu'entre 66 et 110 pixels par degré (`ships.boatsFromPxPerDeg`), au lieu de
+  7,7 à 14 : à zoom moyen, les coques de milliers de navires estimés formaient un amas blanc ;
+- un navire estimé de près est une coque pâle et translucide, sans liseré.
+
+Détails des choix artistiques dans `docs/REPRESENTATION.md`. Les quatre caps ont été contrôlés sur une
+planche synthétique : correction du signe nord/sud dans les coordonnées du point, sur l'écran et dans la texture monde.
+
+Planches dans `docs/captures/refonte-ui-7c/` : rangée supérieure pour les navires suivis, inférieure pour les
+estimés ; caps N/E/S/O puis navire arrêté, taille multipliée par trois. Ce sont des échantillons graphiques,
+pas une capture AIS. Reproduire avec `scripts/capture-ships.mjs` (mêmes variables que `capture-ui.mjs`).
+
+Vérifications de reprise (15 novembre) :
+
+- `npm run typecheck`, `npm run build:web` : réussis (avertissement Vite existant sur `geo-grids.ts`).
+- `npm test` : 184/184, hors sandbox pour permettre au serveur WebSocket factice d'ouvrir son port.
+- `scripts/capture-ui.mjs` : six états × quatre tailles, aucun recouvrement, débordement ni cible tactile trop petite.
+- `scripts/verify-illustrated.mjs` : carte, globe, demi-sphère de nuit, équirectangulaire et fisheye ; aucune
+  erreur JavaScript/GLSL sur Radeon 780M (ANGLE/Vulkan).
+- `scripts/verify-lieux.mjs` : 27 fiches au clic, écoute des cinq lieux sonores, clarté à 1 sans navires.
+- Planche des navires : quatre caps, suivis / estimés, arrêt, jour / nuit ; aucune erreur JavaScript/GLSL.
+
 ## Suite prévue
 
-Navires peints et traînées de trafic à la place des chevrons en vue globale, épingles des lieux, contrôle au
-dôme (palette de nuit, brume, cétacés clairs sur mer sombre) avec le projecteur réel.
+Contrôle au dôme (palette de nuit, brume, cétacés clairs sur mer sombre) avec le projecteur réel.
+Ce contrôle matériel reste à faire sur place.
