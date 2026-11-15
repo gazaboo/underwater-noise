@@ -5,6 +5,7 @@
  */
 import { parcours as parcoursSchema, parcoursIndex, STATUS_LABELS, type Config, type Lieu, type Parcours, type ParcoursStep } from '@vacarme/shared';
 import { dataUrl } from '../data-url.ts';
+import { h, icon } from '../ui/dom.ts';
 
 export interface StoryHooks {
   cfg(): Config;
@@ -36,10 +37,18 @@ export class StoryPlayer {
   private saved: Saved | null = null;
   private next = 0;
   private pending: string | null = null;
+  /** Lecture suspendue par le visiteur : l'étape reste affichée. */
+  paused = false;
 
   constructor(private readonly hooks: StoryHooks) {
     this.element.id = 'recit';
     this.element.hidden = true;
+    this.element.addEventListener('click', (e) => {
+      const action = e.target instanceof Element ? e.target.closest<HTMLElement>('[data-rc]')?.dataset.rc : undefined;
+      if (action === 'prev') this.step(-1);
+      else if (action === 'next') this.step(1);
+      else if (action === 'pause') this.togglePause();
+    });
     document.body.append(this.element);
     void this.load();
   }
@@ -82,8 +91,30 @@ export class StoryPlayer {
     document.body.classList.add('recit-on');
     this.index = 0;
     this.t = 0;
+    this.paused = false;
     this.hooks.hold(true);
     this.enter(story.steps[0]);
+  }
+
+  /** Étape suivante (+1) ou précédente (−1) ; au-delà de la dernière, le parcours se termine (ou boucle). */
+  step(delta: 1 | -1): void {
+    const story = this.story;
+    if (!story) return;
+    let i = this.index + delta;
+    if (i < 0) i = 0;
+    if (i >= story.steps.length) {
+      if (!story.loop) return this.stop();
+      i = 0;
+    }
+    this.index = i;
+    this.t = 0;
+    this.enter(story.steps[i]);
+  }
+
+  togglePause(): void {
+    if (!this.story) return;
+    this.paused = !this.paused;
+    this.render(this.story.steps[this.index]);
   }
 
   /** Arrête le parcours et restaure l'état d'avant ; `keepCard` laisse la fiche ouverte (le visiteur la lit). */
@@ -105,17 +136,9 @@ export class StoryPlayer {
 
   update(dtSec: number): void {
     const story = this.story;
-    if (!story) return;
+    if (!story || this.paused) return;
     this.t += dtSec;
-    const step = story.steps[this.index];
-    if (this.t < step.duration) return;
-    this.t = 0;
-    this.index++;
-    if (this.index >= story.steps.length) {
-      if (!story.loop) return this.stop();
-      this.index = 0;
-    }
-    this.enter(story.steps[this.index]);
+    if (this.t >= story.steps[this.index].duration) this.step(1);
   }
 
   private enter(step: ParcoursStep): void {
@@ -149,8 +172,17 @@ export class StoryPlayer {
     const badge = step.status
       ? ` <span class="rc-badge" title="${esc(`${STATUS_LABELS[step.status]}${step.source ? ` — ${step.source}` : ''}`)}">${step.status}</span>`
       : '';
-    this.element.innerHTML = `${step.caption ? `<p class="rc-caption">${esc(step.caption)}${badge}</p>` : ''}
-      <p class="rc-meta">${esc(story.title)} · ${this.index + 1}/${story.steps.length} · touchez ou appuyez sur une touche pour reprendre la main</p>`;
+    const n = story.steps.length;
+    this.element.innerHTML = `<div class="rc-tete"><p class="rc-meta"><b>${esc(story.title)}</b> · ${this.index + 1}/${n}</p>
+        <span class="rc-points" role="img" aria-label="Étape ${this.index + 1} sur ${n}">${story.steps.map((_, i) => `<i${i <= this.index ? ' class="on"' : ''}></i>`).join('')}</span></div>
+      ${step.caption ? `<p class="rc-caption">${esc(step.caption)}${badge}</p>` : ''}`;
+    // Commandes : à l'écran seulement (sur le dôme, personne ne peut les toucher).
+    const button = (rc: string, label: string, name: Parameters<typeof icon>[0], cls = 'ui-rond') => h('button', { type: 'button', class: cls, 'data-rc': rc, 'aria-label': label }, icon(name));
+    this.element.append(h('div', { class: 'rc-commandes' },
+      button('prev', 'Étape précédente', 'precedent'),
+      button('pause', this.paused ? 'Reprendre la visite' : 'Mettre en pause', this.paused ? 'lecture' : 'pause', 'ui-rond ui-fort'),
+      button('next', 'Étape suivante', 'suivant'),
+      h('small', {}, 'Touchez la carte pour reprendre la main.')));
     this.element.hidden = false;
   }
 }

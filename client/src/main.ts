@@ -8,7 +8,13 @@
  *   ?theme=night|day            palette de nuit (installation) ou de jour
  *   ?parcours=<id>              démarre un parcours (data/parcours) : avant-apres, puissances-de-dix, tour-des-lieux
  *   ?dev=1                      page web autonome : rend le panneau P, le diagnostic D et les touches B, C, O
+ *   ?accueil=0                  page web autonome : pas d'écran d'accueil (il est aussi omis dès qu'un autre paramètre est donné)
  */
+import '@fontsource/atkinson-hyperlegible/latin-400.css';
+import '@fontsource/atkinson-hyperlegible/latin-400-italic.css';
+import '@fontsource/atkinson-hyperlegible/latin-700.css';
+import '@fontsource-variable/fraunces/wght.css';
+import './ui/theme.css';
 import { App, type UrlOverrides } from './app.ts';
 
 const params = new URLSearchParams(location.search);
@@ -21,6 +27,7 @@ const overrides: UrlOverrides = {
   theme: (['night', 'day'] as const).find((t) => t === params.get('theme')),
   parcours: params.get('parcours') ?? undefined,
   dev: params.has('dev'),
+  welcome: [...params.keys()].length === 0,
 };
 
 const status = document.getElementById('status')!;

@@ -40,7 +40,10 @@ try {
       const y = v.height / 2 + (g.lat - v.centerLat) * v.scale;
       return { x: x / ratio, y: (c.height - y) / ratio };
     };
-    const inside = groups.map(pos).filter((p) => p.x > 40 && p.x < c.clientWidth - 440 && p.y > 80 && p.y < c.clientHeight - 80);
+    // Les lieux sont prioritaires au clic (rayon de 24 px) : on vise un groupe qui n'en a aucun à proximité.
+    const lieux = a.lieux.lieux.map((l) => pos({ lon: l.center.lon, lat: l.center.lat }));
+    const inside = groups.map(pos).filter((p) => p.x > 40 && p.x < c.clientWidth - 480 && p.y > 110 && p.y < c.clientHeight - 110)
+      .filter((p) => lieux.every((l) => Math.hypot(l.x - p.x, l.y - p.y) > 40));
     inside.sort((p, q) => Math.hypot(p.x - c.clientWidth / 2, p.y - c.clientHeight / 2) - Math.hypot(q.x - c.clientWidth / 2, q.y - c.clientHeight / 2));
     return inside[0] ?? null;
   }, species);

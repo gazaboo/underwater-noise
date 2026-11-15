@@ -1,8 +1,12 @@
 import { SOUND_SPEED_M_S, type Config } from '@vacarme/shared';
 
+import { h } from './dom.ts';
+
 /**
- * Légende permanente, lisible de loin : ce que montre la nappe de bruit (bande, paliers, lignes), ce que
- * signifient les hachures, la couleur de chaque espèce, et l'état de l'histoire acoustique.
+ * Légende à trois niveaux de lecture. (1) Toujours visible : les paliers du bruit et la couleur de chaque
+ * espèce, en mots simples. (2) « Comprendre la carte » : la bande, le dessin de la nappe, les hachures, l'origine
+ * des sons, le statut de chaque information [C]/[E]/[A] et l'état de l'histoire acoustique. (3) « Méthode et
+ * fiabilité » : le panneau des niveaux calculés et de la validation (ui/science.ts).
  * Chaque information passe aussi par le texte ou la forme, jamais par la couleur seule.
  * Masquée dans les modes de projection (demi-sphère, équirect, fisheye) : ses coins tomberaient hors du dôme.
  */
@@ -19,9 +23,12 @@ export class Legend {
   private readonly sound = document.createElement('div');
   /** État de l'histoire acoustique (contrôlé par la vérification de propagation). */
   private readonly status = document.createElement('div');
+  private readonly more = h('div', { class: 'lg-more' });
+  private readonly expand = h('button', { type: 'button', class: 'ui-lien', 'aria-expanded': 'false', onclick: () => this.toggle() }, 'Comprendre la carte');
   private key = '';
 
-  constructor() {
+  /** `onMethod` : ouvre le troisième niveau (méthode et fiabilité). */
+  constructor(onMethod: () => void) {
     this.element.id = 'legend';
     this.status.id = 'propagation';
     this.title.className = 'lg-title';
@@ -34,13 +41,19 @@ export class Legend {
     this.tags.className = 'lg-tags';
     this.sound.className = 'lg-note';
     this.tags.textContent = 'Forme et niveaux : calculés [C], non validés en mer · paliers, couleurs, mouvement : choix graphiques [A]';
-    this.element.append(this.title, this.band, this.steps, this.style, this.unknown, this.species, this.sound, this.tags, this.status);
+    this.more.append(this.band, this.style, this.unknown, this.sound, this.tags, this.status);
+    this.element.append(this.title, this.steps, this.species, this.more,
+      h('div', { class: 'lg-pied' }, this.expand, h('button', { type: 'button', class: 'ui-lien', onclick: onMethod }, 'Méthode et fiabilité')));
+    this.element.classList.add('collapsed');
     document.body.append(this.element);
   }
 
-  /** Replie ou déplie la légende (titre seul) ; renvoie vrai si elle est dépliée. */
+  /** Replie (premier niveau) ou déplie (deuxième niveau) la légende ; renvoie vrai si elle est dépliée. */
   toggle(force?: boolean): boolean {
-    return !this.element.classList.toggle('collapsed', force === undefined ? undefined : !force);
+    const open = !this.element.classList.toggle('collapsed', force === undefined ? undefined : !force);
+    this.expand.textContent = open ? 'Réduire' : 'Comprendre la carte';
+    this.expand.setAttribute('aria-expanded', String(open));
+    return open;
   }
 
   /** `cfg` déjà thématisé (palette du jour appliquée) ; `ageSec` : histoire simulée après le préchauffage. */
@@ -67,7 +80,8 @@ export class Legend {
     this.band.textContent = `${band.fMin}–${band.fMax} Hz, au-dessus du bruit naturel de la mer (vent ${cfg.ambient.windSpeedMs} m/s)`;
     const [a, b, c] = n.steps;
     const energy = (db: number) => `×${Math.round(10 ** (db / 10)).toLocaleString('fr-FR')}`;
-    const swatch = (color: string, label: string, sub: string) => `<span class="lg-step"><i style="background:${color}"></i><b>+${label} dB</b><small>${sub}</small></span>`;
+    // En grand, ce que le visiteur peut se représenter (dix fois, cent fois plus d'énergie) ; les décibels en petit.
+    const swatch = (color: string, label: string, sub: string) => `<span class="lg-step"><i style="background:${color}"></i><b>${sub}</b><small>+${label} dB</small></span>`;
     this.steps.innerHTML = n.style === 'fronts'
       ? `<span class="lg-step"><i style="background:${p.wave}"></i><b>fronts</b><small>visibles de +1 à +10 dB</small></span>`
       : swatch(p.noiseLow, String(a), energy(a)) + swatch(p.noiseMid, String(b), energy(b)) + swatch(p.noiseHigh, String(c), energy(c));
@@ -80,6 +94,7 @@ export class Legend {
     }[n.style];
     this.unknown.innerHTML = `<i class="lg-hatch" style="--c:${p.fog}"></i>Hachures : jamais observé par l'AIS, bruit sous-estimé`;
     this.title.textContent = 'Bruit ajouté par les navires';
+    this.band.textContent += '. Paliers : énergie sonore multipliée par 10, 100, 1 000 par rapport à ce bruit naturel.';
     this.steps.hidden = false;
     this.unknown.hidden = cfg.scenario === 'sans-navires';
     if (cfg.scenario === 'sans-navires') {
@@ -100,7 +115,7 @@ export class Legend {
       .map(s => `${s.name.toLowerCase()} ×${cfg.audio.whales.transpose[s.id]}`).join(', ');
     this.sound.hidden = !cfg.audio.enabled;
     this.sound.textContent = cfg.audio.whales.source === 'recorded'
-      ? `Sons : vrais enregistrements (MBARI, AWI, Orcasound ; docs/MEDIAS.md)${transposed ? ` · accélérés pour être audibles : ${transposed} [A]` : ''} · appel étouffé ou haché : image de la portée perdue [A]`
+      ? `Sons : vrais enregistrements (MBARI, AWI, Orcasound)${transposed ? ` · accélérés pour être audibles : ${transposed} [A]` : ''} · appel étouffé ou haché : image de la portée perdue [A]`
       : 'Sons : appels synthétisés d\'après les fréquences réelles [A]';
   }
 }

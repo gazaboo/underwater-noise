@@ -96,14 +96,17 @@ export class AudioEngine {
   private lastUpdate = 0;
   private readonly sample: ShipSample = { id: 0, lat: 0, lon: 0, sog: 0, classIndex: 0, lengthM: 0, slBroad: 0 };
   muted = false;
+  /** Dernier appel de cétacé lancé : espèce, clarté (portée actuelle / portée en océan calme), fin (ms, horloge de la page). */
+  lastCall: { species: string; clarity: number; until: number } | null = null;
   /** État lisible pour le diagnostic. */
   status = 'son : en attente d\'un clic ou d\'une touche';
   private bedIntensity = 0;
 
   constructor() {
     const start = () => void this.start();
-    addEventListener('pointerdown', start);
-    addEventListener('keydown', start);
+    // Phase de capture : un clic sur un bouton de l'interface compte aussi comme geste de démarrage.
+    addEventListener('pointerdown', start, { capture: true });
+    addEventListener('keydown', start, { capture: true });
     // En kiosque (autoplay autorisé), on démarre sans attendre.
     void this.start(true);
   }
@@ -126,6 +129,11 @@ export class AudioEngine {
 
   get running(): boolean {
     return this.ctx?.state === 'running';
+  }
+
+  /** Lieu entendu en ce moment (le plus proche du centre de la vue) et sa clarté. */
+  get heardPlace(): { id: string; clarity: number } | null {
+    return this.zone ? { id: this.zone.id, clarity: this.zone.clarity } : null;
   }
 
   toggleMute(): void {
@@ -176,6 +184,7 @@ export class AudioEngine {
         ? playRecording(ctx, this.output.input, rec.buffer, { gain, clarity, playbackRate: transpose, maxSec: a.whales.maxCallSec[id] ?? 6, levelDbfs: rec.levelDbfs })
         : playCall(ctx, this.output.input, { timeScale, species: id, gain, clarity, transpose });
       this.playingCalls.push(call);
+      this.lastCall = { species: id, clarity: Math.max(0, Math.min(1, clarity)), until: now + 5000 };
     }
 
     // Navires et nappe : dix fois par seconde suffit.
